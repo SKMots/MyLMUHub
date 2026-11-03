@@ -11,37 +11,92 @@ One Windows app, no SimHub, no install. Made for endurance racers, and for watch
 
 ![Race Control](docs/images/race-control.png)
 
-## What it does
+## Contents
+- [Race Control: the live dashboard](#race-control-the-live-dashboard)
+- [Make it your own](#make-it-your-own)
+- [The Hub](#the-hub)
+- [Strategy](#strategy)
+- [Guest mode and My sessions](#guest-mode-and-my-sessions)
+- [Everything else](#everything-else)
+- [Getting started](#getting-started)
 
-### Race Control: the live dashboard
-A full-screen dashboard for a second monitor, tablet or another PC. It's built from widgets that you **move, resize and style** yourself (press **E**).
+## Race Control: the live dashboard
+A full-screen dashboard for a second monitor, built from widgets. Open it on this PC or on a tablet, phone or second PC at home.
 
-- **Standings** per class: gaps, intervals, sectors, best / last / average laps, pit stops, virtual energy and car logos.
-- **Cars ahead and behind**, a **relative**, and the **track map**. The map learns each track by itself and marks yellow flags on it.
-- **Top bar:** position, laps, time left, lap times, a live delta and sectors.
-- **Your car:** fuel and virtual energy (laps left, how much to refuel), tyres and brakes, damage, and electronics (TC / ABS / brake bias / engine map).
-- **Best lap ever**, a **weather forecast**, and a **race prediction**: where you'll finish, based on everyone's real race pace.
-- **Twitch chat** and viewer count, for streamers.
-- **Spectator mode:** follow your team-mate's car while they drive. The whole dashboard switches to them.
-- **Several named views** (e.g. "Race", "Qualifying"), switched by keyboard shortcuts or wheel / button-box buttons.
-- **Network access:** open the same dashboard on a tablet or a second PC at home.
+| Widget | What it shows |
+|---|---|
+| **Leaderboard** | One class at a time: position, driver, car logo, tyres, virtual energy %, sectors S1-S3, best, last, 5-lap average, pit stops, laps, interval and the last-lap difference. Your car stays in the middle. You choose the number of rows, a class, and whether P1 is always shown. More leaderboards can show the other classes. |
+| **Ahead / Behind** | The car in front and behind: gap, last lap, and arrows that turn green or red as you gain or lose. |
+| **Top bar** | Position, race time / laps left, last / best / current / estimated lap, a live delta and sectors. |
+| **Car** | Brake bias, TC, TC slip, TC cut, ABS and engine map. |
+| **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. |
+| **Tyres** | Each tyre's pressure, temperature and wear, plus brakes, in the units you choose. |
+| **Damage** | Aero, body and suspension. |
+| **Track map** | Learns each track by itself: cars as dots in their class colours, your car highlighted, a legend. **Flags:** a green / yellow flag box, the yellow stretch glowing on the map, and full-course yellows. |
+| **Weather & forecast** | Air and track temperature, the forecast, and the clock. |
+| **Best lap ever** | Your best lap on this track and car, from all your sessions, with sectors, this session's best and the last lap. It updates the moment you beat it. |
+| **Relative** | The cars around you on the road, with the gap in seconds. |
+| **Race prediction** | Where everyone will finish, from each car's real race pace (cut laps and out-laps don't count), the stops they still need, and the time a pit stop costs in this race. |
+| **Twitch chat** | Your channel's chat, with emotes and the viewer count. |
 
-### The Hub: your own data
+**Spectator mode:** when you're not in the car (you're watching your team-mate), the whole dashboard follows their car. **SPECTATE** picks any car.
+
+## Make it your own
+Press **E** and you're in edit mode:
+- **Moving and sizing:** drag, resize, push or swap widgets; they snap to each other and the edges. **Auto align** tidies up, and **Reset layout** starts over.
+- **Per-widget settings:** colours, font, text size, opacity, what it shows, and **Float on top** (lies over the others).
+- **Themes:** Lime, Teal, Daylight and Navy, and car logos in one colour or full colour.
+- **Views:** several named views ("Race", "Qualifying", ...). Switch between them with keyboard shortcuts that work while the game has focus, or with buttons on your wheel or button box.
+- **More screens:** another window per view, or a view on another device.
+- **Sharing:** export and import layouts, e.g. to pass one to a friend.
+
+## The Hub
 | | |
 |---|---|
 | ![Home](docs/images/home.png) | ![Race Pace](docs/images/race-pace.png) |
-| **Home:** what you drove in the last 7 days and how much faster you got. | **Race Pace:** your level against the alien times of the community lap-time sheet, with progress over time, per track, class and car. |
-| ![Untapped potential](docs/images/potential.png) | ![Strategy](docs/images/strategy.png) |
-| **Untapped potential:** the tracks behind your level, the time between your best and your optimal lap, and **Segments** (~150 m pieces of the lap) showing exactly where you lose time. | **Strategy planner:** plan stints from virtual energy, tyres and driver swaps. It follows the live race and adjusts. Plus a quick planner for short races. |
+| **Home** | **Race Pace** |
 
-- Reads the game's own result files, so **all your past sessions count** from the first start.
-- **Guest mode:** a friend drives on your rig and sees their own data, without mixing it into yours. **My sessions:** hide or remove sessions someone else drove.
-- Four themes: Lime, Teal, Daylight and Navy.
-- **Updates itself.** When a new version is out, the hub shows an update button.
+**Home**
+- The live session (track, session, class position, time left).
+- **Last 7 days:** most driven track, your biggest race-pace and best-lap gains, per track and class.
+- Your recent sessions, with the one you're driving marked LIVE.
 
-### Light on your PC
-It runs only while you have it open and doesn't animate anything continuously. Each screen updates only what changed.
-The game's data is read straight from LMU's shared memory, so no SimHub or plugins are needed.
+**Race Pace:** your personal pace sheet, read from the game's own result files, so every session you ever drove counts from the first start.
+- **Your level** per class against the community "alien" lap times: race pace and qualifying pace, in categories from Alien to Offline.
+- **Speed progress** over time, against the alien times or the class best.
+- **Every track** with its best lap, optimal lap (your best sectors), race pace (no pit, out or incident laps) and category. A page per track shows progress there, the alien reference and your cars.
+- **Filters:** class, race / qualifying / all sessions, game version, period, and how slow a lap may be before it's left out.
+
+**Untapped potential** shows where you can gain the most. Filter by class, and search or pick a track and layout.
+- **Tracks behind your level**, and stale tracks (not driven for a while).
+- **Time left on the table:** your best lap against your optimal lap, and your race pace against your best lap (consistency).
+- **Segments:** each track in ~150 m pieces on a map, coloured by where you lose time, with your worst and typical segments.
+
+![Untapped potential](docs/images/potential.png)
+
+## Strategy
+![Strategy](docs/images/strategy.png)
+
+**Endurance planner:**
+- **Plans:** several of them, each with its event (track, class, car, race length in time or laps, planned green flag).
+- **Stints:** from laps or virtual energy per lap, start energy, spare laps, and the time lost to a pit stop, a tyre change and a driver swap. **Fill from my result files** takes your real numbers.
+- **Tyres:** change every N stints or by wear, with the sets available and the compound.
+- **Drivers:** driving order, lap time, most stints in a row, and most / least drive time each.
+- **Live:** during the race it follows the car and adjusts the plan to what really happens: stints, stops, tyres.
+
+**Quick race:** paste the event text (e.g. from Discord). It reads the race length and the VE / fuel limits, takes the rest from the game, and gives the fewest stops with pit windows.
+
+## Guest mode and My sessions
+- **Guest mode:** a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Afterwards, delete all of it in one click (files go to the Recycle Bin).
+- **My sessions** (click your name): every result file with your laps. Tick the sessions someone else drove while guest mode was off, then hide them from your data, give them to a guest, take them back, restore them, or delete them.
+
+## Everything else
+- **Live and automatic:** Race Pace, Home, Potential and the best lap ever follow the session you're driving, without a restart.
+- **Light on your PC:** the game's data is read straight from LMU's shared memory, with no SimHub or plugins. Only what changed is sent and redrawn, and nothing animates continuously.
+- **Your names:** several driver names for yourself (the game shows them slightly differently sometimes), and your team-mates' names for spectator mode.
+- **Network access:** the dashboard on other devices at home, on private networks only, after one Windows permission. Each view has its own address.
+- **Hub themes:** Lime, Teal, Daylight and Navy.
+- **Updates itself:** when a new version is out, the hub shows an update button with everything new since your version. It downloads, checks and restarts; your settings and layouts stay.
 
 ## Getting started
 1. Download **`MyLMUHub.exe`** from the [latest release](https://github.com/SKMots/MyLMUHub/releases/latest). Put it in a folder of your own, such as Documents\MyLMUHub (not Program Files: it updates itself there).
@@ -67,6 +122,7 @@ dotnet publish src/Pitwall.App/Pitwall.App.csproj -c Release -r win-x64 --self-c
 ```
 
 A self-built exe doesn't update itself. **No .NET at all?** Open `src/Pitwall.App/wwwroot/index.html` in Chrome or Edge to see the dashboard on demo data; keys **1-5** switch the scenario.
+
 ### How it's put together
 - **`Pitwall.Core`** (C#, no UI): reads the game's shared memory and turns it into numbers: standings, gaps, stints, pace and flags.
 - **`Pitwall.App`** (WPF + WebView2): the windows, a small local web server with a WebSocket, auto-update and settings.
