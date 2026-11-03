@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Race Control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div id="stage"><div id="canvas" class="pw-canvas"></div></div>
+<div id="status"></div>
+<div id="hint">Press E to edit the layout</div>
+<button id="specBtn" title="Choose whose car to follow">SPECTATE</button>
+<button id="hubBtn" title="Open My LMU Hub (home, Race Pace)">HUB</button>
+<button id="netBtn" title="Open this dashboard on another PC or tablet at home">NETWORK</button>
+<div id="toolbar" hidden>
+  <strong>Edit layout</strong>
+  <label>View <select id="viewSel"></select></label><button id="viewNew">New</button><button id="viewRename">Rename</button><button id="viewDelete">Delete</button>
+  <button id="exportBtn" title="Save all your views + the theme as a file (to share)">Export</button><button id="importBtn" title="Add the views from a layout file">Import</button><input type="file" id="importFile" accept=".json,application/json" hidden>
+  <button id="keysBtn">Keys</button>
+  <button id="themeBtn">Theme</button>
+  <button id="addBtn">+ Add widget</button>
+  <button id="alignBtn" title="The same space between all widgets (and none at the edges)">Auto align</button>
+  <label>Grid <select id="gridSel"><option value="1">off</option><option value="10" selected>10</option><option value="20">20</option><option value="40">40</option></select></label>
+  <button id="resetBtn">Reset layout</button>
+  <button id="doneBtn">Done (E)</button>
+  <span class="tip">Ctrl+click = select several (Ctrl+A all) &middot; drag = move (locks to grid + other widgets, pushes others, Alt = free) &middot; handles = resize (Shift = free shape) &middot; &#9881; = colours / font &middot; Del = remove &middot; arrows = nudge &middot; hold Space = preview full screen</span>
+</div>
+<script src="js/brands-data.js"></script>
+<script src="js/format.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/layout-math.js"></script>
+<script src="js/brands.js"></script>
+<script src="js/store.js"></script>
+<script src="js/dom.js"></script>
+<script src="js/views.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/spectate.js"></script>
+<script src="js/registry.js"></script>
+<script src="js/widgets/leaderboard.js"></script>
+<script src="js/widgets/cards.js"></script>
+<script src="js/widgets/topbar.js"></script>
+<script src="js/panel.js"></script>
+<script src="js/widgets/carinfo.js"></script>
+<script src="js/widgets/tyres.js"></script>
+<script src="js/widgets/fuel.js"></script>
+<script src="js/widgets/damage.js"></script>
+<script src="js/widgets/track.js"></script>
+<script src="js/widgets/forecast.js"></script>
+<script src="js/widgets/pb.js"></script>
+<script src="js/widgets/relative.js"></script>
+<script src="js/widgets/twitch.js"></script>
+<script src="js/widgets/prediction.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/mock-data.js"></script>
+<script src="js/mock.js"></script>
+<script src="js/net.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

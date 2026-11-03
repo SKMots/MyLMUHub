@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Quick race</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Quick race</h2>
+        <div class="sub" style="margin-bottom:0">A sprint or one-hour race: how much VE or fuel to start with, and whether you need a stop (and what to add).</div>
+      </div>
+      <span class="seg"><a class="segl" href="strategy.html">Endurance plan</a><a class="segl on" href="quick.html">Quick race</a></span>
+    </div>
+  </section>
+
+  <section class="card livebar" style="margin-top:14px">
+    <div class="lb-row"><span class="lb-chip" id="lbChip">GAME</span><b id="lbMain">Not running</b><span class="faint" id="lbSub"></span>
+      <button class="btn" id="gameBtn" style="margin-left:auto">Take from the game</button></div>
+  </section>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">
+    <section class="card">
+      <h2>Event</h2>
+      <div class="sub">Paste the race announcement (for example from Discord or the game's event list): track, race length and the VE / fuel limits are read from it.</div>
+      <textarea class="input area" id="evText" placeholder="ELMS Super 60: Monza (Curva Grande), LMP2 (ELMS) (70L fuel tank) LMP3 (70L fuel tank ) &amp; LMGT3 (75% VE/NRG) Classes, 60m races"></textarea>
+      <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn lime" id="evBtn">Read</button><span class="faint" id="evInfo"></span></div>
+      <div class="form" style="margin-top:14px">
+        <label class="field">Track<select class="sel" data-k="track" id="trackSel"></select></label>
+        <label class="field">Class<select class="sel" data-k="cls" id="clsSel"></select></label>
+        <label class="field">Race length<span class="row"><span class="seg" id="segLen"><button data-v="time">Time</button><button data-v="laps">Laps</button></span>
+          <input class="input short" id="lenInput" placeholder="h:mm"></span></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Car</h2>
+      <div class="sub" id="carSub">Take these from the game (after a few practice laps) or from your result files, or type them in.</div>
+      <div class="form">
+        <label class="field">Plan with<span class="seg" id="segUnit"><button data-v="ve">VE</button><button data-v="fuel">Fuel</button></span></label>
+        <label class="field">Lap time<input class="input short mono" id="lapInput" placeholder="1:45.300"></label>
+        <label class="field" id="fPer">VE per lap (%)<input class="input short" data-k="perLap" data-num></label>
+        <label class="field" id="fMax">Most VE allowed (%)<input class="input short" data-k="max" data-num></label>
+        <label class="field">Spare laps<input class="input short" data-k="reserve" data-num></label>
+        <label class="field">Pit stop time lost (s)<input class="input short" data-k="pitLoss" data-num></label>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center"><button class="btn" id="fileBtn">From my result files</button><span class="faint" id="fillInfo"></span></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <h2>The race</h2>
+    <div class="big" id="advice" style="font-size:24px;margin:4px 0 14px">--</div>
+    <div class="tiles" id="qTiles"></div>
+    <div id="qWarn"></div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="qTbl"></table></div>
+    <div class="foot">A timed race ends on the lap you are on when the clock runs out (laps = race time / lap time, rounded up; a stop costs laps). Spare laps are kept in the tank at the end of every stint. With stops the car starts full and the last stop adds only what the finish needs (a shorter stop). Pit window = the laps where that stop still works.</div>
+  </section>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/quick.js"></script>
+</body>
+</html>

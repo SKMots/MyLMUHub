@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Untapped potential</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Untapped potential</h2>
+    <div class="sub" style="margin-bottom:0" id="topSub">Where you can gain the most: tracks that are behind your level now, time you already showed but did not put in one lap, and the exact places on a track where you lose it.</div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <span class="seg" id="segCls"></span>
+      <select class="sel" id="trkSel" title="One track (each layout on its own)"></select>
+      <input class="input" id="find" placeholder="Search a track" style="min-width:200px">
+      <span class="faint" id="filterInfo"></span>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Tracks behind your level</h2>
+    <div class="sub" id="lvlSub">Your race pace on each track as % of the alien race pace, against your level now.</div>
+    <div class="tiles" id="lvlTiles"></div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="trkTbl"></table></div>
+    <div class="foot">Your level now = the middle (median) of your race pace % over the tracks you drove in the last 30 days. Gain = how far a track is behind that, per lap.
+      A track you last drove before that is often behind only because you got faster since: going back there is the quickest gain (STALE).
+      Dry laps of all session types that count (no pit, out or slow laps), current game version, tracks in the reference sheet.</div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Time left on the table</h2>
+    <div class="sub">Your best lap against your optimal lap (your best three sectors put together): time you already drove, just not in one lap. And your race pace against your best lap: consistency.</div>
+    <div class="scroll"><table class="tbl" id="optTbl"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div><h2>Segments</h2>
+        <div class="sub" style="margin-bottom:0">Every lap cut into pieces of about 150 m, timed live while you drive (your own valid laps only: a cut lap does not count). Your best in every segment
+          added up = your theoretical best lap. Red on the map = where your best lap lost the most against your best there.</div></div>
+      <select class="sel" id="segSel"></select>
+    </div>
+    <div class="tiles" id="segTiles" style="margin-top:14px"></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));margin-top:14px">
+      <div id="segMap" style="min-height:320px"></div>
+      <div id="segSide">
+        <div class="sub" style="margin:0 0 6px 0">Where your best lap lost the most</div>
+        <table class="tbl" id="segWorst"></table>
+        <div class="sub" style="margin:14px 0 6px 0">Where you usually lose the most (your last 20 laps)</div>
+        <table class="tbl" id="segTypical"></table>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/potential-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/potential.js"></script>
+</body>
+</html>

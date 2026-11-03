@@ -1,0 +1,116 @@
+:root { --bg:#050914; --panel:#0F1626; --border:#1F2B47; --text:#D9E4F5; --muted:#98A9C6; --label:#7A8BA8; --accent:#FF9F43; }
+html, body { margin:0; height:100%; background:var(--pw-bg, #050914); color:var(--text); overflow:hidden; }
+/* scrollbars (edit panels, lists): thin, rounded, in the theme's colours instead of the grey Windows bar */
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--pw-border, #1F2B47); border:2px solid transparent; background-clip:padding-box; border-radius:8px; }
+::-webkit-scrollbar-thumb:hover { background:var(--pw-label, #7A8BA8); background-clip:padding-box; }
+::-webkit-scrollbar-corner { background:transparent; }
+/* Daylight: the brand logos are white images (made for a dark page): drawn dark instead */
+[data-preset=daylight] img[src*="assets/brands/"] { filter:brightness(0) opacity(.72); }
+img[src*="assets/brands-color/"] { background:#F3F5F8; border-radius:18%; padding:2px; box-sizing:border-box; }   /* full-colour car logos: on a light badge (dark logos stay readable) */
+body { font-family:var(--pw-font, "Bahnschrift","Segoe UI Variable","Segoe UI",system-ui,sans-serif); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; user-select:none; }
+#stage { position:fixed; inset:0; overflow:hidden; }
+.pw-canvas { position:absolute; left:0; top:0; }
+.pw-widget { position:absolute; font-family:var(--pw-font, "Bahnschrift","Segoe UI Variable","Segoe UI",system-ui,sans-serif); }
+.pw-body { position:absolute; left:0; top:0; }
+/* widget panels */
+.pw-lb, .pw-cards { background:var(--pw-panel, #0F1626); border:1px solid var(--pw-border, #1F2B47); border-radius:var(--pw-radius, 8px); box-sizing:border-box; white-space:nowrap; overflow:hidden; }
+.pw-lb-cell, .pw-lb-colh, .pw-lb-head { overflow:hidden; text-overflow:clip; white-space:nowrap; }
+.pw-lb-colh { line-height:30px; }
+.pw-tb-p { border:1px solid var(--pw-border, #1F2B47); border-radius:var(--pw-radius, 8px); box-sizing:border-box; }
+/* theme detail "Chips & badges" (data-look=chips): the same layout, some parts drawn differently */
+[data-look=chips] .pw-lb-pos { width:44px !important; height:39px !important; line-height:39px !important; margin-top:7px; text-align:center !important; border-radius:6px;
+  background:var(--pw-chip); color:var(--pw-chip-text) !important; font-style:italic; font-weight:800 !important; }
+[data-look=chips] .pw-lb-row.me .pw-lb-pos { background:var(--pw-chip-you); }
+[data-look=chips] .pw-lb-tyre { width:30px !important; height:30px !important; line-height:26px !important; margin:11px 0 0 9px; border:2px solid currentColor; border-radius:50%;
+  box-sizing:border-box; font-size:16px !important; text-align:center !important; }
+[data-look=chips] .pw-lb-tyre:empty { border-color:transparent; }                                  /* no compound known: no empty ring */
+[data-look=chips] .pw-lb-head { font-style:italic; letter-spacing:.03em; }
+/* theme panel textures (data-texture): drawn over the panel colour, very faint, no animation */
+[data-texture=carbon] .pw-tb-p, [data-texture=carbon] .pw-lb, [data-texture=carbon] .pw-cards {
+  background-image:linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.05) 75%),
+    linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.05) 75%),
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.35));
+  background-size:8px 8px, 8px 8px, 100% 100%; background-position:0 0, 4px 4px, 0 0; }
+[data-texture=brushed] .pw-tb-p, [data-texture=brushed] .pw-lb, [data-texture=brushed] .pw-cards {
+  background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, transparent 1px 3px), linear-gradient(100deg, rgba(255,255,255,.07), transparent 40%, rgba(255,255,255,.04) 60%, transparent); }
+[data-texture=scanlines] .pw-tb-p, [data-texture=scanlines] .pw-lb, [data-texture=scanlines] .pw-cards {
+  background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 4px); }
+[data-texture=stripes] .pw-tb-p, [data-texture=stripes] .pw-lb, [data-texture=stripes] .pw-cards {
+  background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 14px, transparent 14px 28px); }
+[data-texture=dots] .pw-tb-p, [data-texture=dots] .pw-lb, [data-texture=dots] .pw-cards {
+  background-image:radial-gradient(rgba(255,255,255,.07) 1.2px, transparent 1.4px); background-size:12px 12px; }
+[data-texture=grid] .pw-tb-p, [data-texture=grid] .pw-lb, [data-texture=grid] .pw-cards {
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px); background-size:24px 24px; }
+/* theme page background (data-backdrop) */
+[data-backdrop=dots] body { background-image:radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.3px); background-size:18px 18px; }
+[data-backdrop=grid] body { background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size:40px 40px; }/* theme without the coloured strips on top of the panels (theme.js applyTheme) */
+[data-strips=off] .pw-tb-ac { display:none; }
+.pw-tb-t { white-space:nowrap; }
+/* edit mode */
+.pw-edit { display:none; position:absolute; left:0; top:0; }
+/* the area widgets live in (the edge strips around it stay free: layout.js safe); edit mode: grid inside it, the strips hatched */
+.pw-area { overflow:visible; }
+.pw-canvas.edit { background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 6px, transparent 6px 14px); }
+.pw-canvas.edit .pw-area { background-color:var(--pw-bg, #050914); background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px); background-size:40px 40px; }
+body.preview .pw-canvas.edit .pw-area { background-image:none; }
+/* the bottom strip: status line left, HUB / SPECTATE right (canvas px, so they scale with the dashboard and never cover a widget) */
+.pw-bar { display:flex; align-items:center; gap:14px; padding:0 14px; box-sizing:border-box; z-index:100000; }
+.pw-bar #status, .pw-bar #hint, .pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn { position:static; font-size:20px; }
+.pw-bar #status { flex:1; } .pw-bar #hint { margin-left:auto; }
+.pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn { padding:4px 12px; }
+.pw-canvas.edit .pw-edit { display:block; outline:3px dashed rgba(255,159,67,.8); outline-offset:-3px; background:rgba(255,159,67,.07); cursor:move; touch-action:none; }
+/* edit mode: the full-screen area framed (everything outside it is dimmed: that is what F11 / full screen shows), each widget's edge drawn inside its
+   own box (two widgets side by side show two edges) and its size in the corner; hold Space to see it without the edit marks */
+.pw-canvas.edit { box-shadow:0 0 0 3px var(--pw-accent, #FF9F43), 0 0 0 100vmax rgba(0,0,0,.55); }
+.pw-canvas.edit::after { content:"FULL SCREEN AREA \00B7  hold SPACE to preview"; position:absolute; left:0; bottom:100%; padding:4px 10px; font-size:22px; font-weight:700;
+  letter-spacing:.06em; color:#1a1206; background:var(--pw-accent, #FF9F43); border-radius:6px 6px 0 0; pointer-events:none; }
+.pw-size { left:auto; right:8px; bottom:6px; top:auto; font-size:22px; font-weight:700; color:#FFD9A8; background:rgba(0,0,0,.55); padding:2px 8px; border-radius:6px; pointer-events:none; }
+body.preview #toolbar, body.preview .pw-canvas.edit .pw-edit, body.preview .pw-guide { display:none !important; }
+body.preview .pw-canvas.edit { background-image:none; box-shadow:none; } body.preview .pw-canvas.edit::after { display:none; }
+.pw-guide { background:var(--accent); pointer-events:none; z-index:99999; box-shadow:0 0 6px rgba(255,159,67,.8); }
+.pw-widget.sel .pw-edit { outline-style:solid; background:rgba(255,159,67,.14); }
+.pw-title { left:6px; top:4px; font-size:26px; color:#FFD9A8; pointer-events:none; text-shadow:0 1px 3px #000; }
+.pw-gear { right:58px; top:4px; left:auto; width:44px; height:44px; line-height:44px; text-align:center; font-size:30px; background:#1f3058; color:#fff; border-radius:8px; cursor:pointer; }
+.pw-del { right:6px; top:4px; left:auto; width:44px; height:44px; line-height:42px; text-align:center; font-size:34px; background:#7a1f1f; color:#fff; border-radius:8px; cursor:pointer; }
+.pw-h { width:30px; height:30px; background:var(--accent); border:3px solid #1a1206; border-radius:6px; box-sizing:border-box; }
+.pw-h-nw { left:-15px; top:-15px; cursor:nwse-resize; } .pw-h-n { left:calc(50% - 15px); top:-15px; cursor:ns-resize; } .pw-h-ne { right:-15px; top:-15px; left:auto; cursor:nesw-resize; }
+.pw-h-e { right:-15px; left:auto; top:calc(50% - 15px); cursor:ew-resize; } .pw-h-se { right:-15px; bottom:-15px; left:auto; top:auto; cursor:nwse-resize; }
+.pw-h-s { left:calc(50% - 15px); bottom:-15px; top:auto; cursor:ns-resize; } .pw-h-sw { left:-15px; bottom:-15px; top:auto; cursor:nesw-resize; } .pw-h-w { left:-15px; top:calc(50% - 15px); cursor:ew-resize; }
+/* chrome */
+#status { position:fixed; left:12px; bottom:10px; font-size:14px; color:var(--label); letter-spacing:.04em; }
+#hint { position:fixed; right:14px; bottom:40px; font-size:14px; color:var(--label); }
+#specBtn { position:fixed; right:12px; bottom:8px; font:inherit; font-size:13px; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 8px; opacity:.45; cursor:pointer; z-index:100000; }
+#specBtn:hover, #hubBtn:hover, #netBtn:hover { opacity:1; background:#101a30; border-color:var(--border); }
+#netBtn { font:inherit; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; opacity:.45; cursor:pointer; } #netBtn.on { opacity:.8; color:var(--accent); }
+#hubBtn { position:fixed; right:100px; bottom:8px; font:inherit; font-size:13px; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 8px; opacity:.45; cursor:pointer; z-index:100000; }
+/* side panels: style editor, spectate picker */
+.pw-panel { position:fixed; right:12px; top:64px; bottom:44px; width:340px; overflow:auto; background:#101a30; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:14px; z-index:100001; box-shadow:0 6px 24px rgba(0,0,0,.5); }
+.pw-panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:16px; }
+.pw-panel button, .pw-panel input { background:#17233f; color:var(--text); border:1px solid #2b3d66; border-radius:6px; padding:4px 8px; font:inherit; }
+.pw-panel-x { font-size:18px !important; line-height:1; }
+.pw-panel-note { color:var(--label); font-size:12px; margin-bottom:8px; }
+.pw-panel-row { display:flex; align-items:center; gap:8px; padding:3px 0; color:var(--muted); }
+.pw-panel-row > span { flex:1; } .pw-panel-row.set > span { color:var(--text); font-weight:600; }
+.pw-panel-row input[type=color] { width:44px; height:26px; padding:1px 2px; cursor:pointer; }
+.pw-panel-font { width:170px; } .pw-panel-reset { padding:2px 7px !important; }
+.pw-panel-foot { margin-top:10px; }
+.pw-panel-sec { color:var(--accent); font-weight:700; margin:6px 0 2px; }
+.pw-panel-check { cursor:pointer; } .pw-panel-check input { width:16px; height:16px; margin:0; accent-color:var(--accent); }
+.pw-panel-num { width:70px; } .pw-panel-txt { width:160px; } .pw-panel-sel { max-width:170px; background:#17233f; color:var(--text); border:1px solid #2b3d66; border-radius:6px; padding:4px 6px; font:inherit; }
+.pw-panel-fold { width:100%; text-align:left; margin:12px 0 6px; font-weight:700 !important; }
+.pw-panel .pw-add-item { display:block; width:100%; text-align:left; margin:0 0 5px; padding:7px 10px; cursor:pointer; } .pw-panel .pw-add-item:hover { border-color:var(--accent); }
+.pw-spec-find { width:100%; box-sizing:border-box; margin-bottom:8px; }
+.pw-spec-cls { color:var(--accent); font-weight:700; margin:8px 0 2px; }
+.pw-spec-row { display:flex; gap:8px; padding:4px 6px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+.pw-spec-row:hover { background:#1f3058; } .pw-spec-row.on { background:#152A4F; color:#fff; }
+.pw-spec-pos { width:34px; color:var(--label); } .pw-spec-name { flex:1; overflow:hidden; text-overflow:ellipsis; } .pw-spec-team { color:var(--label); max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+#toolbar { position:fixed; left:50%; top:10px; transform:translateX(-50%); display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 14px; background:#101a30; border:1px solid var(--border); border-radius:10px; font-size:14px; z-index:100000; }
+#toolbar[hidden], #hint[hidden] { display:none; }
+#toolbar button, #toolbar select { background:#17233f; color:var(--text); border:1px solid #2b3d66; border-radius:6px; padding:5px 10px; font:inherit; }
+#toolbar button:hover { background:#1f3058; } .tip { color:var(--label); font-size:12px; }
+
+/* a warning that flashes (damage: engine off / overheating) - only while it is shown */
+@keyframes pw-flash { 0%, 49% { opacity:1; } 50%, 100% { opacity:.15; } }
+.pw-flash { animation:pw-flash 1s steps(1) infinite; }

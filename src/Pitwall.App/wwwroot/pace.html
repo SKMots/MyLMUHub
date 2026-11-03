@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Race Pace</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:space-between">
+      <div>
+        <h2>Race Pace</h2>
+        <div class="sub" id="srcLine" style="margin-bottom:0">Reading your result files...</div>
+      </div>
+      <div class="bar">
+        <label class="field">Class<span class="seg" id="segCls"></span></label>
+        <label class="field">Pace from<span class="seg" id="segTypes"><button data-v="Race" class="on">Races</button><button data-v="Race,Qualify">Races + qualifying</button><button data-v="">All sessions</button></span></label>
+        <label class="field">Game version<span class="seg" id="segVer"><button data-v="current" class="on">Current only</button><button data-v="all">All (old marked)</button></span></label>
+        <label class="field">Period<span class="seg" id="segPeriod"><button data-v="0" class="on">All time</button><button data-v="365">12 months</button><button data-v="90">3 months</button></span></label>
+        <label class="field">Leave out laps slower than the median by
+          <select class="sel" id="slowSel"><option value="0.02">2 %</option><option value="0.03">3 %</option><option value="0.05" selected>5 %</option><option value="0.07">7 %</option><option value="0.1">10 %</option></select></label>
+      </div>
+    </div>
+    <div class="progress" id="prog" hidden style="margin-top:12px"><i></i></div>
+  </section>
+
+  <!-- overview: all tracks -->
+  <div id="ov">
+    <div class="grid" style="grid-template-columns:minmax(340px,1fr) minmax(0,2.2fr)">
+      <section class="card">
+        <h2>Your level</h2>
+        <div class="sub" id="lvlSub">Race pace compared with the alien times of the LMU laptimes sheet.</div>
+        <div class="tiles">
+          <div class="tile"><div class="k">Race pace <span class="faint">vs the alien race pace</span></div><div class="big mono" id="lvlPace" style="font-style:normal">--</div><div class="big" id="lvlCat" style="font-size:24px">--</div></div>
+          <div class="tile"><div class="k">Qualifying (fastest lap) <span class="faint">vs the alien hotlap</span></div><div class="big mono purple" id="lvlHot" style="font-style:normal">--</div><div class="big" id="lvlCatQ" style="font-size:24px">--</div></div>
+        </div>
+        <div class="scale" id="lvlScale"></div>
+        <div class="tiles" style="margin-top:12px">
+          <div class="tile"><div class="k">Based on</div><div class="v" id="lvlN">--</div><div class="n" id="lvlN2">tracks</div></div>
+          <div class="tile"><div class="k">Fastest lap based on</div><div class="v" id="lvlNh">--</div><div class="n">tracks / classes with an alien hotlap</div></div>
+        </div>
+        <div class="foot" id="lvlFoot"></div>
+      </section>
+      <section class="card">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+          <h2>Speed progress</h2>
+          <span class="seg" id="segProg"><button data-v="alien" class="on">vs alien times</button><button data-v="class">vs class best</button></span>
+        </div>
+        <div class="sub" id="progSub"></div>
+        <div id="progressChart"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <h2>Tracks</h2><input class="input" id="find" placeholder="Find a track or car" style="min-width:220px">
+      </div>
+      <div class="sub">Click a track for its page. % = your time compared with the sheet's 100 % for that track and class (best lap: the alien hotlap; pace: the alien race pace).</div>
+      <div class="scroll" style="max-height:640px"><table class="tbl" id="tracks"></table></div>
+    </section>
+  </div>
+
+  <!-- one track -->
+  <div id="tv" hidden>
+    <section class="card" style="margin-top:14px">
+      <div class="back" id="back">&larr; All tracks</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px">
+        <div class="big" id="tTitle">-</div><span id="tCat"></span>
+      </div>
+      <div class="sub" id="tSub" style="margin-left:0"></div>
+      <div class="tiles" id="tTiles"></div>
+    </section>
+    <div class="grid">
+      <section class="card">
+        <h2>Speed progress on this track</h2>
+        <div class="sub" id="tProgSub"></div>
+        <div id="tChart"></div>
+      </section>
+      <section class="card">
+        <h2>Alien reference</h2>
+        <div class="sub">From the LMU laptimes sheet, for the classes you drove here: what each race-pace % means in lap time.</div>
+        <div class="scroll"><table class="tbl" id="refTbl"></table></div>
+      </section>
+    </div>
+    <section class="card" style="margin-top:14px">
+      <h2>Your cars on this track</h2>
+      <div class="sub">Click a car for its sessions and laps.</div>
+      <div class="scroll"><table class="tbl" id="cars"></table></div>
+    </section>
+
+    <section class="card" id="detail" style="margin-top:14px" hidden>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <h2 id="dTitle">-</h2><span id="dClass"></span>
+      </div>
+      <div class="sub" id="dSub"></div>
+      <div class="tiles" id="dTiles"></div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(520px,1fr))">
+        <div><div class="muted" style="margin:6px 0 8px;font-size:12px">Lap times per session (dry)</div><div id="dChart"></div></div>
+        <div><div class="muted" style="margin:6px 0 8px;font-size:12px" id="lapTitle">Laps</div><div id="lapChart"></div></div>
+      </div>
+      <div class="scroll" style="margin-top:14px;max-height:420px"><table class="tbl" id="sessTbl"></table></div>
+      <div class="foot">Counted laps: not a pit lap, not the first lap of a stint (start, after a stop or driver change), has a time, and not more than the chosen % slower than the session's median in the same conditions. Optimal = best sector 1 + 2 + 3 of those laps (incident laps included: a clean sector still counts). Wet = on wet tyres.</div>
+    </section>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/pace.js"></script>
+</body>
+</html>

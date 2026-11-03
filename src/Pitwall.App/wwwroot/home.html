@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <div class="big" id="hello">Welcome back</div>
+        <div class="muted" id="liveText" style="margin-top:6px">Game not running. Start Le Mans Ultimate and join a session: Race Control fills in by itself.</div>
+      </div>
+      <div class="tiles" id="liveTiles" style="min-width:min(640px,100%)" hidden>
+        <div class="tile"><div class="k">Track</div><div class="v" id="lvTrack" style="font-family:var(--sans);font-size:17px">--</div></div>
+        <div class="tile"><div class="k">Session</div><div class="v" id="lvSession" style="font-family:var(--sans);font-size:17px">--</div></div>
+        <div class="tile"><div class="k">Class position</div><div class="v" id="lvPos">--</div></div>
+        <div class="tile"><div class="k">Time left</div><div class="v" id="lvLeft">--</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Last 7 days</h2>
+    <div class="sub" id="weekSub">Reading your result files...</div>
+    <div class="tiles" id="weekTiles"></div>
+    <div class="scroll" style="margin-top:12px"><table class="tbl" id="weekTbl"></table></div>
+  </section>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
+    <section class="card feature">
+      <img class="art" src="assets/logo.svg" alt="">
+      <h2>Race Control</h2>
+      <p>The live dashboard: standings, gaps, sectors, tyres, fuel and energy, damage, the track map and the weather forecast. Opens in its own window, so you can put it full screen on another monitor (F11). Works while you drive and while you watch your team-mate.</p>
+      <div class="tiles">
+        <div class="tile"><div class="k">Following</div><div class="v" id="rcFollow" style="font-family:var(--sans);font-size:16px">--</div><div class="n">who the dashboard shows</div></div>
+        <div class="tile"><div class="k">Last lap</div><div class="v" id="rcLast">--:--.---</div><div class="n" id="rcBest">best --:--.---</div></div>
+      </div>
+      <div class="go"><button class="btn lime" id="openRc">Open Race Control</button><span class="faint">Edit the layout inside it with E</span></div>
+    </section>
+
+    <section class="card feature">
+      <h2>Race Pace</h2>
+      <p>Your personal pace sheet, read from the game's own result files: fastest laps, the optimal lap from your best sectors, race pace without pit, out and incident laps, wet pace, and how your speed develops over time.</p>
+      <div class="tiles">
+        <div class="tile"><div class="k">Sessions</div><div class="v" id="rpSessions">--</div><div class="n" id="rpLaps">-- laps</div></div>
+        <div class="tile"><div class="k">Tracks / cars</div><div class="v" id="rpCombos">--</div><div class="n" id="rpTracks">-- tracks</div></div>
+      </div>
+      <div class="progress" id="rpProg" hidden><i></i></div>
+      <div class="go"><a class="btn lime" href="pace.html">Open Race Pace</a><span class="faint" id="rpNote"></span></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Recent sessions</h2>
+    <div class="sub">Your last sessions from the result files. Pace = average of the laps that count (no pit, out or incident laps).</div>
+    <div class="scroll"><table class="tbl" id="recent"><tbody><tr><td class="empty">Reading your result files...</td></tr></tbody></table></div>
+  </section>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/pace-week.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>

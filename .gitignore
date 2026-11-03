@@ -1,0 +1,18 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+publish/
+release/
+dist/
+LMUHub_Archive/
+__pycache__/
+node_modules/
+# local tool settings and anything secret: never in the public repo
+.claude/
+.env
+*.token
+*token*.txt
+*.pfx
+*.snk

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Strategy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Strategy</h2>
+        <div class="sub" style="margin-bottom:0">Plan a race: stints from virtual energy, tyres and driver swaps. All times are race time (from the green flag); clock times follow the real start.</div>
+      </div>
+      <div class="bar">
+        <span class="seg"><a class="segl on" href="strategy.html">Endurance plan</a><a class="segl" href="quick.html">Quick race</a></span>
+        <label class="field">Plan<select class="sel" id="planSel"></select></label>
+        <button class="btn" id="newBtn">New</button><button class="btn" id="copyBtn">Copy</button><button class="btn" id="delBtn">Delete</button>
+        <span class="faint" id="saved"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card livebar" id="liveCard" style="margin-top:14px">
+    <div class="lb-row"><span class="lb-chip" id="lbChip">PLAN</span><b id="lbMain">Not live</b><span class="faint" id="lbSub"></span></div>
+    <div class="lb-line" id="lbLine"></div>
+  </section>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+    <section class="card">
+      <h2>Event</h2>
+      <div class="sub">The race this plan is for.</div>
+      <div class="form">
+        <label class="field">Name<input class="input" data-k="name"></label>
+        <label class="field">Track<select class="sel" data-k="track" id="trackSel"></select></label>
+        <label class="field">Class<select class="sel" data-k="cls" id="clsSel"></select></label>
+        <label class="field">Car<input class="input" data-k="car" list="carList" placeholder="optional"><datalist id="carList"></datalist></label>
+        <label class="field">Race length<span class="row"><span class="seg" id="segLen"><button data-v="time">Time</button><button data-v="laps">Laps</button></span>
+          <input class="input short" id="lenInput" placeholder="6:00"></span></label>
+        <label class="field">Planned green flag (your clock)<input class="input" type="datetime-local" data-k="start"></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Energy &amp; stops</h2>
+      <div class="sub" id="fillNote">Fill these from your result files, or type them in. Fields you leave empty are not used.</div>
+      <div class="form">
+        <label class="field">Stint length from<span class="seg" id="segVe"><button data-v="laps">Laps I aim for</button><button data-v="perLap">VE per lap</button></span></label>
+        <label class="field" id="fVeLaps">Laps per stint<input class="input short" data-k="ve.laps" data-num></label>
+        <label class="field" id="fVePer">VE per lap (%)<input class="input short" data-k="ve.perLap" data-num></label>
+        <label class="field">VE a stint starts with (%)<input class="input short" data-k="ve.max" data-num></label>
+        <label class="field">Reserve (laps kept spare)<input class="input short" data-k="ve.reserve" data-num></label>
+        <label class="field">Pit stop time lost (s)<input class="input short" data-k="pit.base" data-num></label>
+        <label class="field">+ tyre change (s)<input class="input short" data-k="pit.tyres" data-num></label>
+        <label class="field">+ driver swap (s)<input class="input short" data-k="pit.swap" data-num></label>
+      </div>
+      <div class="go" style="margin-top:14px;display:flex;gap:10px;align-items:center"><button class="btn lime" id="fillBtn">Fill from my result files</button><span class="faint" id="fillInfo"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>Tyres</h2>
+      <div class="sub">When to put on a new set.</div>
+      <div class="form">
+        <label class="field">Change<span class="seg" id="segTyre"><button data-v="stints">Every N stints</button><button data-v="wear">By wear</button></span></label>
+        <label class="field" id="fEvery">Stints per set (0 = never)<input class="input short" data-k="tyres.every" data-num></label>
+        <label class="field" id="fWear">Wear per lap (%)<input class="input short" data-k="tyres.wearPerLap" data-num></label>
+        <label class="field" id="fMin">Change below (% left)<input class="input short" data-k="tyres.minLeft" data-num></label>
+        <label class="field">Compound<select class="sel" data-k="tyres.compound"><option>Soft</option><option>Medium</option><option>Hard</option><option>Wet</option></select></label>
+        <label class="field">Sets available (0 = no limit)<input class="input short" data-k="tyres.sets" data-num></label>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Drivers</h2>
+    <div class="sub">In driving order. Full names exactly as in the game: during the race they find each driver in the live data.</div>
+    <div class="scroll"><table class="tbl" id="drvTbl"></table></div>
+    <div style="margin-top:10px"><button class="btn" id="addDrv">Add driver</button></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+      <h2>The plan</h2>
+      <div class="bar">
+        <select class="sel" id="pastSel" hidden></select><button class="btn" id="pastBtn">Copy stints from a past race</button>
+        <button class="btn" id="resetBtn">Undo all stint changes</button>
+      </div>
+    </div>
+    <div class="sub" id="planSub"></div>
+    <div class="faint" id="pastInfo" style="margin:-6px 0 10px 26px;font-size:12px"></div>
+    <div class="tiles" id="sumTiles"></div>
+    <div id="warn"></div>
+    <div class="timeline" id="timeline"></div>
+    <div class="legend" id="tlLegend"></div>
+    <div class="sub" style="margin:14px 0 8px 0">Change any stint's driver, laps or tyres right in the table (lime = your change); every stint after it follows on automatically.</div>
+    <div class="scroll"><table class="tbl" id="stintTbl"></table></div>
+  </section>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/strategy.js"></script>
+</body>
+</html>

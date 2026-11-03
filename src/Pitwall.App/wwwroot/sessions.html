@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - My sessions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <h2>My sessions</h2>
+    <div class="sub" style="margin-bottom:0">Every result file with laps under your driver names. Someone else drove on your rig without guest mode? Tick those sessions and hide them
+      from your data, give them to a guest (he sees them in guest mode) or delete them (the file goes to the Recycle Bin). Race Pace, Potential, Home and the best lap ever follow straight away.</div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <span class="seg" id="segShow"><button data-v="" class="on">All</button><button data-v="mine">Mine</button><button data-v="hidden">Hidden</button><button data-v="guest">Guests</button></span>
+      <input class="input" id="find" placeholder="Search track, car, guest" style="min-width:220px">
+      <span class="faint" id="count"></span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px">
+      <span class="muted" id="selInfo">Nothing ticked</span>
+      <button class="btn" id="bHide" disabled>Hide from my data</button>
+      <button class="btn" id="bRestore" disabled>Restore</button>
+      <button class="btn" id="bGuest" disabled>Give to a guest</button>
+      <button class="btn" id="bMine" disabled>Back to me</button>
+      <button class="btn" id="bDelete" disabled>Delete</button>
+      <span class="faint" id="msg"></span>
+    </div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="tbl"></table></div>
+  </section>
+</div>
+<datalist id="guestNames"></datalist>
+<script src="js/format.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/sessions.js"></script>
+</body>
+</html>
