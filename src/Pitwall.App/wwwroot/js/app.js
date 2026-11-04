@@ -184,7 +184,7 @@
 
     // hotkeys: a key per view + one for "next view" (views.js). In the app they are also registered with Windows (MainWindow), so they work while the
     // game has the keyboard; the app answers { hotkey: combo }. Here: the same keys while this page has the keyboard.
-    var webview = root.chrome && root.chrome.webview, capture = null, keysPanel = null;
+    var webview = root.chrome && root.chrome.webview, capture = null, keysPanel = null, padDevices = null;
     function switchTo(target) {
       if (!target) return;
       var name = target === '>' ? ws.nextName() : target;
@@ -201,11 +201,12 @@
       var d = ev.data || {};
       if (d.hotkey) switchTo(ws.keyTarget(d.hotkey));
       if (d.hotkeysFailed) { failed = d.hotkeysFailed; if (keysPanel) openKeys(); }
+      if (d.padDevices) { padDevices = d.padDevices; if (keysPanel && capture !== null) openKeys(); }   // the controllers the app sees (while waiting for a button)
       if (d.padLearned && capture !== null) { ws.setKey(capture, d.padLearned, d.padName); stopCapture(); ws.save(); sendKeys(); openKeys(); }   // a wheel / button box button
     });
     var failed = [];
     // setting a hotkey: a key here, or (in the app) a button on any game controller: the app watches them while this waits
-    function startCapture(target) { capture = target; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: true }); } catch (e) {} }
+    function startCapture(target) { capture = target; padDevices = null; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: true }); } catch (e) {} }
     function stopCapture() { capture = null; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: false }); } catch (e) {} }
     function openKeys() {
       editor.close(); if (keysPanel) keysPanel.remove();
@@ -214,6 +215,7 @@
       p.innerHTML = '<div class="pw-panel-head"><b>Hotkeys: switch views</b><button class="pw-panel-x">×</button></div>' +
         '<div class="pw-panel-note">Click Set, then press a key (letters, digits, F1-F24 or numpad, with Ctrl / Alt / Shift) or a button on your wheel, button box or gamepad. ' +
         'They work while you drive (the game has the focus): pick a key or button the game does not use, for example Ctrl+Alt+1. Esc = cancel.</div>' +
+        (capture !== null && padDevices ? '<div class="pw-panel-note">Controllers found: ' + (padDevices.length ? padDevices.join(', ').replace(/&/g, '&amp;').replace(/</g, '&lt;') : 'none') + '</div>' : '') +
         rows.map(function (r, i) {
           var bad = r[2] && failed.indexOf(r[2]) >= 0;
           return '<div class="pw-panel-row' + (r[2] ? ' set' : '') + '"><span>' + r[1].replace(/</g, '&lt;') + '</span><b style="min-width:92px;text-align:right' + (bad ? ';color:#FF6A55' : '') + '"' +

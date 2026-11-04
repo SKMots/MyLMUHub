@@ -116,7 +116,8 @@ public sealed class MainWindow : Window
         }
         return IntPtr.Zero;
     }
-    // controller buttons (made on first use): a press goes to the page like a key ({ hotkey }), a learned button as { padLearned, padName }
+    // controller buttons (made on first use): a press goes to the page like a key ({ hotkey }), a learned button as { padLearned, padName },
+    // the controllers found when learning starts as { padDevices } (shown in the Keys panel, so a missing device can be seen)
     PadWatcher padWatcher;
     PadWatcher Pads()
     {
@@ -125,6 +126,7 @@ public sealed class MainWindow : Window
         void Post(object o) => Dispatcher.BeginInvoke(() => { try { web.CoreWebView2?.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(o)); } catch (Exception) { } });
         padWatcher.Pressed += c => Post(new { hotkey = c });
         padWatcher.Learned += (c, n) => Post(new { padLearned = c, padName = n });
+        padWatcher.Seen += l => Post(new { padDevices = l });
         return padWatcher;
     }
 
