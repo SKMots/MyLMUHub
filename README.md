@@ -25,15 +25,16 @@ A full-screen dashboard for a second monitor, built from widgets. Open it on thi
 
 | Widget | What it shows |
 |---|---|
-| **Leaderboard** | One class at a time: position, driver, car logo, tyres, virtual energy %, sectors S1-S3, best, last, 5-lap average, pit stops, laps, interval and the last-lap difference. Your car stays in the middle. You choose the number of rows, a class, and whether P1 is always shown. More leaderboards can show the other classes. |
+| **Leaderboard** | One class at a time: position, driver, car logo, tyres, virtual energy %, sectors S1-S3, best, last, 5-lap average, pit stops, laps, interval and the last-lap difference, and a badge for penalties to serve (drive-through, stop-and-go, +seconds). Your car stays in the middle. You choose the number of rows, a class, and whether P1 is always shown. More leaderboards can show the other classes. |
 | **Ahead / Behind** | The car in front and behind: gap, last lap, and arrows that turn green or red as you gain or lose. |
 | **Top bar** | Position, race time / laps left, last / best / current / estimated lap, a live delta and sectors. |
 | **Car** | Brake bias, TC, TC slip, TC cut, ABS and engine map. |
 | **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. |
 | **Tyres** | Each tyre's pressure, temperature and wear, plus brakes, in the units you choose. |
-| **Damage** | Aero, body and suspension. |
+| **Damage** | A GT car seen from above with each body part and tyre coloured by its damage, plus aero, body and suspension with bars. The classic panel is still an option. |
 | **Track map** | Learns each track by itself: cars as dots in their class colours, your car highlighted, a legend. **Flags:** a green / yellow flag box, the yellow stretch glowing on the map, and full-course yellows. |
-| **Weather & forecast** | Air and track temperature, the forecast, and the clock. |
+| **Weather forecast** | Each forecast point as its own card, its background showing the weather coming (sun, clouds, rain, storm), with rain chance and temperature. The classic rows are still an option. |
+| **Track condition** | Track and air temperature, coloured from cold to hot, and the surface: dry, damp or wet, and whether it's raining. |
 | **Best lap ever** | Your best lap on this track and car, from all your sessions, with sectors, this session's best and the last lap. It updates the moment you beat it. |
 | **Relative** | The cars around you on the road, with the gap in seconds. |
 | **Race prediction** | Where everyone will finish, from each car's real race pace (cut laps and out-laps don't count), the stops they still need, and the time a pit stop costs in this race. |
@@ -67,7 +68,12 @@ Press **E** and you're in edit mode:
 - **Every track** with its best lap, optimal lap (your best sectors), race pace (no pit, out or incident laps) and category. A page per track shows progress there, the alien reference and your cars.
 - **Filters:** class, race / qualifying / all sessions, game version, period, and how slow a lap may be before it's left out.
 
-**Untapped potential** shows where you can gain the most. Filter by class, and search or pick a track and layout.
+**Improve** shows what to work on next. Filter by class, and search or pick a track and layout.
+- **Your next session focus:** your biggest opportunity in plain words, e.g. "Your biggest opportunity: the final sector. It was your weakest sector in 4 of your
+  last 5 sessions. On the track, most of it is lost at 4.10 - 4.55 km", with a tip for your next practice.
+- **Weakness ranking:** tracks by what there is to find per lap, every sector by what you lose there and how much it varies, and the weaknesses that keep coming back.
+- **Maps you can click:** every track map opens big, with layers (where you lose time, where you vary most, your best lap), numbered weak spots and every segment's numbers. Scroll to zoom in, drag to move.
+- **Driving lines:** your best lap, your optimal lap (your best segments put together) and any of your last 50 laps on the map, with where you brake, your slowest speed and where you're back on full throttle in each weak spot.
 - **Tracks behind your level**, and stale tracks (not driven for a while).
 - **Time left on the table:** your best lap against your optimal lap, and your race pace against your best lap (consistency).
 - **Segments:** each track in ~150 m pieces on a map, coloured by where you lose time, with your worst and typical segments.
@@ -91,7 +97,7 @@ Press **E** and you're in edit mode:
 - **My sessions** (click your name): every result file with your laps. Tick the sessions someone else drove while guest mode was off, then hide them from your data, give them to a guest, take them back, restore them, or delete them.
 
 ## Everything else
-- **Live and automatic:** Race Pace, Home, Potential and the best lap ever follow the session you're driving, without a restart.
+- **Live and automatic:** Race Pace, Home, Improve and the best lap ever follow the session you're driving, without a restart.
 - **Light on your PC:** the game's data is read straight from LMU's shared memory, with no SimHub or plugins. Only what changed is sent and redrawn, and nothing animates continuously.
 - **Your names:** several driver names for yourself (the game shows them slightly differently sometimes), and your team-mates' names for spectator mode.
 - **Network access:** the dashboard on other devices at home, on private networks only, after one Windows permission. Each view has its own address.
@@ -139,6 +145,7 @@ Pull requests are welcome too. Please keep them focused and keep the app light o
   [car-logos-dataset](https://github.com/filippofilip95/car-logos-dataset).
 - Reference lap times come from the community LMU laptimes sheet by Ohne Speed.
 - Weather icons are based on [TinyPedal](https://github.com/s-victor/TinyPedal) (CC BY-SA 4.0).
+- How to read the penalty types from the game was learned from [irdashies](https://github.com/tariknz/irdashies) (MIT).
 - The driver names in the demo data are made up.
 - Not affiliated with or endorsed by Studio 397 or Le Mans Ultimate. The game's SDK headers are not included.
 

@@ -16,7 +16,7 @@
     h.innerHTML = '<a class="brand" href="home.html"><img src="assets/logo.svg" alt=""><b><i>my</i>lmu<i>hub</i></b><small>sim<br>racing</small></a>' +
       '<div class="rule" id="liveRule">offline</div>' +
       '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="#" id="navRc">Race Control</a>' +
-      '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Potential</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a></nav>' +
+      '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a></nav>' +
       '<span class="upd" id="upd"></span>' +
       '<select class="sel themeSel" id="hubTheme" title="Hub theme (Race Control has its own, in its edit mode)">' + HUB_THEMES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === hubTheme() ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
       '<button class="btn" id="guestBtn" title="A friend drives on your rig: keep his laps apart from yours">Guest</button>' +
@@ -86,7 +86,7 @@
           (here ? '<div class="bar" style="flex-wrap:wrap;gap:8px"><button class="btn" id="gStop">Stop: keep his data (hidden from you)</button><button class="btn" id="gDel">Stop and delete his data</button></div>' : '<div class="faint">Switch it on the PC the app runs on.</div>');
       } else {
         h = '<div class="pop-h">Guest driver</div><div class="muted" style="margin-bottom:12px">A friend drives on your rig? He drives under your game account, so the app tells his laps from yours by the time: switch this on when he sits down.' +
-          ' Until you switch it off, the app shows his laps (Race Pace, Potential, best lap ever, segments) and keeps them out of yours.</div>' +
+          ' Until you switch it off, the app shows his laps (Race Pace, Improve, best lap ever, segments) and keeps them out of yours.</div>' +
           (here ? '<div class="bar" style="gap:8px"><input class="input" id="gName" placeholder="His name" maxlength="40" style="min-width:0;flex:1"><button class="btn lime" id="gStart">Start</button></div>' : '<div class="faint">Switch it on the PC the app runs on.</div>');
       }
       var old = (g.guests || []).filter(function (x) { return x.name !== g.current; });

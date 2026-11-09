@@ -25,6 +25,8 @@ public sealed class DataPump : IDisposable
     public PaceService Pace { get; set; }
     readonly PersonalBest best = new(); readonly LiveSession liveSession = new(); readonly SegmentRecorder segRec = new();
     /// <summary>Where your segment times are kept (Untapped potential page); null = not recorded.</summary>
+    /// <summary>Penalty kinds from the game's UI websocket (live only), joined to the leaderboard rows by driver name.</summary>
+    public LivePenalties Penalties { get; set; }
     public SegmentStore Segments { get; set; } string bestKey; int bestGen = -1; List<PaceSession> bestList; DateTime bestLook;
 
     /// <summary>For the spectate picker: every car of the last reading, in overall order.</summary>
@@ -40,6 +42,14 @@ public sealed class DataPump : IDisposable
 
     public void Start() => _ = Task.Run(Loop);
 
+    // the kind of each car's penalties (DT / SG / +s) when the websocket gives it; the count stays from shared memory
+    void JoinPenaltyKinds(StandingsView st)
+    {
+        if (Penalties == null || st == null) return;
+        void Set(List<StandingRow> rows) { if (rows == null) return; foreach (var r in rows) { var k = Penalties.For(r.Driver); if (k != null) { r.PenDt = k.DriveThrough; r.PenSg = k.StopGo; r.PenSec = k.Seconds; } } }
+        Set(st.Rows); Set(st.All); if (st.Others != null) foreach (var o in st.Others) Set(o.Rows);
+    }
+
     async Task Loop()
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
@@ -53,12 +63,14 @@ public sealed class DataPump : IDisposable
                 {
                     var snap = source.Read(); lastSnap = snap;
                     web?.SetSession(snap?.Session.SessionId ?? -1, snap?.Session.TrackName, snap?.Cars.Any(c => c.IsPlayer) ?? false);
+                    Penalties?.SetActive(snap != null && snap.Session.SessionId >= 0);
                     string json;
                     if (snap == null) json = "{\"type\":\"state\",\"standings\":null,\"top\":null,\"car\":null,\"track\":null,\"forecast\":null}";
                     else
                     {
                         engine.FocusNames = getFocusNames();
                         var standings = engine.Build(snap);
+                        JoinPenaltyKinds(standings);
                         if (web != null && engine.FocusCar != null && engine.FocusCar.IsPlayer) { engine.Car.Aero = web.Aero; engine.Car.Susp = web.Susp; engine.Car.SuspWheels = web.SuspWheels; }   // the repair screen is YOUR car: not while watching
                         if (web != null) DamageDiag(engine.FocusCar);
                         if (web != null)                                                         // live only: a replay must not overwrite the saved race

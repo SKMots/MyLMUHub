@@ -28,6 +28,15 @@
     return m + ':' + pad(Math.floor(r / 1000), 2) + '.' + pad(r % 1000, 3);
   }
   // leaderboard gap column: +4.50 / -22.3 / +1:15 / +1L / -- for the focus car
+  // a leaderboard row's penalties: 'DT', 'SG', '+10s' (the kind from the game's UI websocket, when it gives it), else the count from shared memory: 'PEN' / '2 PEN'; '' = none
+  function penalty(d) {
+    var dt = (d && d.penDt) || 0, sg = (d && d.penSg) || 0, sec = (d && d.penSec) || 0, n = (d && d.pen) || 0, out = [];
+    if (dt) out.push(dt > 1 ? dt + '×DT' : 'DT');
+    if (sg) out.push(sg > 1 ? sg + '×SG' : 'SG');
+    if (sec > 0) out.push('+' + Math.round(sec) + 's');
+    if (!out.length && n > 0) out.push(n > 1 ? n + ' PEN' : 'PEN');
+    return out.join(' ');
+  }
   function gapText(g, isFocus) {
     if (!g || g.kind === 'none') return isFocus ? '--' : '';
     if (g.kind === 'laps') return g.sign + Math.floor(g.value) + 'L';
@@ -144,11 +153,26 @@
       var idx = cur + k, n = nodes && idx <= 4 ? nodes[idx] : null;
       var ok = !!n && (n.sky >= 0 || has(n.temp) || has(n.rain)), mins = known ? Math.floor((0.2 * idx * length - elapsed) / 60) : -1;
       rows.push({ show: ok && (k === 0 || mins > 0 || !known), label: k === 0 ? 'NOW' : (mins > 0 ? '+' + mins + 'm' : Math.round(idx * 20) + '%'),
-                  icon: ok && n.sky >= 0 ? 'wx_' + Math.round(n.sky) : 'wx_na', rain: ok && has(n.rain) ? Math.round(n.rain) + '%' : '--',
+                  icon: ok && n.sky >= 0 ? 'wx_' + Math.round(n.sky) : 'wx_na', sky: ok && n.sky >= 0 ? Math.round(n.sky) : -1, rain: ok && has(n.rain) ? Math.round(n.rain) + '%' : '--',
                   rainW: ok && has(n.rain) ? Math.max(0, Math.min(100, n.rain)) / 100 : 0, temp: ok && has(n.temp) ? Math.round(n.temp) + '°' : '--', tempC: ok && has(n.temp) ? n.temp : null });
     }
     return rows;
   }
+  // the track condition widget: how warm the road / the air is (cold, good, warm, hot) and the wetness of the racing line as a word + %
+  function tempBand(t, kind) {
+    if (!has(t) || !isFinite(t)) return 'none';
+    var b = kind === 'air' ? [10, 28, 35] : [20, 40, 50];
+    return t < b[0] ? 'cold' : t < b[1] ? 'good' : t < b[2] ? 'warm' : 'hot';
+  }
+  function surface(wet) {
+    if (!(wet >= 0)) return { word: '--', pct: '', band: 'none' };
+    var word = wet < 0.02 ? 'DRY' : wet < 0.1 ? 'DAMP' : wet < 0.3 ? 'SLIGHTLY WET' : wet < 0.6 ? 'WET' : wet < 0.85 ? 'VERY WET' : 'FLOODED';
+    return { word: word, pct: Math.round(wet * 100) + '%', band: wet < 0.02 ? 'dry' : wet < 0.1 ? 'damp' : 'wet' };
+  }
+  // the weather cards: the game's sky (0..10) in words, and which 'splash art' its card gets (clear, cloudy, overcast, rain, heavy, storm, none)
+  var SKY = ['CLEAR', 'MOSTLY CLEAR', 'PARTLY CLOUDY', 'MOSTLY CLOUDY', 'OVERCAST', 'DRIZZLE', 'LIGHT RAIN', 'RAIN', 'HEAVY RAIN', 'DOWNPOUR', 'STORM'];
+  function skyName(s) { return s >= 0 && s <= 10 ? SKY[Math.round(s)] : '--'; }
+  function skyArt(s) { return !(s >= 0 && s <= 10) ? 'none' : s < 1 ? 'clear' : s < 4 ? 'cloudy' : s < 5 ? 'overcast' : s < 8 ? 'rain' : s < 10 ? 'heavy' : 'storm'; }
   // Race Pace page: time over a reference (+0.412), % over a reference (ratio 1.0123 -> +1.23%), consistency (± 0.456s), date (Oct 25, 2026), counts (12,345)
   function plusSec(d) { return has(d) && isFinite(d) ? diff(d, 3) : '--'; }
   function pctOver(r) { return r > 0 && isFinite(r) ? diff((r - 1) * 100, 2) + '%' : '--'; }
@@ -178,6 +202,6 @@
                level: level, bias: bias, litres: litres, pct: pct, laps1: laps1, levelColor: levelColor, perLap: perLap, raceLaps: raceLaps,
                dentColor: dentColor, wheelColor: wheelColor, condColor: condColor, weatherText: weatherText, trackWet: trackWet, weatherColor: weatherColor, temp1: temp1,
                hhmm: hhmm, timeOfDay: timeOfDay, forecastRows: forecastRows, plusSec: plusSec, pctOver: pctOver, pctPts: pctPts, km: km, spread: spread, day: day, count: count, wallClock: wallClock, hm: hm,
-               relGap: relGap, relLaps: relLaps, predGap: predGap, stops: stops, posMove: posMove };
+               relGap: relGap, penalty: penalty, skyName: skyName, skyArt: skyArt, tempBand: tempBand, surface: surface, relLaps: relLaps, predGap: predGap, stops: stops, posMove: posMove };
   if (typeof module !== 'undefined') module.exports = P.format;
 })(typeof window !== 'undefined' ? window : globalThis);

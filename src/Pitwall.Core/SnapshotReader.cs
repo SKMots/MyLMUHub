@@ -60,6 +60,7 @@ public sealed class SnapshotReader
             c.EstLap = Pos(Num(v, "mEstimatedLapTime", i));
             c.LapDist = Num(v, "mLapDist", i);
             c.InPits = Num(v, "mInPits", i) != 0;
+            c.Penalties = Math.Max(0, (int)Num(v, "mNumPenalties", i));
             c.InGarage = Num(v, "mInGarageStall", i) != 0;
             c.IsPlayer = Num(v, "mIsPlayer", i) != 0;
             c.X = Num(v, "mPos.x", i); c.Z = Num(v, "mPos.z", i);
@@ -99,6 +100,7 @@ public sealed class SnapshotReader
             Tc = (int)T("mTC"), TcSlip = (int)T("mTCSlip"), TcCut = (int)T("mTCCut"), Abs = (int)T("mABS"), Map = (int)T("mMotorMap"),
             Compound = Clean(v.Str(cat.Telem["mFrontTireCompoundName"], Te("mFrontTireCompoundName", t))),
             Detached = T("mDetached") != 0, Rpm = T("mEngineRPM"), Overheating = T("mOverheating") != 0,
+            Throttle = T("mUnfilteredThrottle"), BrakeIn = T("mUnfilteredBrake"),
         };
         for (int i = 0; i < 8; i++) d.Dents[i] = (int)T(Dent[i]);
         for (int i = 0; i < 4; i++)

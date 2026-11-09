@@ -114,3 +114,14 @@ body.preview .pw-canvas.edit { background-image:none; box-shadow:none; } body.pr
 /* a warning that flashes (damage: engine off / overheating) - only while it is shown */
 @keyframes pw-flash { 0%, 49% { opacity:1; } 50%, 100% { opacity:.15; } }
 .pw-flash { animation:pw-flash 1s steps(1) infinite; }
+/* weather widget, modern look: each forecast card's 'splash art' = the weather coming (static, no animation). The colours are fixed art, like the tyre temperature scale. */
+.pw-wx-card { border-radius:10px; overflow:hidden; background:#1b2233; }
+.pw-wx-card > div { position:absolute; left:0; top:0; right:0; bottom:0; }
+.pw-wx-card > .pw-wx-icon { left:auto; right:22%; top:-6%; bottom:auto; height:112%; aspect-ratio:1 / 1; opacity:.95; }
+.pw-wx-fade { background:linear-gradient(90deg, rgba(0,0,0,.50) 0, rgba(0,0,0,.18) 42%, rgba(0,0,0,0) 62%, rgba(0,0,0,.30) 100%); }
+.pw-wx-card[data-art=clear] .pw-wx-art { background:radial-gradient(circle at 68% 20%, rgba(255,232,150,.55), transparent 45%), linear-gradient(110deg, #3b2608 0%, #a5560c 50%, #f2a227 100%); }
+.pw-wx-card[data-art=cloudy] .pw-wx-art { background:radial-gradient(circle at 72% 15%, rgba(255,220,120,.30), transparent 40%), linear-gradient(110deg, #142233 0%, #365a7a 55%, #7fa6c4 100%); }
+.pw-wx-card[data-art=overcast] .pw-wx-art { background:linear-gradient(110deg, #1a1e23 0%, #3e464f 55%, #727c86 100%); }
+.pw-wx-card[data-art=rain] .pw-wx-art { background:repeating-linear-gradient(105deg, rgba(180,220,255,.16) 0 1.5px, transparent 1.5px 10px), linear-gradient(110deg, #0a1830 0%, #15427c 55%, #2b7cc8 100%); }
+.pw-wx-card[data-art=heavy] .pw-wx-art { background:repeating-linear-gradient(105deg, rgba(180,220,255,.24) 0 2px, transparent 2px 7px), linear-gradient(110deg, #060f22 0%, #0e3369 55%, #1d5fa8 100%); }
+.pw-wx-card[data-art=storm] .pw-wx-art { background:repeating-linear-gradient(105deg, rgba(220,200,255,.18) 0 2px, transparent 2px 8px), radial-gradient(circle at 78% 30%, rgba(255,240,150,.32), transparent 35%), linear-gradient(110deg, #120a22 0%, #331a5e 55%, #5d36a3 100%); }

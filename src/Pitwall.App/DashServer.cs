@@ -60,6 +60,8 @@ public sealed class DashServer : IDisposable
     public Action<string> UpdateDo { get; set; }
     /// <summary>/api/segments GET: your segment times (SegmentStore.Info): the list, or ?key= one track + car.</summary>
     public Func<string, object> Segments { get; set; }
+    /// <summary>/api/segments?key=&amp;line= GET: a driving line (SegmentStore.Line), JSON text or null.</summary>
+    public Func<string, string, string> SegmentLine { get; set; }
     /// <summary>/api/guest GET: guest mode (Guests.Info); POST ?do=start&amp;name= | stop | delete&amp;name= (this PC only).</summary>
     public Func<object> GuestInfo { get; set; }
     public Action<string, string> GuestDo { get; set; }
@@ -182,6 +184,13 @@ public sealed class DashServer : IDisposable
                 if (ctx.Request.HttpMethod == "POST" && here) UpdateDo?.Invoke(ctx.Request.QueryString["do"] ?? "");
                 await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(UpdateInfo(), Opt)); return;
             }
+            if (path == "/api/tracks")                                                       // the saved game maps (TrackStore): the names, or ?name= one outline
+            {
+                string n = ctx.Request.QueryString["name"], j = n == null ? JsonSerializer.Serialize(TrackStore.Names()) : TrackStore.Load(n);
+                await Send(ctx, j == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(j ?? "{}")); return;
+            }
+            if (path == "/api/segments" && SegmentLine != null && ctx.Request.QueryString["line"] is string ln)
+            { var t = SegmentLine(ctx.Request.QueryString["key"], ln); await Send(ctx, t == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(t ?? "{}")); return; }
             if (path == "/api/segments" && Segments != null) { var r = Segments(ctx.Request.QueryString["key"]); await Send(ctx, r == null ? 404 : 200, "application/json; charset=utf-8", r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return; }
             if (path == "/api/state") { await Send(ctx, 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(lastJson)); return; }
             await Static(ctx, path);

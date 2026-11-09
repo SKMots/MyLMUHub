@@ -1,8 +1,10 @@
-// Untapped potential page: tracks behind your level, time left on the table (best lap vs optimal), and your segments (where on a track you lose time).
+// Improve page (potential.html): your next session focus, the weakness ranking (tracks, sectors, what keeps coming back), tracks behind your level,
+// time left on the table (best lap vs optimal), and your segments (where on a track you lose time). Every track map opens big on a click (the map view).
 // Maths: potential-math.js. Follows new laps / result files by itself (hub.js watchPace) and new segment laps (api/segments, looked at every 10 s).
 (function (root) {
   'use strict';
   var P = root.Pitwall, F = P.format, R = P.paceRef, U = P.potentialMath, H = P.hub, esc = H.esc;
+  var TM = P.trackMap, drawMap = TM.draw, where = TM.where, openMap = TM.open;                 // the maps and the big map view: trackmap.js
   function $(id) { return document.getElementById(id); }
   var data = null, ref = {}, SLOW = 0.05, segAll = [], segList = [], segKey = null, segGen = null;
   // ---------- filter: one class (the one you drive most at first, remembered), all its tracks or one (each layout on its own), a search ----------
@@ -39,7 +41,7 @@
   };
   $('trkSel').onchange = function () { trk = this.value; renderAll(); };
   $('find').oninput = function () { find = this.value.trim().toLowerCase(); trk = ''; renderAll(); };
-  function renderAll() { if (!data) return; U.markOld(data.sessions, ref); filters(); renderTracks(); renderOptimal(); applySeg(); }
+  function renderAll() { if (!data) return; U.markOld(data.sessions, ref); filters(); renderFocus(); renderTracks(); renderOptimal(); applySeg(); }
   H.header('potential');
   function tile(k, v, n, cls) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || '') + '">' + esc(v) + '</div><div class="n">' + esc(n || '') + '</div></div>'; }
   function trackLink(course, layout, car) { return 'pace.html#t=' + encodeURIComponent(R.trackKey(course, layout)) + (car ? '&c=' + encodeURIComponent(car) : ''); }
@@ -87,7 +89,7 @@
     H.json('api/segments').then(function (r) {
       if (r.gen === segGen) return; segGen = r.gen;
       segAll = (r.list || []).sort(function (a, b) { return b.updated - a.updated; });
-      applySeg(true);
+      applySeg(true); if (data) renderFocus();
     }, function () { segEmpty('Could not read the segments.'); });
   }
   // the segments of the class (and track / search) chosen at the top. The live name has no layout: a track = its name
@@ -104,7 +106,7 @@
     if (reload || was !== segKey) loadSeg();
   }
   $('segSel').onchange = function () { segKey = this.value; loadSeg(); };
-  function segEmpty(msg) { $('segSel').hidden = true; $('segTiles').innerHTML = ''; $('segMap').innerHTML = '<div class="muted">' + esc(msg) + '</div>'; $('segSide').hidden = true; }
+  function segEmpty(msg) { $('segMap').className = 'mapbox'; $('segMap').onclick = null; $('segSel').hidden = true; $('segTiles').innerHTML = ''; $('segMap').innerHTML = '<div class="muted">' + esc(msg) + '</div>'; $('segSide').hidden = true; }
   function loadSeg() {
     $('segSel').hidden = false; $('segSide').hidden = false;
     H.json('api/segments?key=' + encodeURIComponent(segKey)).then(function (rec) {
@@ -112,7 +114,9 @@
       $('segTiles').innerHTML = tile('Best lap', F.lap(a.bestLap), '', 'purple') + tile('Theoretical best', F.lap(a.theoretical), 'your best in every segment') +
         tile('On the table', F.plusSec(a.gap), 'best lap vs theoretical', 'red') + tile('Typical lap', F.lap(a.typicalLap), F.plusSec(a.typicalGap) + ' vs theoretical') +
         tile('Laps timed', String(a.laps), rec.n + ' segments of ' + Math.round(rec.length / rec.n) + ' m');
-      $('segMap').innerHTML = map(a, rec);
+      $('segMap').innerHTML = map(a, rec); $('segMap').className = 'mapbox click'; $('segMap').title = 'Click to open the map';
+      var s = segList.filter(function (x) { return x.key === segKey; })[0];
+      $('segMap').onclick = function () { openMap(rec, s ? s.track + ' · ' + s.car : '', segKey); };
       $('segWorst').innerHTML = rows(a.worst, 'lost', 'Your best lap there');
       $('segTypical').innerHTML = rows(a.worstTypical, 'typical', 'You usually lose');
     }, function () { segEmpty('Could not read this one.'); });
@@ -125,24 +129,121 @@
   }
   // the track drawn from the segments' own points, each segment coloured by what your best lap lost there (green = your best there ... red = the most)
   function map(a, rec) {
-    var pts = a.segs.map(function (s) { return s.pts; }), all = [];
-    pts.forEach(function (p) { if (p && (p[0] || p[1])) all.push([p[0], p[1]]); if (p && (p[2] || p[3])) all.push([p[2], p[3]]); });
-    if (all.length < 10) return '<div class="muted">The map appears after a full lap.</div>';
-    var W = 520, Hh = 340, pad = 16, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    all.forEach(function (q) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, -q[1]); y1 = Math.max(y1, -q[1]); });
-    var sc = Math.min((W - 2 * pad) / Math.max(1, x1 - x0), (Hh - 2 * pad) / Math.max(1, y1 - y0)), ox = (W - (x1 - x0) * sc) / 2, oy = (Hh - (y1 - y0) * sc) / 2;
-    function tx(x, z) { return (ox + (x - x0) * sc).toFixed(1) + ',' + (oy + (-z - y0) * sc).toFixed(1); }
-    var worst = Math.max.apply(null, a.segs.map(function (s) { return s.lost || 0; }).concat([0.05]));
-    var svg = '';
-    a.segs.forEach(function (s, i) {
-      var p = s.pts, q = a.segs[(i + 1) % a.segs.length].pts; if (!p || !q || !(p[0] || p[1]) || !(q[0] || q[1])) return;
-      var f = Math.max(0, Math.min(1, (s.lost || 0) / worst)), col = 'hsl(' + Math.round(130 - 130 * f) + ',75%,52%)';
-      svg += '<path d="M' + tx(p[0], p[1]) + ((p[2] || p[3]) ? ' L' + tx(p[2], p[3]) : '') + ' L' + tx(q[0], q[1]) + '" fill="none" stroke="' + col + '" stroke-width="' + (6 + 6 * f).toFixed(1) +
-        '" stroke-linecap="round" stroke-linejoin="round"><title>Segment ' + (i + 1) + ' · ' + F.km(s.from) + ' – ' + F.km(s.to) + ' · best lap ' + F.plusSec(s.lost) + '</title></path>';
-    });
-    var st = a.segs[0].pts; if (st && (st[0] || st[1])) { var c = tx(st[0], st[1]).split(','); svg += '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="6" fill="var(--text)"><title>Start / finish</title></circle>'; }
-    return '<svg viewBox="0 0 ' + W + ' ' + Hh + '" style="width:100%;height:auto;display:block">' + svg + '</svg><div class="legend"><span><i style="background:hsl(130,75%,52%)"></i>Your best there</span><span><i style="background:hsl(0,75%,52%)"></i>Lost the most</span><span class="faint">Hover a segment</span></div>';
+    var html = drawMap(rec, a.segs.map(function (s) { return s.lost; }), { title: function (i) { var s = a.segs[i]; return 'Segment ' + (i + 1) + ' · ' + F.km(s.from) + ' – ' + F.km(s.to) + ' · best lap ' + F.plusSec(s.lost); } });
+    if (html.indexOf('<svg') < 0) return html;
+    return html + '<div class="legend"><span><i style="background:hsl(130,75%,52%)"></i>Your best there</span><span><i style="background:hsl(0,75%,52%)"></i>Lost the most</span><span class="faint">Hover a segment · click to open the map</span></div>';
   }
+  // ---------- next session focus + weakness ranking ----------
+  // focus list = per track + class your fastest car there (potential-math focus() + fastestCar()), ranked by what there is to find per lap;
+  // the focus card shows the track picked in the ranking, else the top one
+  var focList = [], focusKey = null, rankTab = 'tracks', focToken = 0, segCache = {}, SEC = ['S1', 'S2', 'S3'];
+  function nameOf(o) { return (labels[tkey(o.track, o.layout)] || {}).name || R.trackName(o.track, o.layout) || o.track; }
+  function current() { return focList.filter(function (f) { return f.key === focusKey; })[0] || focList[0] || null; }
+  function secName(i) { return 'sector ' + (i + 1); }
+  function renderFocus() {
+    if (!data || !cls) return;
+    focList = U.fastestCar(U.focus(data.sessions, ref, Date.now() / 1000, SLOW, 5)).filter(function (f) { return keep(f.track, f.layout, f.cls); });
+    renderRank();
+    var f = current();
+    if (!f) {
+      focToken++; $('focSub').innerHTML = ''; $('focMap').className = 'mapbox'; $('focMap').onclick = null; $('focMap').innerHTML = '';
+      $('focText').innerHTML = '<div class="empty">' + esc(data.error || ('No track with 5 counted dry laps (all three sectors) yet' + (trk || find ? ' here.' : '.'))) + '</div>'; return;
+    }
+    var picked = f.key === focusKey && focList[0] && focList[0].key !== f.key;
+    $('focSub').innerHTML = picked ? 'You picked this track in the ranking below. <a class="back" id="focBack">Back to your biggest opportunity</a>' :
+      'Picked for you: the track where you have the most to find' + (trk ? '' : ' in this class') + '. Click another track in the ranking below to see its focus here.';
+    if (picked) $('focBack').onclick = function () { focusKey = null; renderFocus(); };
+    var my = ++focToken, s = H.inApp ? segFor(f) : null, c = s ? segCache[s.key] : null;
+    if (c && c.gen === segGen) { paintFocus(f, c.rec, s.key); return; }
+    paintFocus(f, null);
+    if (s) getRec(s.key).then(function (rec) { if (my === focToken) paintFocus(f, rec, s.key); }, function () {});
+  }
+  // the live segments of the focus track: same track name and class, the same car if there is one, else the one with most laps
+  function segFor(f) {
+    var base = R.trackName(f.track, f.layout) || f.track, c = clsOf(f.cls);
+    var m = segAll.filter(function (s) { return (R.trackName(s.track, '') || s.track) === base && clsOf(s.cls) === c; });
+    return m.filter(function (s) { return s.car === f.car; })[0] || m.sort(function (a, b) { return b.laps - a.laps; })[0] || null;
+  }
+  function getRec(key) {
+    return H.json('api/segments?key=' + encodeURIComponent(key)).then(function (rec) { segCache[key] = { gen: segGen, rec: rec }; return rec; });
+  }
+  function paintFocus(f, rec, key) {
+    var z = rec ? U.zones(rec, 5) : null;
+    $('focText').innerHTML = focusHtml(f, z, !!rec);
+    var box = $('focMap');
+    if (rec && rec.points && rec.n) {
+      var a = U.segments(rec), vals = z ? z.segs.map(function (s) { return s.loss; }) : a ? a.segs.map(function (s) { return s.lost; }) : null;
+      box.innerHTML = drawMap(rec, vals || [], { zones: z ? z.zones : [], title: function (i) { return 'Segment ' + (i + 1); } }) +
+        '<div class="hint">' + (z ? 'Red = where you lose the most · numbers = your weak spots · ' : 'Red = where your best lap lost the most · ') + 'click to open the map</div>';
+      box.className = 'mapbox click'; box.onclick = function () { openMap(rec, nameOf(f) + ' · ' + f.car, key); };
+    } else {
+      box.className = 'mapbox'; box.onclick = null;
+      box.innerHTML = '<div class="muted" style="padding:20px">' + esc(!H.inApp ? 'Open this page in the app: the map is timed live while you drive.' :
+        'No map for this track yet: after a few valid laps there it shows the exact places where you lose time.') + '</div>';
+    }
+  }
+  // the focus in plain words: what to work on (the sector you lose most in), how much, the three sectors side by side, and up to three short reasons
+  function focusHtml(f, z, hasSeg) {
+    var s = f.sectors[f.top], max = Math.max.apply(null, f.sectors.map(function (x) { return x.loss; }).concat([0.001])), h = '';
+    h += '<div class="ftitle">Work on ' + esc(secName(f.top)) + ' at ' + esc(nameOf(f)) + '</div><div class="faint">' + esc(f.car) + ' · your fastest ' + esc(CLASS_LABEL[clsOf(f.cls)] || f.cls) + ' car here</div>';
+    h += '<p class="fsay">Your usual ' + SEC[f.top] + ' is <b>' + F.plusSec(s.loss) + ' s</b> slower than your best ' + SEC[f.top] + '. That is the most time you lose in any sector.</p>';
+    h += '<div class="sbars">' + f.sectors.map(function (x) {
+      return '<div class="sbar' + (x.i === f.top ? ' on' : '') + '"><span>' + SEC[x.i] + '</span><div class="bar"><i style="width:' + Math.max(2, Math.round(100 * Math.max(0, x.loss) / max)) + '%"></i></div><b>' + F.plusSec(x.loss) + ' s</b></div>';
+    }).join('') + '<div class="faint" style="font-size:12px">Time lost per lap in each sector: your usual time there against your best.</div></div>';
+    var why = [];
+    if (f.sessions >= 2 && s.weakest >= 2) why.push('<b>It keeps happening:</b> ' + SEC[f.top] + ' was your weakest sector in ' + s.weakest + ' of your last ' + f.sessions + ' sessions here.');
+    var zs = z ? z.zones : [], spot = zs.filter(function (w) { return w.sector === f.top; })[0] || zs[0];
+    if (spot) why.push('<b>Where on the track:</b> the biggest loss is at ' + esc(where(spot)) + ', number ' + spot.n + ' on the map (' + F.plusSec(spot.loss) + ' s per lap).');
+    else if (H.inApp) why.push('<span class="faint">' + (hasSeg ? 'The exact places appear on the map after a session with 3 or more laps close to your best here.' : 'The exact places appear on the map after a few timed laps here.') + '</span>');
+    if (f.stale) why.push('<b>Not driven for ' + f.days + ' days</b> and ' + F.plusSec(f.behind) + ' s per lap behind your level here: just getting laps in will help.');
+    else if (f.behind > 0) why.push('<b>Behind your level:</b> ' + F.plusSec(f.behind) + ' s per lap slower here than your level on other tracks.');
+    if (why.length) h += '<ul>' + why.map(function (w) { return '<li>' + w + '</li>'; }).join('') + '</ul>';
+    return h;
+  }
+
+  function renderRank() {
+    var tabs = $('rankTab').querySelectorAll('button'); for (var i = 0; i < tabs.length; i++) tabs[i].className = tabs[i].getAttribute('data-v') === rankTab ? 'on' : '';
+    var cur = current(), h, list;
+    function row(f, cells) {
+      var on = cur && f.key === cur.key;
+      return '<tr class="click' + (on ? ' sel' : '') + '" data-k="' + esc(f.key) + '" title="Show this track in the focus above">' + cells + '<td class="pick">' + (on ? '<span class="chip lime">SHOWN ABOVE</span>' : 'Show above ↑') + '</td></tr>';
+    }
+    function tc(f) { return '<td>' + esc(nameOf(f)) + '<span class="two">' + esc(f.car) + '</span></td>'; }
+    function dots(n, of) { var d = ''; for (var k = 0; k < of; k++) d += '<i class="' + (k < n ? 'on' : '') + '"></i>'; return '<span class="dots">' + d + '</span>'; }
+    if (rankTab === 'tracks') {
+      $('rankSub').textContent = 'How much faster your average lap could be on each track, most first. One row per track (your fastest car there). Hover a column title for what it means.';
+      list = focList.slice(0, 30);
+      h = '<thead><tr><th>Track</th><th class="num" title="Average vs optimal + behind your level">Possible gain per lap</th><th class="num" title="Your average lap against your optimal lap (your best three sectors in one lap): time you already showed you can do">Average vs optimal</th><th class="num" title="How much slower this track is than your level on your other tracks (against the alien times)">Behind your level</th><th class="num" title="Your average lap against your best lap">Best vs average</th><th>Weakest sector</th><th>Last</th><th></th></tr></thead><tbody>' +
+        list.map(function (f) {
+          return row(f, tc(f) + '<td class="num red">' + F.plusSec(f.score) + '</td><td class="num">' + F.plusSec(f.potential) + '</td><td class="num">' + (f.behind > 0 ? F.plusSec(f.behind) : '<span class="faint">--</span>') +
+            '</td><td class="num">' + F.plusSec(f.spread) + '</td><td>' + SEC[f.top] + ' <span class="faint">' + F.plusSec(f.sectors[f.top].loss) + '</span>' + (f.stale ? ' <span class="chip pit">STALE</span>' : '') + '</td><td>' + F.day(f.last) + '</td>');
+        }).join('');
+    } else if (rankTab === 'sectors') {
+      $('rankSub').textContent = 'Every sector of your tracks by how much you lose there per lap: your usual time against your best. One car per track: your fastest there.';
+      list = []; focList.forEach(function (f) { f.sectors.forEach(function (s) { list.push({ f: f, s: s }); }); });
+      list.sort(function (a, b) { return b.s.loss - a.s.loss; }); list = list.slice(0, 30);
+      h = '<thead><tr><th>Track</th><th>Sector</th><th class="num">Your best</th><th class="num">Usual</th><th class="num">You lose</th><th class="num">Varies</th><th></th></tr></thead><tbody>' +
+        list.map(function (x) {
+          return row(x.f, tc(x.f) + '<td>' + SEC[x.s.i] + '</td><td class="num purple">' + F.sector(x.s.best) + '</td><td class="num">' + F.sector(x.s.typical) + '</td><td class="num red">' + F.plusSec(x.s.loss) +
+            '</td><td class="num">' + F.spread(x.s.sd) + '</td>');
+        }).join('');
+    } else {
+      $('rankSub').textContent = 'The same sector was your weakest in most of your recent sessions on a track: a habit, not bad luck. These are worth a practice session of their own.';
+      list = U.repeats(focList, 3).slice(0, 30);
+      h = '<thead><tr><th>Track</th><th>Weakest every time</th><th>Your last sessions there</th><th class="num">Costs per lap</th><th>Last</th><th></th></tr></thead><tbody>' +
+        list.map(function (x) {
+          return row(x.f, tc(x.f) + '<td>' + SEC[x.sector.i] + '</td><td>' + dots(x.seen, x.of) + ' <span class="faint">weakest in ' + x.seen + ' of ' + x.of + '</span></td><td class="num red">' + F.plusSec(x.sector.loss) + ' s</td><td>' + F.day(x.f.last) + '</td>');
+        }).join('');
+    }
+    if (!list.length) h = '<tbody><tr><td class="empty">' + (rankTab === 'repeats' ? 'No repeat problems: no sector was your weakest in 3 or more of your recent sessions on a track.' : 'No track with 5 counted dry laps (all three sectors) yet.') + '</td></tr></tbody>';
+    $('rankTbl').innerHTML = h + (list.length ? '</tbody>' : '');
+  }
+  $('rankTab').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; rankTab = b.getAttribute('data-v'); renderRank(); };
+  $('rankTbl').onclick = function (e) {
+    var r = e.target.closest('tr[data-k]'); if (!r) return; focusKey = r.getAttribute('data-k'); renderFocus();
+    $('focCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var c = $('focCard'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  };
 
   // ---------- data ----------
   function show(i) { data = i; H.setWho(i.names && i.names[0]); renderAll(); }

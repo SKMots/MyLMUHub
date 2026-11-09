@@ -96,6 +96,12 @@ public static class TrackStore
         try { var p = PathFor(track); if (File.Exists(p)) return File.ReadAllText(p); } catch (Exception) { }
         return null;
     }
+    /// <summary>The tracks with a saved outline (their names as the game gives them).</summary>
+    public static List<string> Names()
+    {
+        try { var d = Path.Combine(AppPaths.Dir, "tracks"); return Directory.Exists(d) ? Directory.GetFiles(d, "*.json").Select(f => Path.GetFileNameWithoutExtension(f)).OrderBy(n => n).ToList() : new(); }
+        catch (Exception) { return new(); }
+    }
     public static void Save(string track, string json)
     {
         try { var p = PathFor(track); Directory.CreateDirectory(Path.GetDirectoryName(p)); File.WriteAllText(p, json); } catch (Exception) { }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>My LMU Hub - Untapped potential</title>
+<title>My LMU Hub - Improve</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="css/hub.css">
 <script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
@@ -12,8 +12,9 @@
   <header id="hdr"></header>
 
   <section class="card" style="margin-top:14px">
-    <h2>Untapped potential</h2>
-    <div class="sub" style="margin-bottom:0" id="topSub">Where you can gain the most: tracks that are behind your level now, time you already showed but did not put in one lap, and the exact places on a track where you lose it.</div>
+    <h2>Improve</h2>
+    <div class="sub" style="margin-bottom:0" id="topSub">What to work on next: your next session focus, your weaknesses ranked (tracks, sectors, repeat problems), tracks behind your level,
+      time you already showed but did not put in one lap, and the exact places on a track where you lose it. Click a map to open it big.</div>
   </section>
 
   <section class="card" style="margin-top:14px">
@@ -23,6 +24,28 @@
       <input class="input" id="find" placeholder="Search a track" style="min-width:200px">
       <span class="faint" id="filterInfo"></span>
     </div>
+  </section>
+
+  <section class="card" style="margin-top:14px" id="focCard">
+    <h2>Your next session focus</h2>
+    <div class="sub" id="focSub"></div>
+    <div class="focus">
+      <div id="focText"></div>
+      <div id="focMap" class="mapbox"></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div><h2>Weakness ranking</h2>
+        <div class="sub" style="margin-bottom:0" id="rankSub"></div></div>
+      <span class="seg" id="rankTab"><button data-v="tracks" class="on">Tracks</button><button data-v="sectors">Sectors</button><button data-v="repeats">Repeat problems</button></span>
+    </div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="rankTbl"></table></div>
+    <div class="foot">From your result files: dry laps, current game version, counted laps only (no pit, out or slow laps); per track your fastest car there. Possible gain per lap = how much faster your average lap
+      could be: the gap to your optimal lap (your best three sectors: you already drove them, just not in one lap) plus how far the track is behind your level on your other tracks.
+      The order takes the lap length into account: 2 s on a 4-minute Le Mans lap counts for less than 2 s on a 1:40 lap. Usual = the middle (median) of your counted laps in your last 5 sessions there.
+      Click a row to show that track in the focus above.</div>
   </section>
 
   <section class="card" style="margin-top:14px">
@@ -50,7 +73,7 @@
     </div>
     <div class="tiles" id="segTiles" style="margin-top:14px"></div>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));margin-top:14px">
-      <div id="segMap" style="min-height:320px"></div>
+      <div id="segMap" class="mapbox" style="min-height:320px"></div>
       <div id="segSide">
         <div class="sub" style="margin:0 0 6px 0">Where your best lap lost the most</div>
         <table class="tbl" id="segWorst"></table>
@@ -65,6 +88,7 @@
 <script src="js/pace-ref.js"></script>
 <script src="js/potential-math.js"></script>
 <script src="js/hub.js"></script>
+<script src="js/trackmap.js"></script>
 <script src="js/potential.js"></script>
 </body>
 </html>

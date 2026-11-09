@@ -25,6 +25,7 @@
     ['chipHyper', 'Position chip: Hypercar', 'red'], ['chipLmp2', 'Position chip: LMP2', 'blue'], ['chipLmp3', 'Position chip: LMP3', 'purple'],
     ['chipGt3', 'Position chip: GT3', 'green'], ['chipGte', 'Position chip: GTE', 'yellow'], ['chipOther', 'Position chip: other class', 'accent'],
     ['chipYou', 'Position chip: you', 'focusMark'], ['chipText', 'Position chip: number', 'bg'],
+    ['penBg', 'Penalty badge', 'red'], ['penText', 'Penalty badge text', 'white'],
     ['dltFaster', 'Δ: car was faster than you', 'red'], ['dltSlower', 'Δ: car was slower than you', 'green'], ['dltNone', 'Δ: none', 'label']]);
   var K = SL.K;
   var TYRE = { soft: K.tyreSoft, medium: K.tyreMedium, hard: K.tyreHard, wet: K.tyreWet, other: K.tyreOther }, VE = { none: K.veNone, low: K.veLow, mid: K.veMid, ok: K.ve };
@@ -87,7 +88,7 @@
     var RO = { custom: P.opt(set, 'rows', 'standard') === 'custom', ahead: P.opt(set, 'ahead', 3), behind: P.opt(set, 'behind', 3), p1: P.shown(set, 'p1') };
     var NR = RO.custom ? (RO.p1 ? 1 : 0) + RO.ahead + 1 + RO.behind : ROWS, H = heightOf(NR), zebra = P.shown(set, 'zebra'), last = null;
     var FILL = !RO.custom;                                                            // standard rows: the board fills its box (taller = more cars around you)
-    var TS = P.opt(set, 'textSize', 100) / 100 * (P.textScale ? P.textScale() : 1), CLS = P.opt(set, 'cls', 'mine'), HIDE = P.shown(set, 'hideEmpty');
+    var TS = P.opt(set, 'textSize', 100) / 100 * (P.textScale ? P.textScale() : 1), CLS = P.opt(set, 'cls', 'mine'), HIDE = P.shown(set, 'hideEmpty'), PEN = P.shown(set, 'pen');
     var root_ = D.box('pw-lb', host, 0, 0, W, H); cssVar(root_, '--pw-chip-you', K.chipYou); cssVar(root_, '--pw-chip-text', K.chipText); root_.style.backgroundColor = K.bg; root_.style.borderColor = K.border;
     var head = D.box('pw-lb-head', root_, 32, 8, Math.min(900, W - 40), 40); head.style.fontSize = Math.round(24 * TS) + 'px'; head.style.fontWeight = '700'; head.style.color = K.header;
     var hline = D.box('pw-lb-line', root_, 12, 49, LW, 2.4); hline.style.backgroundColor = K.headerLine;
@@ -107,6 +108,12 @@
         if (c[0] === 'logo') { var im = D.el('img', 'pw-lb-logo', r.el); im.style.cssText = 'position:absolute;left:' + o.x + 'px;top:5px;width:40px;height:40px;object-fit:contain'; r.cells.logo = im; return; }
         var e = D.box('pw-lb-cell' + (c[0] === 'pos' ? ' pw-lb-pos' : (c[0] === 'tyre' ? ' pw-lb-tyre' : '')), r.el, o.x, 0, c[2], ROWH); var s = e.style;
         s.fontSize = Math.round(c[4] * TS) + 'px'; s.fontWeight = c[5]; s.textAlign = c[3]; s.lineHeight = ROWH + 'px'; r.cells[c[0]] = e;
+        if (c[0] === 'name' && PEN) {                                                    // the penalty badge: at the right end of the driver column (no extra column)
+          r.pen = D.box('pw-lb-pen', r.el, o.x, 0, c[2], ROWH); r.pen.style.cssText += ';text-align:right;line-height:' + ROWH + 'px;pointer-events:none';
+          r.penTxt = D.el('span', 'pw-lb-pentxt', r.pen); var ps = r.penTxt.style;
+          ps.backgroundColor = K.penBg; ps.color = K.penText; ps.fontSize = Math.round(16 * TS) + 'px'; ps.fontWeight = '800'; ps.padding = '3px 8px'; ps.borderRadius = '5px'; ps.letterSpacing = '0.5px';
+          D.show(r.pen, false); e.style.boxSizing = 'border-box';                     // so room for the badge shortens the name, not widens the cell
+        }
       });
       r.zebra = zebra && (i % 2 === 1); rows.push(r);
       if (sep && sep.parentNode) root_.appendChild(sep);                             // the separator line stays on top of the rows
@@ -132,6 +139,7 @@
         cell(c.pos, String(d.classPos), K.pos);
         if (c.logo) D.src(c.logo, P.brands.logoSrc(d.model, d.entry));
         cell(c.name, d.driver, K.name);
+        if (r.pen) { var pt = F.penalty(d); D.show(r.pen, !!pt); D.text(r.penTxt, pt); var pad = pt ? Math.round((pt.length * 11 + 26) * TS) + 'px' : '0px'; if (c.name._pad !== pad) { c.name.style.paddingRight = pad; c.name._pad = pad; } }
         cell(c.tyre, d.tyre, F.tyreColor(d.tyre, TYRE));
         cell(c.ve, F.ve(d.ve), F.veColor(d.ve, VE));
         cell(c.s1, F.sector(d.s1), F.sectorColor(d.s1, SEC));
@@ -166,7 +174,7 @@
       { key: 'rows', label: 'Rows', type: 'select', def: 'standard', choices: [['standard', 'Standard: P1 + 12 around you'], ['custom', 'Custom (below)']] },
       { key: 'ahead', label: 'Custom: cars ahead of you', type: 'number', def: 3, min: 0, max: 15 }, { key: 'behind', label: 'Custom: cars behind you', type: 'number', def: 3, min: 0, max: 15 },
       { key: 'p1', label: 'Custom: always show P1' }, { key: 'zebra', label: 'Zebra stripes' }].concat([['header', 'Class header'], ['titles', 'Column titles'], ['logo', 'Brand logo'], ['tyre', 'Tyre (T)'], ['ve', 'Virtual energy (VE %)'],
-      ['s1', 'Sector 1'], ['s2', 'Sector 2'], ['s3', 'Sector 3'], ['best', 'Best lap'], ['last', 'Last lap'], ['avg', '5-lap average'], ['pit', 'PIT'],
+      ['s1', 'Sector 1'], ['s2', 'Sector 2'], ['s3', 'Sector 3'], ['best', 'Best lap'], ['last', 'Last lap'], ['avg', '5-lap average'], ['pit', 'PIT'], ['pen', 'Penalties (badge after the name: DT, SG, +10s, PEN)'],
       ['lap', 'Laps'], ['int', 'Gap (INT)'], ['dlt', 'Δ last lap vs you']].map(function (o) { return { key: o[0], label: o[1] }; })) });
   if (typeof module !== 'undefined') module.exports = { pickRows: pickRows, boardOf: boardOf, fitBoard: fitBoard, fillRows: fillRows, heightOf: heightOf, COLS: COLS, ROWS: ROWS, BASE_W: BASE_W, BASE_H: BASE_H, K: K };
 })(typeof window !== 'undefined' ? window : globalThis);

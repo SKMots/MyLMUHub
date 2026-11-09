@@ -48,6 +48,8 @@ public sealed class CarDetail
     public string Compound { get; set; } = "";       // front compound name
     public double Rpm { get; set; } = -1;            // engine rpm
     public bool Overheating { get; set; }            // the game's engine overheating flag
+    public double Throttle { get; set; } = -1;       // pedal 0..1 (the driver's input, before aids), -1 = not known
+    public double BrakeIn { get; set; } = -1;        // brake pedal 0..1
     public int[] Dents { get; set; } = new int[8];   // 0 none, 1 light, 2 heavy
     public bool Detached { get; set; }
     public WheelSnap[] Wheels { get; set; } = { new(), new(), new(), new() };   // FL FR RL RR
@@ -74,6 +76,7 @@ public sealed class CarSnap
     public double BehindNext { get; set; }    // seconds behind the next car in the overall order
     public double EstLap { get; set; } = -1;  // the game's estimated lap time (mEstimatedLapTime: what its own relative uses), -1 = none
     public double LapDist { get; set; }       // metres round the current lap
+    public int Penalties { get; set; }        // mNumPenalties: penalties still to serve
     public bool InPits { get; set; }
     public bool InGarage { get; set; }
     public bool IsPlayer { get; set; }        // NOT set while spectating
@@ -132,6 +135,12 @@ public sealed class StandingRow
     public int Laps { get; set; }
     public GapInfo Gap { get; set; } = new();
     public DeltaInfo Delta { get; set; } = new();
+    /// <summary>Penalties to serve (shared memory mNumPenalties; 0 = none, then not sent). Their kind, when the game's UI websocket gives it (App: LivePenalties):
+    /// drive-throughs, stop-and-goes, seconds of time penalty.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int Pen { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int PenDt { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int PenSg { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public double PenSec { get; set; }
 }
 
 public sealed class CardView

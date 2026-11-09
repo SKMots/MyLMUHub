@@ -225,7 +225,7 @@ public sealed class StandingsEngine
         {
             Focus = isMe, ClassPos = c.ClassPos, Overall = s.Place, Driver = s.Driver, Model = s.Model, Entry = s.Entry, Tyre = s.Tyre,
             Ve = s.Ve > 0 ? s.Ve : -1, S1 = s1, S2 = s2, S3 = s3, Best = b, BestFlag = bf, Last = l, LastFlag = lf, Avg = Avg5(s),
-            Pit = s.InPits || s.InGarage, Laps = s.Laps,
+            Pit = s.InPits || s.InGarage, Laps = s.Laps, Pen = s.Penalties,
         };
         if (focus != null)
         {

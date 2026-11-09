@@ -58,7 +58,8 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         }
         var engine = new StandingsEngine(focus) { Spectate = SpectateStore.Load(), IncludeAll = true };
         var web = replay == null ? new GameWebApi(AppPaths.Dir) : null; web?.Start();             // the game's web API only exists live
-        var pump = new DataPump(source, engine, server, FocusNames, web); pump.Start();
+        var pens = replay == null ? new LivePenalties(AppPaths.Dir) : null; pens?.Start();       // penalty kinds: the game's UI websocket, live only
+        var pump = new DataPump(source, engine, server, FocusNames, web) { Penalties = pens }; pump.Start();
         server.SpectateInfo = () => new { target = engine.Spectate, cars = pump.Cars() };
         server.RaceLive = pump.RaceLive;
         server.SpectateSet = t => { engine.Spectate = t; SpectateStore.Save(t); };
@@ -67,7 +68,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         server.PaceInfo = pace.Info; pump.Pace = pace;
         server.PaceSet = pace.Set;
         server.CarLaps = pace.CarLaps;
-        var segments = new SegmentStore(); pump.Segments = replay == null ? segments : null; server.Segments = segments.Info;   // segment times: only from the live game
+        var segments = new SegmentStore(); pump.Segments = replay == null ? segments : null; server.Segments = segments.Info; server.SegmentLine = segments.Line;   // segment times: only from the live game
         var guests = new Guests(settings); pace.Guests = guests; segments.Guest = () => guests.Current;   // guest mode: a friend's data apart from yours
         guests.Changed += () => { pace.GuestChanged(); segments.Bump(); };
         server.GuestInfo = () => guests.Info(pace.GuestFiles);
@@ -108,7 +109,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         updates.Restart = () => app.Dispatcher.BeginInvoke(() => app.Shutdown());              // the new version is already starting
         app.Startup += (_, _) => OpenHub();
         app.Run();
-        pump.Dispose(); server.Dispose(); updates.Dispose(); twitch.Dispose();
+        pump.Dispose(); pens?.Dispose(); server.Dispose(); updates.Dispose(); twitch.Dispose();
         return 0;
     }
 }
