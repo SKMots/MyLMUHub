@@ -60,10 +60,10 @@
       var x = X + 6, y = Y + 24 + r * (CH + GAP), o = {};
       o.card = k.rect(x, y, CW, CH); o.card.className += ' pw-wx-card'; o.card._k = '';
       o.t = k.txt(x + 8, y, 54, CH, 21, 800, 'left', K.cardText);
-      o.n = k.txt(x + 62, y + 4, 120, 16, 15, 800, 'left', K.cardText);
-      o.r = k.txt(x + 62, y + 19, 90, 14, 14, 700, 'left', K.cardText);
+      o.n = k.txt(x + 60, y + 3, 104, 18, 18, 800, 'left', K.cardText);
+      o.r = k.txt(x + 60, y + 20, 90, 14, 15, 700, 'left', K.cardText);
       o.a = k.txt(x + CW - 58, y, 50, CH, 25, 700, 'right', K.cardText);
-      [o.t, o.n, o.r, o.a].forEach(function (t) { t.style.textShadow = '0 1px 3px rgba(0,0,0,0.75)'; });
+      [o.t, o.n, o.r, o.a].forEach(function (t) { t.style.textShadow = '0 1px 2px #000, 0 0 6px rgba(0,0,0,0.9)'; });
       o.all = [o.card, o.t, o.n, o.r, o.a]; e.rows.push(o);
     }
     return function (state) {

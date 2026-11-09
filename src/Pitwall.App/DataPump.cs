@@ -72,7 +72,7 @@ public sealed class DataPump : IDisposable
                         var standings = engine.Build(snap);
                         JoinPenaltyKinds(standings);
                         if (web != null && engine.FocusCar != null && engine.FocusCar.IsPlayer) { engine.Car.Aero = web.Aero; engine.Car.Susp = web.Susp; engine.Car.SuspWheels = web.SuspWheels; }   // the repair screen is YOUR car: not while watching
-                        if (web != null) DamageDiag(engine.FocusCar);
+                        if (web != null) { DamageDiag(engine.FocusCar); FlagDiag(snap); }
                         if (web != null)                                                         // live only: a replay must not overwrite the saved race
                         {
                             lock (stintGate) stints.Update(snap, engine.FocusCar, DateTimeOffset.Now.ToUnixTimeMilliseconds());
@@ -132,6 +132,19 @@ public sealed class DataPump : IDisposable
     // DIAGNOSTIC (damage widget not right yet): what the game reports for the followed car, written to webapi\damage-live.json only when it changes,
     // plus a history of the last 50 changes, so a session can be checked afterwards. Dent zones 0..7 (0 none, 1 light, 2 heavy), detached, the condition shown.
     string lastDamage; readonly Queue<string> damageHist = new();
+    // DIAGNOSTIC (owner: the yellow on the map lit the whole track): the game's raw flag values and what the map made of them, a line each time they change
+    // (the last 100), in webapilags-live.txt
+    string lastFlags; readonly Queue<string> flagHist = new();
+    void FlagDiag(RaceSnapshot snap)
+    {
+        var s = snap.Session; var f = engine.Track?.Flags;
+        string now = "sectorFlag[0..2]=" + (s.SectorFlagRaw == null ? "-" : string.Join(",", s.SectorFlagRaw)) + " yellowState=" + s.YellowState + " phase=" + s.GamePhase +
+                     " -> " + (f == null ? "-" : f.State + " S" + string.Join("", f.Sectors) + " incidents=" + f.Incidents + " zones=" + f.Zones.Count + (f.Diag.Length > 0 ? " [" + f.Diag + "]" : ""));
+        if (now == lastFlags) return;
+        lastFlags = now; flagHist.Enqueue(DateTime.Now.ToString("HH:mm:ss") + " " + now); while (flagHist.Count > 100) flagHist.Dequeue();
+        try { var dir = Path.Combine(AppPaths.Dir, "webapi"); Directory.CreateDirectory(dir); File.WriteAllLines(Path.Combine(dir, "flags-live.txt"), flagHist); } catch (Exception) { }
+    }
+
     void DamageDiag(CarSnap f)
     {
         if (f?.Detail == null) return;

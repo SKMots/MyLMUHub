@@ -230,10 +230,29 @@ button, select, input { font:inherit; color:inherit; }
 #ovSide { overflow:auto; min-height:0; }
 #ovSide .tbl td { padding:7px 8px; }
 
-/* the menu on one line; the map view: zoom and driving lines */
+/* AI Coach */
+.coach-terms { max-width:900px; font-size:13px; line-height:1.55; color:var(--muted); margin-left:26px; }
+.coach-terms p { margin:0 0 10px; } .coach-terms b { color:var(--text); }
+.coach-ok { display:flex; gap:10px; align-items:center; margin:14px 0 0 26px; font-weight:600; cursor:pointer; } .coach-ok input { accent-color:var(--lime); width:16px; height:16px; margin:0; }
+.coach-prov { display:grid; gap:8px; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+.coach-p { display:flex; gap:10px; align-items:flex-start; padding:12px 14px; background:var(--tile); border:1px solid var(--line); border-radius:10px; cursor:pointer; }
+.coach-p.on { border-color:var(--lime); } .coach-p input { accent-color:var(--lime); margin:3px 0 0; }
+.coach-p small { display:block; color:var(--muted); margin-top:6px; line-height:1.45; }
+.coach-sent { margin:12px 0 0; padding:12px 14px; background:var(--tile); border-radius:10px; font-family:var(--mono); font-size:12px; color:var(--muted); white-space:pre-wrap; max-height:360px; overflow:auto; }
+.coach-ans { margin-top:14px; padding:14px 18px; background:var(--tile); border-left:3px solid var(--lime); border-radius:6px 14px 6px 14px; font-size:14px; line-height:1.55; max-width:980px; }
+.coach-ans h3 { margin:14px 0 4px; font-size:14px; font-style:italic; } .coach-ans p { margin:4px 0; } .coach-ans ul, .coach-ans ol { margin:4px 0; padding-left:22px; } .coach-ans li { margin:2px 0; }
+.coach-ah { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; } .coach-ah .faint { font-size:12px; }
 .nav a { white-space:nowrap; } .rule { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }   /* the menu stays on one line */
 @media (max-width:1700px) { .nav { gap:2px; } .nav a { padding:8px 12px; } }   /* a narrower window: a little less room around the menu items */
+#topBar[hidden], #setClose[hidden], #keyDel[hidden] { display:none; }
 .seg button:disabled { opacity:.4; cursor:default; }
+.coach-map { display:grid; grid-template-columns:minmax(0, 560px) minmax(300px, 1fr); gap:18px; align-items:start; }
 #ovMap svg path, #ovMap svg circle { vector-effect:non-scaling-stroke; } #ovMap svg { touch-action:none; user-select:none; }   /* map view zoom: lines keep their width */
-.ov-lines { display:grid; gap:6px; font-size:13px; } .ov-lines label { display:flex; align-items:center; gap:8px; } .ov-lines i { width:18px; height:4px; border-radius:2px; display:inline-block; }   /* map view: driving lines */
 #ovReset[hidden] { display:none; }
+/* the map view's second row (what colours the track / which two lines), the map view inside a page (Track study), folded explanations */
+.mapov-tools { display:flex; align-items:center; gap:10px; padding:10px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; min-height:54px; }
+.lineSel { display:inline-flex; align-items:center; gap:7px; } .lineSel i { width:24px; height:5px; border-radius:3px; display:inline-block; } .lineSel .sel { padding:7px 10px; max-width:360px; }
+.mapstudy { height:min(860px, 82vh); display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; min-height:0; margin-top:14px; }
+#ovSide .btn.on { background:var(--lime); color:var(--lime-ink); border-color:var(--lime); }
+details.explain { margin-top:14px; color:var(--faint); font-size:12px; line-height:1.6; } details.explain summary { cursor:pointer; color:var(--muted); font-size:13px; margin-bottom:4px; }
+details.explain summary:hover { color:var(--lime); }

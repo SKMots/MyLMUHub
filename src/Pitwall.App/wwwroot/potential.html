@@ -12,9 +12,11 @@
   <header id="hdr"></header>
 
   <section class="card" style="margin-top:14px">
-    <h2>Improve</h2>
-    <div class="sub" style="margin-bottom:0" id="topSub">What to work on next: your next session focus, your weaknesses ranked (tracks, sectors, repeat problems), tracks behind your level,
-      time you already showed but did not put in one lap, and the exact places on a track where you lose it. Click a map to open it big.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+      <div><h2>Improve</h2>
+        <div class="sub" style="margin-bottom:0" id="topSub">What to work on next, and where on a track you lose the time.</div></div>
+      <span class="seg" id="pageTab"><button data-v="work" class="on">What to work on</button><button data-v="study">Track study</button></span>
+    </div>
   </section>
 
   <section class="card" style="margin-top:14px">
@@ -26,6 +28,7 @@
     </div>
   </section>
 
+  <div id="tabWork">
   <section class="card" style="margin-top:14px" id="focCard">
     <h2>Your next session focus</h2>
     <div class="sub" id="focSub"></div>
@@ -42,10 +45,11 @@
       <span class="seg" id="rankTab"><button data-v="tracks" class="on">Tracks</button><button data-v="sectors">Sectors</button><button data-v="repeats">Repeat problems</button></span>
     </div>
     <div class="scroll" style="margin-top:14px"><table class="tbl" id="rankTbl"></table></div>
-    <div class="foot">From your result files: dry laps, current game version, counted laps only (no pit, out or slow laps); per track your fastest car there. Possible gain per lap = how much faster your average lap
-      could be: the gap to your optimal lap (your best three sectors: you already drove them, just not in one lap) plus how far the track is behind your level on your other tracks.
-      The order takes the lap length into account: 2 s on a 4-minute Le Mans lap counts for less than 2 s on a 1:40 lap. Usual = the middle (median) of your counted laps in your last 5 sessions there.
-      Click a row to show that track in the focus above.</div>
+    <div class="faint" style="font-size:12px;margin-top:8px">Click a row to show that track in the focus above.</div>
+    <details class="explain"><summary>What do these numbers mean?</summary>From your result files: dry laps, current game version, counted laps only (no pit, out or slow laps); per track your fastest car there.
+      Possible gain per lap = how much faster your average lap could be: the gap to your optimal lap (your best three sectors: you already drove them, just not in one lap) plus how far the track is
+      behind your level on your other tracks. The order takes the lap length into account: 2 s on a 4-minute Le Mans lap counts for less than 2 s on a 1:40 lap.
+      Usual = the middle (median) of your counted laps in your last 5 sessions there.</details>
   </section>
 
   <section class="card" style="margin-top:14px">
@@ -53,9 +57,9 @@
     <div class="sub" id="lvlSub">Your race pace on each track as % of the alien race pace, against your level now.</div>
     <div class="tiles" id="lvlTiles"></div>
     <div class="scroll" style="margin-top:14px"><table class="tbl" id="trkTbl"></table></div>
-    <div class="foot">Your level now = the middle (median) of your race pace % over the tracks you drove in the last 30 days. Gain = how far a track is behind that, per lap.
-      A track you last drove before that is often behind only because you got faster since: going back there is the quickest gain (STALE).
-      Dry laps of all session types that count (no pit, out or slow laps), current game version, tracks in the reference sheet.</div>
+    <details class="explain"><summary>What do these numbers mean?</summary>Your level now = the middle (median) of your race pace % over the tracks you drove in the last 30 days.
+      Gain = how far a track is behind that, per lap. A track you last drove before that is often behind only because you got faster since: going back there is the quickest gain (STALE).
+      Dry laps of all session types that count (no pit, out or slow laps), current game version, tracks in the reference sheet.</details>
   </section>
 
   <section class="card" style="margin-top:14px">
@@ -64,24 +68,20 @@
     <div class="scroll"><table class="tbl" id="optTbl"></table></div>
   </section>
 
+  </div>
+
+  <!-- Track study: one track + car big (the map view inside the page): where you lose time, and your driving lines -->
+  <div id="tabStudy" hidden>
   <section class="card" style="margin-top:14px">
     <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
-      <div><h2>Segments</h2>
-        <div class="sub" style="margin-bottom:0">Every lap cut into pieces of about 150 m, timed live while you drive (your own valid laps only: a cut lap does not count). Your best in every segment
-          added up = your theoretical best lap. Red on the map = where your best lap lost the most against your best there.</div></div>
+      <div><h2>Track study</h2>
+        <div class="sub" style="margin-bottom:0">Every lap cut into pieces of about 150 m, timed live while you drive (your own valid laps). Pick a track and car.</div></div>
       <select class="sel" id="segSel"></select>
     </div>
     <div class="tiles" id="segTiles" style="margin-top:14px"></div>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));margin-top:14px">
-      <div id="segMap" class="mapbox" style="min-height:320px"></div>
-      <div id="segSide">
-        <div class="sub" style="margin:0 0 6px 0">Where your best lap lost the most</div>
-        <table class="tbl" id="segWorst"></table>
-        <div class="sub" style="margin:14px 0 6px 0">Where you usually lose the most (your last 20 laps)</div>
-        <table class="tbl" id="segTypical"></table>
-      </div>
-    </div>
+    <div id="studyMap"></div>
   </section>
+  </div>
 </div>
 <script src="js/format.js"></script>
 <script src="js/pace-math.js"></script>

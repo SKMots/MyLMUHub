@@ -32,8 +32,10 @@ public sealed class SnapshotReader
         if (se.Fields.ContainsKey("mYellowFlagState"))
         {
             snap.Session.YellowState = (int)S("mYellowFlagState");
-            // mSectorFlag: the header says "not sure if sector 0 is first or last, so test"; ASSUMED like mSector (0 = sector 3, 1 = sector 1, 2 = sector 2)
-            snap.Session.SectorYellow = new[] { S("mSectorFlag[1]") != 0, S("mSectorFlag[2]") != 0, S("mSectorFlag[0]") != 0 };
+            // mSectorFlag: the header says "not sure if sector 0 is first or last, so test"; ASSUMED like mSector (0 = sector 3, 1 = sector 1, 2 = sector 2).
+            // Only 1 = a yellow (as TinyPedal reads it for LMU): "not 0" lit the whole track (owner, 2026-11-09: a clear sector is not 0). Raw values: webapilags-live.txt
+            snap.Session.SectorFlagRaw = new[] { (int)S("mSectorFlag[0]"), (int)S("mSectorFlag[1]"), (int)S("mSectorFlag[2]") };
+            snap.Session.SectorYellow = new[] { snap.Session.SectorFlagRaw[1] == 1, snap.Session.SectorFlagRaw[2] == 1, snap.Session.SectorFlagRaw[0] == 1 };
         }
 
         // the telemetry array is packed: only 'activeVehicles' entries are filled and each carries its own slot id

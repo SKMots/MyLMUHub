@@ -16,7 +16,7 @@
     h.innerHTML = '<a class="brand" href="home.html"><img src="assets/logo.svg" alt=""><b><i>my</i>lmu<i>hub</i></b><small>sim<br>racing</small></a>' +
       '<div class="rule" id="liveRule">offline</div>' +
       '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="#" id="navRc">Race Control</a>' +
-      '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a></nav>' +
+      '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a><a href="coach.html"' + (active === 'coach' ? ' class="on"' : '') + '>AI Coach</a></nav>' +
       '<span class="upd" id="upd"></span>' +
       '<select class="sel themeSel" id="hubTheme" title="Hub theme (Race Control has its own, in its edit mode)">' + HUB_THEMES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === hubTheme() ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
       '<button class="btn" id="guestBtn" title="A friend drives on your rig: keep his laps apart from yours">Guest</button>' +

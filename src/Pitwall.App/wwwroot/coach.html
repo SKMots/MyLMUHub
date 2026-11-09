@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - AI Coach</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div><h2>AI Coach</h2>
+        <div class="sub" style="margin-bottom:0">Your own AI reads a summary of a session and writes a debrief with a practice plan, or answers your question. It uses your API key, only when you click.</div></div>
+      <div class="bar" id="topBar" hidden><span class="faint" id="useInfo"></span><button class="btn" id="setBtn">Settings</button></div>
+    </div>
+  </section>
+
+  <!-- first time: what it does and what it costs, before anything else -->
+  <section class="card" style="margin-top:14px" id="terms" hidden>
+    <h2>Before you start: how the AI Coach works</h2>
+    <div class="coach-terms">
+      <p><b>What it does.</b> The app reads your sessions (the game's result files), works out the numbers itself and sends a short summary to the AI you choose.
+        The AI writes a debrief and a plan for your next session, or answers a question about it.</p>
+      <p><b>Your own API key.</b> You add a key from Google (Gemini), OpenAI or Anthropic (Claude). My LMU Hub has no AI and no server of its own: the request goes
+        straight from this PC to that provider, with your key.</p>
+      <p><b>Only when you click.</b> Nothing is ever sent by itself or in the background. Before each request you see roughly how big it is, and you can read exactly
+        what is sent. Every answer is saved on this PC: opening it again costs nothing.</p>
+      <p><b>What is sent.</b> Lap and sector times, track, car, class, session type and date, your finishing position, where on the track you lose time and, there, your braking point, speed and full-throttle point.
+        Not your driver names, not your files, nothing else from your PC.</p>
+      <p><b>A free key</b> (Google AI Studio has one) costs nothing but has daily limits. On free tiers a provider may use what you send to improve its models:
+        see its terms.</p>
+      <p><b>A paid key</b> is billed by the provider to <u>your</u> account, per token (a token is about ¾ of a word). A debrief is about 1,000 to 2,000 tokens in and out together;
+        with a small model that is usually less than one cent. The provider sets the prices and they differ per model: check its price list, and set a spending
+        limit in its dashboard. Note: a ChatGPT Plus, Claude Pro or Gemini subscription is not an API key; API use is billed apart from it.</p>
+      <p><b>Your key stays here.</b> It is stored encrypted for your Windows user on this PC (%AppData%\MyLMUHub\coach.json), is never shown again and goes only to that provider.
+        Remove it here at any time.</p>
+      <p><b>The AI can be wrong.</b> It only knows these numbers: no steering, gears or tyre data. Take its advice as ideas to try, not facts.</p>
+    </div>
+    <label class="coach-ok"><input type="checkbox" id="okBox"> I understand: requests go to the provider I choose, with my key, and a paid key is billed by that provider.</label>
+    <div class="bar" style="margin-top:14px"><button class="btn lime" id="okBtn" disabled>Accept and continue</button></div>
+  </section>
+
+  <!-- the provider, the key, the model -->
+  <section class="card" style="margin-top:14px" id="setup" hidden>
+    <h2>Settings: your AI</h2>
+    <div class="sub">Pick a provider, paste its API key and pick a model. Checking the key (the list of models) is free.</div>
+    <div class="coach-prov" id="provList"></div>
+    <div class="form" style="margin-top:14px;grid-template-columns:2fr 1fr">
+      <label class="field">API key <span class="faint" id="keyHint"></span><input class="input" id="keyIn" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key"></label>
+      <label class="field">Model<select class="sel" id="modelSel"></select></label>
+    </div>
+    <div class="faint" id="modelNote" style="margin-top:6px;font-size:12px"></div>
+    <div class="bar" style="margin-top:14px">
+      <button class="btn lime" id="keySave">Save and check the key</button><button class="btn" id="keyDel">Remove this key</button>
+      <span class="muted" id="keyMsg"></span>
+      <span style="flex:1"></span>
+      <button class="btn" id="setClose">Done</button>
+    </div>
+    <div class="foot">Terms accepted. <a class="back" id="resetBtn">Forget everything (keys, saved answers, the accepted terms)</a></div>
+  </section>
+
+  <div id="main" hidden>
+    <section class="card" style="margin-top:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        <label class="field inline">Session<select class="sel" id="sesSel" style="max-width:640px"></select></label>
+        <span class="faint" id="sesInfo"></span>
+      </div>
+      <div class="tiles" id="sesTiles" style="margin-top:14px"></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2>Where you lose time</h2>
+      <div class="sub" id="mapSub"></div>
+      <div class="coach-map"><div id="cMap" class="mapbox"></div><div id="cSpots"></div></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <span class="seg" id="kindTab"><button data-v="debrief" class="on">Debrief</button><button data-v="question">Ask a question</button><button data-v="strategy" disabled title="Coming next">Strategy check</button></span>
+        <span class="faint" id="cost"></span>
+      </div>
+      <div id="askDebrief" style="margin-top:14px">
+        <div class="muted" style="font-size:13px">What went well, what to work on (with the numbers) and a plan for your next session on this track.</div>
+      </div>
+      <div id="askQuestion" style="margin-top:14px" hidden>
+        <textarea class="input area" id="qIn" maxlength="1000" placeholder="e.g. Why is my S3 so much slower than my best? What should I practise first?"></textarea>
+        <div class="bar" id="qIdeas" style="margin-top:8px"></div>
+      </div>
+      <div class="bar" style="margin-top:14px">
+        <button class="btn lime" id="goBtn">Get my debrief</button>
+        <a class="back" id="showSent">See what is sent</a>
+        <span class="muted" id="goMsg"></span>
+      </div>
+      <pre class="coach-sent" id="sent" hidden></pre>
+      <div class="coach-ans" id="answer" hidden></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2>Saved answers</h2>
+      <div class="sub">Opening a saved answer is free. Stored on this PC only.</div>
+      <div class="scroll"><table class="tbl" id="histTbl"></table></div>
+    </section>
+  </div>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/potential-math.js"></script>
+<script src="js/coach-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/trackmap.js"></script>
+<script src="js/coach.js"></script>
+</body>
+</html>

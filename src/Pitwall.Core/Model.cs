@@ -19,6 +19,7 @@ public sealed class SessionSnap
     public double Wetness { get; set; }       // average path wetness 0..1
     public double TimeOfDay { get; set; } = -1;   // mTimeOfDay as the game gives it (unit not verified), -1 = none
     public int YellowState { get; set; } = -1;    // mYellowFlagState (full course): -1 invalid, 0 none, 1 pending, 2 pits closed, 3 pit lead lap, 4 pits open, 5 last lap, 6 resume
+    public int[] SectorFlagRaw { get; set; }                  // mSectorFlag[0..2] as the game gives them (diagnostic), null = not read
     public bool[] SectorYellow { get; set; } = new bool[3];   // local yellow in sector 1, 2, 3 (mSectorFlag; its index order is ASSUMED to be the game's 0 = sector 3, see SnapshotReader)
 }
 

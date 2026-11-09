@@ -68,6 +68,9 @@ public sealed class DashServer : IDisposable
     /// <summary>/api/sessions GET: your result files (PaceService.Files); POST { do, files, name } (this PC only): hide / restore / guest / mine / delete.</summary>
     public Func<object> SessionsInfo { get; set; }
     public Func<string, List<string>, string, int> SessionsDo { get; set; }
+    /// <summary>/api/coach (this PC only: it uses your API key): GET the AI Coach state, ?id= one saved answer; POST ?do=accept|decline|reset|key|use|models|ask|delete (CoachService).</summary>
+    public CoachService Coach { get; set; }
+    sealed record CoachBody(string Provider, string Key, string Model);
     sealed record SessionsBody(string Do, List<string> Files, string Name);
     sealed record PaceBody(List<string> Names, string Folder);
     static readonly JsonSerializerOptions Opt = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
@@ -189,6 +192,7 @@ public sealed class DashServer : IDisposable
                 string n = ctx.Request.QueryString["name"], j = n == null ? JsonSerializer.Serialize(TrackStore.Names()) : TrackStore.Load(n);
                 await Send(ctx, j == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(j ?? "{}")); return;
             }
+            if (path == "/api/coach" && Coach != null) { await CoachApi(ctx, here); return; }
             if (path == "/api/segments" && SegmentLine != null && ctx.Request.QueryString["line"] is string ln)
             { var t = SegmentLine(ctx.Request.QueryString["key"], ln); await Send(ctx, t == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(t ?? "{}")); return; }
             if (path == "/api/segments" && Segments != null) { var r = Segments(ctx.Request.QueryString["key"]); await Send(ctx, r == null ? 404 : 200, "application/json; charset=utf-8", r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return; }
@@ -242,6 +246,41 @@ public sealed class DashServer : IDisposable
             await Send(ctx, 200, "text/plain", Encoding.UTF8.GetBytes("ok"));
         }
         else await Send(ctx, 405, "text/plain", Encoding.UTF8.GetBytes("method not allowed"));
+    }
+
+    async Task CoachApi(HttpListenerContext ctx, bool here)
+    {
+        const string J = "application/json; charset=utf-8";
+        if (!here) { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("only on the PC the app runs on")); return; }
+        var q = ctx.Request.QueryString;
+        if (ctx.Request.HttpMethod == "GET")
+        {
+            object r = q["id"] != null ? Coach.Get(q["id"]) : Coach.Info();
+            await Send(ctx, r == null ? 404 : 200, J, r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return;
+        }
+        if (ctx.Request.HttpMethod != "POST") { await Send(ctx, 405, "text/plain", Encoding.UTF8.GetBytes("method not allowed")); return; }
+        using var ms = new MemoryStream(); await ctx.Request.InputStream.CopyToAsync(ms);
+        if (ms.Length > 200_000) { await Send(ctx, 413, "text/plain", Encoding.UTF8.GetBytes("too big")); return; }
+        string what = q["do"] ?? ""; object res;
+        try
+        {
+            if (what == "ask") res = await Coach.Ask(JsonSerializer.Deserialize<CoachService.AskBody>(ms.ToArray(), Opt));
+            else
+            {
+                var b = ms.Length > 0 ? JsonSerializer.Deserialize<CoachBody>(ms.ToArray(), Opt) : null;
+                string err = "";
+                if (what == "accept" || what == "decline") Coach.Accept(what == "accept");
+                else if (what == "reset") Coach.Reset();
+                else if (what == "delete") Coach.Delete(q["id"] ?? "");
+                else if (what == "key") err = Coach.SetKey(b?.Provider ?? "", b?.Key);
+                else if (what == "use") err = Coach.Use(b?.Provider ?? "", b?.Model);
+                else if (what == "models") { await Send(ctx, 200, J, JsonSerializer.SerializeToUtf8Bytes(await Coach.Models(b?.Provider ?? ""), Opt)); return; }
+                else err = "unknown";
+                res = err.Length > 0 ? new { error = err } : Coach.Info();
+            }
+        }
+        catch (JsonException) { await Send(ctx, 400, "text/plain", Encoding.UTF8.GetBytes("not json")); return; }
+        await Send(ctx, 200, J, JsonSerializer.SerializeToUtf8Bytes(res, Opt));
     }
 
     async Task Pace(HttpListenerContext ctx)

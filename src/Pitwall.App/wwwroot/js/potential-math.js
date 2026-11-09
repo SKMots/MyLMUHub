@@ -158,7 +158,47 @@
   // which sector (0-2) a distance is in, from the sector lines (-1 = not known)
   function sectorAt(d, lines) { if (!lines || !(lines[0] > 0) || !(lines[1] > lines[0])) return -1; return d < lines[0] ? 0 : d < lines[1] ? 1 : 2; }
 
-  // zones = your weak spots on the track: windows of 3 segments (~450 m) where your typical lap of the last `recent` sessions (default 5, 3+ laps each)
+  // ---------- turns: the lap split corner by corner (the owner: 'real' mini sectors, a straight never split). A turn = from where you brake (or lift) for a
+  // corner to where you brake for the next one: the corner + the straight after it. Found from your best lap's speed (rec.shape: [d, x, z, km/h, brake %] per
+  // reading, api/segments): a drop of 15 km/h or more from a top speed starts a turn there. Without a recorded lap: where the track bends (20 degrees or more
+  // within a segment), a segment before the bend. The cuts snap to the 150 m segments (the timing). -> [{ t: 1.., i0, len (segments), from, to (m) }] in lap
+  // order (Turn 1 = the first after the line; the last one runs over the line), null = fewer than 2 turns found.
+  var SH = 5;
+  function turns(rec) {
+    if (!rec || !rec.n || !(rec.length > 0)) return null;
+    var n = rec.n, step = rec.length / n, starts = [], sh = rec.shape, i;
+    if (sh && sh.length >= SH * 100) {
+      var top = -1, topD = 0, low = Infinity, armed = true;
+      for (i = 0; i + SH <= sh.length; i += SH) {
+        var d = sh[i], v = sh[i + 3]; if (!(v >= 0)) continue;
+        if (armed) { if (v >= top) { top = v; topD = d; } else if (v < top - 15) { starts.push(topD); armed = false; low = v; } }
+        else if (v < low) low = v; else if (v > low + 10) { armed = true; top = v; topD = d; }
+      }
+    } else if (rec.points && rec.points.length === n) {
+      var hd = [], ok = true;
+      for (i = 0; i < n; i++) { var a = rec.points[i], b = rec.points[(i + 1) % n]; if (!a || !b || !(a[0] || a[1]) || !(b[0] || b[1])) { ok = false; break; } hd.push(Math.atan2(b[1] - a[1], b[0] - a[0])); }
+      if (ok) {
+        var bend = false;
+        for (i = 0; i < n; i++) {
+          var t = Math.abs(((hd[i] - hd[(i - 1 + n) % n]) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > 0.35;
+          if (t && !bend) starts.push(((i - 1 + n) % n) * step);
+          bend = t;
+        }
+      }
+    }
+    var cuts = [];
+    starts.forEach(function (d) { var c = Math.round(d / step) % n; if (cuts.indexOf(c) < 0) cuts.push(c); });
+    cuts.sort(function (a, b) { return a - b; });
+    if (cuts.length < 2) return null;
+    return cuts.map(function (c, k) {
+      var next = k + 1 < cuts.length ? cuts[k + 1] : cuts[0] + n, len = next - c;
+      return { t: k + 1, i0: c, len: len, from: c * step, to: ((c + len) * step) % rec.length || rec.length };
+    });
+  }
+  // a turn's time on a lap = the sum of its segments
+  function turnTime(segs, g, n) { var t = 0; for (var j = 0; j < g.len; j++) t += segs[(g.i0 + j) % n]; return t; }
+
+  // zones = your weak spots on the track: the 3 turns (turns(); else windows of 3 segments) where your typical lap of the last `recent` sessions (default 5, 3+ laps each)
   // loses the most against your best ever there. seen = in how many of those sessions the zone overlapped one of that session's 3 biggest losses.
   // Per segment also its typical loss and how much it varies (sd over those sessions' laps).
   function zones(rec, recent) {
@@ -173,6 +213,29 @@
       var mean = sum[i] / laps, v = laps > 1 ? (sq[i] - laps * mean * mean) / (laps - 1) : 0;
       segs.push({ i: i, from: i * step, to: (i + 1) * step, best: rec.best[i], typical: mean, loss: mean - rec.best[i], sd: Math.sqrt(Math.max(0, v)), pts: rec.points ? rec.points[i] : null });
     }
+    var lost = segs.reduce(function (a, s) { return a + Math.max(0, s.loss); }, 0), tg = turns(rec);
+    if (tg) {
+      // per turn: your typical time there (the sum of the segments' averages) against your best time through it in one lap (your stored laps), how much it
+      // varies (the segments' together), and in how many sessions it was one of the 3 turns where you lost the most
+      var lapsList = (rec.laps || []).filter(function (l) { return l.segs && l.segs.length === n; }).map(function (l) { return l.segs; });
+      if (rec.bestLapSegs && rec.bestLapSegs.length === n) lapsList.push(rec.bestLapSegs);
+      tg.forEach(function (g) {
+        var typ = 0, v2 = 0, bsum = 0;
+        for (var j = 0; j < g.len; j++) { var sg = segs[(g.i0 + j) % n]; typ += sg.typical; v2 += sg.sd * sg.sd; bsum += sg.best; }
+        var best = lapsList.length ? Math.min.apply(null, lapsList.map(function (l) { return turnTime(l, g, n); })) : bsum;
+        g.typical = typ; g.best = Math.min(best, typ); g.loss = typ - g.best; g.sd = Math.sqrt(v2);
+        g.sector = sectorAt(((g.i0 + Math.min(1, g.len - 0.5)) * step) % rec.length, rec.sectors); g.pts = rec.points ? rec.points[(g.i0 + Math.min(1, g.len - 1)) % n] : null;
+      });
+      var top3 = ses.map(function (s) {
+        return tg.map(function (g) { var t = 0; for (var j = 0; j < g.len; j++) t += s.sum[(g.i0 + j) % n] / s.laps; return { t: g.t, loss: t - g.best }; })
+          .sort(function (a, b) { return b.loss - a.loss; }).slice(0, 3).map(function (x) { return x.t; });
+      });
+      var zt = tg.slice().sort(function (a, b) { return b.loss - a.loss || a.t - b.t; }).filter(function (g) { return g.loss >= 0.03; }).slice(0, 3).map(function (g, k) {
+        return { n: k + 1, turn: g.t, i0: g.i0, len: g.len, from: g.from, to: g.to, loss: g.loss, sector: g.sector, seen: top3.filter(function (l) { return l.indexOf(g.t) >= 0; }).length,
+                 of: ses.length, pts: g.pts };
+      });
+      return { segs: segs, zones: zt, turns: tg, sessions: ses.length, laps: laps, lost: lost, inZones: zt.reduce(function (a, w) { return a + w.loss; }, 0), sectors: rec.sectors || [-1, -1] };
+    }
     var each = ses.map(function (s) { return windows(s.sum.map(function (t, i) { return t / s.laps - rec.best[i]; }), W, 3); });
     var z = windows(segs.map(function (s) { return s.loss; }), W, 3).filter(function (w) { return w.loss >= 0.03; }).map(function (w, k) {
       var seen = each.filter(function (list) { return list.some(function (o) { var d = (o.i0 - w.i0 + n) % n; return d < W || n - d < W; }); }).length;
@@ -180,7 +243,6 @@
       return { n: k + 1, i0: w.i0, len: W, from: from, to: to > rec.length ? to - rec.length : to, loss: w.loss, sector: sectorAt(mid, rec.sectors), seen: seen, of: ses.length,
                pts: rec.points ? rec.points[(w.i0 + 1) % n] : null };
     });
-    var lost = segs.reduce(function (a, s) { return a + Math.max(0, s.loss); }, 0);
     return { segs: segs, zones: z, sessions: ses.length, laps: laps, lost: lost, inZones: z.reduce(function (a, w) { return a + w.loss; }, 0), sectors: rec.sectors || [-1, -1] };
   }
 
@@ -245,6 +307,6 @@
   }
 
   P.potentialMath = { markOld: markOld, tracks: tracks, optimal: optimal, segments: segments, focus: focus, zones: zones, segSessions: segSessions, windows: windows, sectorAt: sectorAt, repeats: repeats, fastestCar: fastestCar,
-                      lineSpot: lineSpot, lineMedian: lineMedian, optimalLine: optimalLine };
+                      lineSpot: lineSpot, lineMedian: lineMedian, optimalLine: optimalLine, turns: turns };
   if (typeof module !== 'undefined') module.exports = P.potentialMath;
 })(typeof window !== 'undefined' ? window : globalThis);

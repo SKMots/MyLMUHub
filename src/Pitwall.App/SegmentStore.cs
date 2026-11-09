@@ -35,6 +35,9 @@ public sealed class SegmentStore
         public List<Lap> Laps { get; set; } = new();
         public double[] Sectors { get; set; } = { -1, -1 };                   // where S1 / S2 end (m), -1 = not known
         public List<Sess> Sessions { get; set; } = new();
+        /// <summary>Only in /api/segments?key= (never stored here): the shape of the track = your best lap's line as [metres into the lap, x, z,
+        /// + km/h, brake %] one after another, so the maps follow the real track and the turns are found (potential-math turns()). null = no line recorded yet.</summary>
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public double[] Shape { get; set; }
     }
 
     static readonly JsonSerializerOptions Opt = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
@@ -173,6 +176,21 @@ public sealed class SegmentStore
         }
     }
 
+    // the best lap's line without the throttle: [d, x, z, km/h, brake %, ...] (null = none)
+    static double[] ShapeOf(string dir)
+    {
+        try
+        {
+            string bf = Path.Combine(dir, "best.json"); if (!File.Exists(bf)) return null;
+            var l = JsonSerializer.Deserialize<LineLap>(File.ReadAllText(bf), Opt)?.Line; int S = SegmentRecorder.Stride;
+            if (l == null || l.Length < S * 50) return null;
+            var o = new double[l.Length / S * 5];
+            for (int i = 0, k = 0; i + S <= l.Length; i += S) { o[k++] = l[i]; o[k++] = l[i + 1]; o[k++] = l[i + 2]; o[k++] = l[i + 3]; o[k++] = l[i + 5]; }
+            return o;
+        }
+        catch (Exception) { return null; }
+    }
+
     static Record Load(string f) { try { return File.Exists(f) ? JsonSerializer.Deserialize<Record>(File.ReadAllText(f), Opt) : null; } catch (Exception) { return null; } }
 
     /// <summary>/api/segments: { gen, list: [{ key, track, car, cls, n, laps, bestLap, theoretical, updated }] }; with key: that whole record.</summary>
@@ -183,7 +201,8 @@ public sealed class SegmentStore
             if (!string.IsNullOrEmpty(key))
             {
                 if (key != Path.GetFileName(key) || !key.EndsWith(".json")) return null;
-                return Load(Path.Combine(Dir, key));
+                var rec = Load(Path.Combine(Dir, key)); if (rec != null) rec.Shape = ShapeOf(LinesDir(Path.Combine(Dir, key)));
+                return rec;
             }
             var list = new List<object>();
             if (Directory.Exists(Dir))

@@ -15,6 +15,7 @@ One Windows app, no SimHub, no install. Made for endurance racers, and for watch
 - [Race Control: the live dashboard](#race-control-the-live-dashboard)
 - [Make it your own](#make-it-your-own)
 - [The Hub](#the-hub)
+- [AI Coach](#ai-coach)
 - [Strategy](#strategy)
 - [Guest mode and My sessions](#guest-mode-and-my-sessions)
 - [Everything else](#everything-else)
@@ -68,17 +69,29 @@ Press **E** and you're in edit mode:
 - **Every track** with its best lap, optimal lap (your best sectors), race pace (no pit, out or incident laps) and category. A page per track shows progress there, the alien reference and your cars.
 - **Filters:** class, race / qualifying / all sessions, game version, period, and how slow a lap may be before it's left out.
 
-**Improve** shows what to work on next. Filter by class, and search or pick a track and layout.
+**Improve** shows what to work on next, in two tabs. Filter by class, and search or pick a track and layout.
+
+*What to work on:*
 - **Your next session focus:** your biggest opportunity in plain words, e.g. "Your biggest opportunity: the final sector. It was your weakest sector in 4 of your
   last 5 sessions. On the track, most of it is lost at 4.10 - 4.55 km", with a tip for your next practice.
 - **Weakness ranking:** tracks by what there is to find per lap, every sector by what you lose there and how much it varies, and the weaknesses that keep coming back.
-- **Maps you can click:** every track map opens big, with layers (where you lose time, where you vary most, your best lap), numbered weak spots and every segment's numbers. Scroll to zoom in, drag to move.
-- **Driving lines:** your best lap, your optimal lap (your best segments put together) and any of your last 50 laps on the map, with where you brake, your slowest speed and where you're back on full throttle in each weak spot.
 - **Tracks behind your level**, and stale tracks (not driven for a while).
 - **Time left on the table:** your best lap against your optimal lap, and your race pace against your best lap (consistency).
-- **Segments:** each track in ~150 m pieces on a map, coloured by where you lose time, with your worst and typical segments.
+
+*Track study:* one track and car on a big map that follows the real track, timed live while you drive.
+- **Turn by turn:** the lap is split corner by corner (from braking for a corner to braking for the next one), coloured by where you lose time or vary most. Your weak spots are the three turns that cost you the most.
+- **Driving lines:** compare two lines on the map: your best lap, your optimal lap (your best pieces put together) or any of your last 50 laps. You see where each one brakes, its slowest speed and where it's back on full throttle, side by side.
+- Scroll to zoom in, drag to move.
 
 ![Untapped potential](docs/images/potential.png)
+
+## AI Coach
+Your own AI reads a summary of a session and writes a debrief with a plan for your next session, or answers your questions about it.
+- **Your own API key:** Google Gemini (has a free tier), OpenAI or Anthropic (Claude). My LMU Hub has no AI or server of its own: requests go straight from your PC to that provider, with your key.
+- **Only when you click:** nothing is sent by itself. Before each request you see roughly how big it is and can read exactly what is sent: lap and sector times, track, car, class, your weak spots and how you drive them. No names, no files.
+- **Costs:** a paid key is billed by the provider to your account, usually less than a cent per debrief with a small model. Every answer is saved on your PC, so opening it again is free.
+- **Your key stays on your PC,** stored encrypted for your Windows user.
+
 
 ## Strategy
 ![Strategy](docs/images/strategy.png)
