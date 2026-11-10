@@ -12,7 +12,10 @@ body { min-height:100vh; }
 a { color:inherit; text-decoration:none; }
 button, select, input { font:inherit; color:inherit; }
 .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
-.wrap { max-width:1560px; margin:0 auto; padding:16px 20px 40px; }
+.wrap { max-width:2200px; margin:0 auto; padding:16px 20px 40px; min-height:100vh; background:var(--bg); }
+/* a wide screen: the page is a column with its own edges, the space beside it darker (owner, 2026-11-10: hard to see where the page starts and ends) */
+@media (min-width:2241px) { html { background:color-mix(in srgb, var(--bg) 45%, #000); } body { background:transparent; }
+  .wrap { border-left:1px solid var(--line); border-right:1px solid var(--line); box-shadow:0 0 70px rgba(0,0,0,.55); } }
 
 /* header */
 .hdr { display:flex; align-items:center; gap:18px; padding:14px 22px; background:var(--card); border:1px solid var(--line); border-radius:6px 22px 6px 22px;

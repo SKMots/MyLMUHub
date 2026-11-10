@@ -95,6 +95,7 @@ public sealed class StandingsEngine
     /// <summary>The learned outline of the current track (sent to the page separately when Track.MapVersion changes).</summary>
     public TrackMap Map { get; } = new();
     readonly FlagWatch flags = new();
+    readonly LapProfile lapProfile = new();                                                // the relative: share of the lap time at each bit of the track
     readonly UsageTracker fuelUse = new(40), veUse = new(50);
     readonly PersonalBests pbTracker = new();
     readonly Dictionary<string, List<double>> hist = new();     // last laps per car+driver (5-lap average)
@@ -199,7 +200,8 @@ public sealed class StandingsEngine
         }
         Track = TrackInfo.Build(snap, cars.Select(c => (c.S, c.ClassPos)), focus?.S, Map);
         flags.Learn(snap); Track.Flags = flags.Build(snap, focus?.S);
-        Rel = Relative.Build(snap.Session, cars.Select(c => (c.S, c.ClassPos)), focus?.S, best);
+        lapProfile.Learn(snap, focus?.S.Cls);
+        Rel = Relative.Build(snap.Session, cars.Select(c => (c.S, c.ClassPos)), focus?.S, best, lapProfile);
         predTracker.Learn(snap); Pred = predTracker.Build(snap, focus?.S);
         return view;
     }

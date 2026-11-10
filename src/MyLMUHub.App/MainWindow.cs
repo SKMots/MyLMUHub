@@ -1,21 +1,33 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shell;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 
 namespace MyLMUHub.App;
 
-/// <summary>An app window (the hub, Race Control): just the WebView2 showing a local page. F11 = full screen (on the monitor the window is on), F12 = developer tools, Esc leaves full screen.</summary>
+/// <summary>An app window (the hub, Race Control): our own title bar (the MLH icon, "my lmu hub", the page's name, minimise / maximise / close, in the page's theme
+/// colours) above the WebView2 showing a local page. The bar is a WindowChrome caption, so dragging, double-click, Windows snapping and resizing work as usual.
+/// F11 = full screen (on the monitor the window is on: no bar), F12 = developer tools, Esc leaves full screen.</summary>
 public sealed class MainWindow : Window
 {
     static Task<CoreWebView2Environment> sharedEnv;                                      // one browser environment for all windows
     readonly WebView2 web = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(11, 12, 14) };
     readonly AppSettings settings; readonly WindowPlacement p; readonly string url;
     WindowStyle prevStyle; ResizeMode prevResize; WindowState prevState; bool full;
+    const double BarH = 34;
+    readonly Border frame = new(); readonly Grid bar = new() { Height = BarH }; readonly TextBlock brand = new(), page = new();
+    readonly Button bMin = new(), bMax = new(), bClose = new();
+    readonly WindowChrome chrome = new() { CaptionHeight = BarH, ResizeBorderThickness = new Thickness(6), GlassFrameThickness = new Thickness(1), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false };
+    Brush barBg = new SolidColorBrush(Color.FromRgb(0x15, 0x16, 0x18)), accent = new SolidColorBrush(Color.FromRgb(0xC8, 0xF2, 0x4A)), text = new SolidColorBrush(Color.FromRgb(0xF2, 0xF3, 0xF0)),
+          hover = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
 
     public MainWindow(AppSettings s, WindowPlacement place, string url, string title)
     {
-        settings = s; p = place; this.url = url; Title = title; Content = web; Background = System.Windows.Media.Brushes.Black;
+        settings = s; p = place; this.url = url; Title = title; Background = System.Windows.Media.Brushes.Black;
+        BuildBar();
         try { Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/app.ico")); } catch (Exception) { }   // title bar / taskbar icon
         bool onScreen = p.Left > SystemParameters.VirtualScreenLeft - 50 && p.Top > SystemParameters.VirtualScreenTop - 50 &&
                         p.Left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - 100 && p.Top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - 100;
@@ -26,6 +38,68 @@ public sealed class MainWindow : Window
         Loaded += async (_, _) => await Init();
         Closing += (_, _) => { SavePlacement(); var h = new System.Windows.Interop.WindowInteropHelper(this).Handle; foreach (var id in hotkeys.Keys) UnregisterHotKey(h, id); padWatcher?.Dispose(); };
         PreviewKeyDown += OnKey;
+    }
+
+    // ---- our own title bar ----
+    void BuildBar()
+    {
+        WindowChrome.SetWindowChrome(this, chrome);
+        var dock = new DockPanel(); DockPanel.SetDock(bar, Dock.Top); dock.Children.Add(bar); dock.Children.Add(web);
+        frame.Child = dock; Content = frame;
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (int i = 0; i < 3; i++) bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(46) });
+        var left = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        try { left.Children.Add(new Image { Source = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/app.ico")), Width = 18, Height = 18, Margin = new Thickness(0, 0, 9, 0) }); } catch (Exception) { }
+        brand.FontSize = 14; brand.FontWeight = FontWeights.ExtraBold; brand.VerticalAlignment = VerticalAlignment.Center; brand.FontFamily = new FontFamily("Segoe UI");
+        page.FontSize = 11; page.FontWeight = FontWeights.SemiBold; page.VerticalAlignment = VerticalAlignment.Center; page.Margin = new Thickness(12, 1, 0, 0); page.FontFamily = new FontFamily("Segoe UI");
+        left.Children.Add(brand); left.Children.Add(page);
+        Grid.SetColumn(left, 0); bar.Children.Add(left);
+        void Btn(Button b, int col, string glyph, Action act, bool close)
+        {
+            b.Content = glyph; b.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"); b.FontSize = 10; b.Focusable = false;
+            b.Template = ButtonTemplate(); b.Click += (_, _) => act(); WindowChrome.SetIsHitTestVisibleInChrome(b, true);
+            b.MouseEnter += (_, _) => { b.Background = close ? new SolidColorBrush(Color.FromRgb(0xE8, 0x11, 0x23)) : hover; if (close) b.Foreground = Brushes.White; };
+            b.MouseLeave += (_, _) => { b.Background = Brushes.Transparent; b.Foreground = text; };
+            Grid.SetColumn(b, col); bar.Children.Add(b);
+        }
+        Btn(bMin, 2, "\uE921", () => WindowState = WindowState.Minimized, false);
+        Btn(bMax, 3, "\uE922", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized, false);
+        Btn(bClose, 4, "\uE8BB", Close, true);
+        Paint();
+        StateChanged += (_, _) => Fit(); Fit();
+        Activated += (_, _) => { page.Opacity = 1; brand.Opacity = 1; }; Deactivated += (_, _) => { page.Opacity = 0.6; brand.Opacity = 0.6; };
+    }
+    static ControlTemplate ButtonTemplate()
+    {
+        var t = new ControlTemplate(typeof(Button)); var bd = new FrameworkElementFactory(typeof(Border));
+        bd.SetBinding(Border.BackgroundProperty, new System.Windows.Data.Binding("Background") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+        var cp = new FrameworkElementFactory(typeof(ContentPresenter)); cp.SetValue(HorizontalAlignmentProperty, HorizontalAlignment.Center); cp.SetValue(VerticalAlignmentProperty, VerticalAlignment.Center);
+        bd.AppendChild(cp); t.VisualTree = bd; return t;
+    }
+    // the bar's colours (the page's theme: its panel colour, its accent) and the brand "my lmu hub" as on the hub pages: my / hub in the accent
+    void Paint()
+    {
+        bar.Background = barBg; page.Foreground = text; page.Text = PageName();
+        brand.Inlines.Clear();
+        brand.Inlines.Add(new System.Windows.Documents.Run("my") { Foreground = accent });
+        brand.Inlines.Add(new System.Windows.Documents.Run("lmu") { Foreground = text, FontStyle = FontStyles.Italic });
+        brand.Inlines.Add(new System.Windows.Documents.Run("hub") { Foreground = accent });
+        foreach (var b in new[] { bMin, bMax, bClose }) { b.Foreground = text; b.Background = Brushes.Transparent; }
+    }
+    // the page's name from its title ("My LMU Hub - Improve" -> IMPROVE)
+    string PageName()
+    {
+        string t = web.CoreWebView2?.DocumentTitle ?? Title ?? ""; int k = t.LastIndexOf(" - ", StringComparison.Ordinal);
+        return k >= 0 ? t.Substring(k + 3).ToUpperInvariant() : "";
+    }
+    // maximised, the window reaches past the screen edge by its frame: keep the bar and the page on the screen; full screen: no bar
+    void Fit()
+    {
+        double pad = WindowState == WindowState.Maximized && !full ? SystemParameters.WindowNonClientFrameThickness.Left : 0;
+        frame.Padding = new Thickness(pad);
+        chrome.CaptionHeight = full ? 0 : BarH + pad;
+        bar.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        bMax.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
     }
 
     async Task Init()
@@ -39,6 +113,7 @@ public sealed class MainWindow : Window
             web.CoreWebView2.Settings.IsZoomControlEnabled = false;
             web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = true;
             web.CoreWebView2.WebMessageReceived += OnMessage;                               // the page's theme colours for the title bar
+            web.CoreWebView2.DocumentTitleChanged += (_, _) => page.Text = PageName();
             web.CoreWebView2.Navigate(url);
             if (p.Fullscreen) SetFull(true);
         }
@@ -51,13 +126,14 @@ public sealed class MainWindow : Window
     // the Windows title bar in the page's theme colours (at start the hub's #0B0B0C, light text) instead of the standard grey / white.
     // Windows 11 only (DWM caption / text / border colour); Windows 10 gets the dark title bar at most; errors are ignored.
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-    void DarkTitleBar() => TitleBar(0x000C0B0B, 0x00F0F3F2, false);                      // COLORREF = 0x00BBGGRR; the page sends its own colours once loaded
-    void TitleBar(int caption, int text, bool light)
+    void DarkTitleBar() => TitleBar(0x00181615, 0x004AF2C8, false, 0x004AF2C8);                      // COLORREF = 0x00BBGGRR; the page sends its own colours once loaded
+    // border = the thin line round the window (the theme's accent: owner, 2026-11-10: the bar looked plain black), -1 = the bar's colour
+    void TitleBar(int caption, int text, bool light, int border = -1)
     {
         try
         {
             var h = new System.Windows.Interop.WindowInteropHelper(this).Handle; if (h == IntPtr.Zero) return;
-            int dark = light ? 0 : 1, border = caption;
+            int dark = light ? 0 : 1; if (border < 0) border = caption;
             DwmSetWindowAttribute(h, 20, ref dark, 4);                                       // DWMWA_USE_IMMERSIVE_DARK_MODE (off for a light page: dark buttons)
             DwmSetWindowAttribute(h, 35, ref caption, 4);                                    // DWMWA_CAPTION_COLOR
             DwmSetWindowAttribute(h, 36, ref text, 4);                                       // DWMWA_TEXT_COLOR
@@ -66,7 +142,8 @@ public sealed class MainWindow : Window
         catch (Exception) { }
     }
 
-    // the page sends { titleBar: "#rrggbb", titleText: "#rrggbb" } when its theme is applied or changed (hub.js / app.js): the title bar takes those colours
+    // the page sends { titleBar: "#rrggbb", titleText: "#rrggbb", titleBorder: "#rrggbb" } when its theme is applied or changed (hub.js / theme.js): the title
+    // bar takes those colours (the theme's panel colour, its accent for the title and the line round the window)
     void OnMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         try
@@ -81,7 +158,12 @@ public sealed class MainWindow : Window
             if (c == null) return;
             int rr = c.Value & 0xFF, gg = (c.Value >> 8) & 0xFF, bb = (c.Value >> 16) & 0xFF;
             bool light = rr * 0.299 + gg * 0.587 + bb * 0.114 > 150;
-            TitleBar(c.Value, tx ?? (light ? 0x001C1816 : 0x00F0F3F2), light);
+            int? bd = r.TryGetProperty("titleBorder", out var bo) ? Colour(bo.GetString()) : null;
+            TitleBar(c.Value, tx ?? (light ? 0x001C1816 : 0x00F0F3F2), light, bd ?? -1);
+            Brush B(int cr) => new SolidColorBrush(Color.FromRgb((byte)(cr & 0xFF), (byte)((cr >> 8) & 0xFF), (byte)((cr >> 16) & 0xFF)));
+            barBg = B(c.Value); accent = B(tx ?? 0x004AF2C8); text = light ? B(0x001C1816) : B(0x00F0F3F2);
+            hover = new SolidColorBrush(light ? Color.FromArgb(0x1A, 0, 0, 0) : Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+            Paint();
         }
         catch (Exception) { }
     }
@@ -166,7 +248,7 @@ public sealed class MainWindow : Window
         if (on == full) return;
         if (on) { prevStyle = WindowStyle; prevResize = ResizeMode; prevState = WindowState; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; WindowState = WindowState.Normal; WindowState = WindowState.Maximized; }
         else { WindowStyle = prevStyle; ResizeMode = prevResize; WindowState = prevState; }
-        full = on;
+        full = on; Fit();
     }
 
     void SavePlacement()

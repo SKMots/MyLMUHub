@@ -105,12 +105,12 @@
     if (e.setAttribute) { e.setAttribute('data-strips', strips ? 'on' : 'off'); e.setAttribute('data-preset', th && PRESETS[th.preset] ? th.preset : DEFAULT); ['look', 'texture', 'backdrop', 'icons', 'logos'].forEach(function (k) { e.setAttribute('data-' + k, pick(th, k)); }); }
     P.theme.iconStyle = pick(th, 'icons'); P.theme.logoStyle = pick(th, 'logos');           // car logos: one colour / full colour (brands.js)
     P.theme.textScale = th && th.textSize > 0 ? th.textSize / 100 : 1;                // every widget's text x this (and x its own Text size)                                           // widgets draw their icons in this style (icons.js)
-    titleBar(themeValue('bg', th), themeValue('white', th));
+    titleBar(themeValue('panel', th), themeValue('accent', th), themeValue('accent', th));
   }
-  // in the app: the window's title bar takes the page's background and text colour (MainWindow.OnMessage); in a browser: nothing
-  function titleBar(bg, text) {
+  // in the app: the window's title bar in the theme's panel colour, the title and the line round the window in its accent (MainWindow.OnMessage); in a browser: nothing
+  function titleBar(bg, text, border) {
     var w = root.chrome && root.chrome.webview;
-    if (w && w.postMessage && HEX.test(bg || '')) { try { w.postMessage({ titleBar: bg, titleText: HEX.test(text || '') ? text : null }); } catch (e) {} }
+    if (w && w.postMessage && HEX.test(bg || '')) { try { w.postMessage({ titleBar: bg, titleText: HEX.test(text || '') ? text : null, titleBorder: HEX.test(border || '') ? border : null }); } catch (e) {} }
   }
   // the theme panel's own settings
   function themeOptions(th) {

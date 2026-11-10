@@ -17,6 +17,8 @@ public sealed class LivePenalties : IDisposable
     volatile bool active;
     volatile Dictionary<string, PenaltyKinds> grid; DateTime gridAt;
     public volatile string Status = "not started";
+    /// <summary>The last LiveStandings message as it came (for the relative comparison diagnostic, DataPump.RelDiag), null = none.</summary>
+    public volatile string LastFrame; public DateTime LastFrameAt;
 
     public LivePenalties(string appDir) { dumpDir = Path.Combine(appDir, "webapi"); }
     /// <summary>The game has a session (true) or not (false: the socket is closed).</summary>
@@ -51,6 +53,7 @@ public sealed class LivePenalties : IDisposable
                     if (r.MessageType != WebSocketMessageType.Text) continue;
                     string text = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length); frames++;
                     if (DateTime.UtcNow >= nextDump) { nextDump = DateTime.UtcNow.AddSeconds(30); await Dump("livestandings.json", text); }
+                    LastFrame = text; LastFrameAt = DateTime.UtcNow;
                     var g = PenaltyParse.Parse(text);
                     if (g != null) { grid = g; gridAt = DateTime.UtcNow; Status = "ok: " + g.Count + " drivers, " + g.Values.Count(k => k.DriveThrough + k.StopGo > 0 || k.Seconds > 0) + " with a penalty"; }
                     else if (grid == null) Status = "connected, " + frames + " messages, no standings found in them (see livestandings.json)";

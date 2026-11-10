@@ -72,7 +72,7 @@ public sealed class DataPump : IDisposable
                         var standings = engine.Build(snap);
                         JoinPenaltyKinds(standings);
                         if (web != null && engine.FocusCar != null && engine.FocusCar.IsPlayer) { engine.Car.Aero = web.Aero; engine.Car.Susp = web.Susp; engine.Car.SuspWheels = web.SuspWheels; }   // the repair screen is YOUR car: not while watching
-                        if (web != null) { DamageDiag(engine.FocusCar); FlagDiag(snap); }
+                        if (web != null) { DamageDiag(engine.FocusCar); FlagDiag(snap); RelDiag(snap); }
                         if (web != null)                                                         // live only: a replay must not overwrite the saved race
                         {
                             lock (stintGate) stints.Update(snap, engine.FocusCar, DateTimeOffset.Now.ToUnixTimeMilliseconds());
@@ -135,6 +135,47 @@ public sealed class DataPump : IDisposable
     // DIAGNOSTIC (owner: the yellow on the map lit the whole track): the game's raw flag values and what the map made of them, a line each time they change
     // (the last 100), in webapilags-live.txt
     string lastFlags; readonly Queue<string> flagHist = new();
+    // DIAGNOSTIC (owner: the relative widget should match the game's relative MFD exactly): every 30 s in a race, the cars next to the focus car with the app's
+    // gap (Relative.cs) and the game's own text for that car from its UI websocket (LiveStandings gapToRelativeTxt: is it the MFD's relative?). The last 400
+    // lines in webapi\relative-compare.txt
+    DateTime nextRel; readonly Queue<string> relHist = new();
+    void RelDiag(RaceSnapshot snap)
+    {
+        if (Penalties == null || DateTime.UtcNow < nextRel || engine.Rel == null || engine.Rel.Count < 2) return;
+        string frame = Penalties.LastFrame; if (frame == null || (DateTime.UtcNow - Penalties.LastFrameAt).TotalSeconds > 5) return;
+        nextRel = DateTime.UtcNow.AddSeconds(30);
+        var game = new Dictionary<string, string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(frame);
+            void Walk(JsonElement e, int depth)
+            {
+                if (depth > 6) return;
+                if (e.ValueKind == JsonValueKind.Array) { foreach (var x in e.EnumerateArray()) Walk(x, depth + 1); return; }
+                if (e.ValueKind != JsonValueKind.Object) return;
+                if (e.TryGetProperty("driverName", out var n) && n.ValueKind == JsonValueKind.String)
+                {
+                    string g = e.TryGetProperty("gapToRelativeTxt", out var r) ? r.ToString() : "?";
+                    string lap = e.TryGetProperty("lapDist", out var ld) && ld.ValueKind == JsonValueKind.Number ? Math.Round(ld.GetDouble()).ToString() : "?";
+                    game[PenaltyParse.Key(n.GetString())] = g + " (lapDist " + lap + (e.TryGetProperty("slotHasFocus", out var fo) && fo.ValueKind == JsonValueKind.True ? ", focus" : "") + ")";
+                    return;
+                }
+                foreach (var p in e.EnumerateObject()) Walk(p.Value, depth + 1);
+            }
+            Walk(doc.RootElement, 0);
+        }
+        catch (JsonException) { return; }
+        var rel = engine.Rel; int me = rel.FindIndex(r => r.Me); if (me < 0) return;
+        relHist.Enqueue(DateTime.Now.ToString("HH:mm:ss") + " session " + snap.Session.SessionId + " phase " + snap.Session.GamePhase + " (app gap | game gapToRelativeTxt)");
+        for (int i = Math.Max(0, me - 4); i <= Math.Min(rel.Count - 1, me + 4); i++)
+        {
+            var r = rel[i]; game.TryGetValue(PenaltyParse.Key(r.Driver), out var g);
+            relHist.Enqueue("   " + (r.Me ? "ME " : "   ") + "P" + r.ClassPos + " " + r.Cls + " | app " + (r.Me ? "0" : r.Gap.ToString("+0.000;-0.000")) + (r.Laps != 0 ? " (" + r.Laps.ToString("+0;-0") + "L)" : "") + " | game " + (g ?? "-"));
+        }
+        while (relHist.Count > 400) relHist.Dequeue();
+        try { var dir = Path.Combine(AppPaths.Dir, "webapi"); Directory.CreateDirectory(dir); File.WriteAllLines(Path.Combine(dir, "relative-compare.txt"), relHist); } catch (Exception) { }
+    }
+
     void FlagDiag(RaceSnapshot snap)
     {
         var s = snap.Session; var f = engine.Track?.Flags;

@@ -53,9 +53,9 @@
   function hubTheme() { try { return localStorage.getItem('pw-hub-theme') || ''; } catch (e) { return ''; } }
   function applyHubTheme() {
     var t = hubTheme(); if (t) document.documentElement.setAttribute('data-hub-theme', t); else document.documentElement.removeAttribute('data-hub-theme');
-    // in the app: the window's title bar takes this theme's page background and text colour (MainWindow.OnMessage)
+    // in the app: the window's title bar in this theme's card colour, the title and the line round the window in its accent (MainWindow.OnMessage)
     var w = root.chrome && root.chrome.webview, cs = root.getComputedStyle ? getComputedStyle(document.documentElement) : null;
-    if (w && w.postMessage && cs) { try { w.postMessage({ titleBar: cs.getPropertyValue('--bg').trim(), titleText: cs.getPropertyValue('--text').trim() }); } catch (e) {} }
+    if (w && w.postMessage && cs) { try { var acc = cs.getPropertyValue('--lime').trim(); w.postMessage({ titleBar: cs.getPropertyValue('--card').trim(), titleText: acc, titleBorder: acc }); } catch (e) {} }
   }
   applyHubTheme();
   function setWho(name) {
