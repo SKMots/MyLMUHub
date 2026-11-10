@@ -83,7 +83,7 @@ Press **E** and you're in edit mode:
 - **Driving lines:** compare two lines on the map: your best lap, your optimal lap (your best pieces put together) or any of your last 50 laps. You see where each one brakes, its slowest speed and where it's back on full throttle, side by side.
 - Scroll to zoom in, drag to move.
 
-![Untapped potential](docs/images/potential.png)
+![Improve: Track study with driving lines](docs/images/potential.png)
 
 ## AI Coach
 Your own AI reads a summary of a session and writes a debrief with a plan for your next session, or answers your questions about it.
@@ -91,6 +91,8 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 - **Only when you click:** nothing is sent by itself. Before each request you see roughly how big it is and can read exactly what is sent: lap and sector times, track, car, class, your weak spots and how you drive them. No names, no files.
 - **Costs:** a paid key is billed by the provider to your account, usually less than a cent per debrief with a small model. Every answer is saved on your PC, so opening it again is free.
 - **Your key stays on your PC,** stored encrypted for your Windows user.
+
+![AI Coach](docs/images/coach.png)
 
 
 ## Strategy
@@ -135,19 +137,19 @@ Requirements: Windows and the [.NET 8 SDK](https://dotnet.microsoft.com/download
 
 ```powershell
 # run from source (needs the game running)
-dotnet run --project src/Pitwall.App
+dotnet run --project src/MyLMUHub.App
 # or build the single exe, like the releases
-dotnet publish src/Pitwall.App/Pitwall.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:DebugType=none -o dist
+dotnet publish src/MyLMUHub.App/MyLMUHub.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:DebugType=none -o dist
 ```
 
-A self-built exe doesn't update itself. **No .NET at all?** Open `src/Pitwall.App/wwwroot/index.html` in Chrome or Edge to see the dashboard on demo data; keys **1-5** switch the scenario.
+A self-built exe doesn't update itself. **No .NET at all?** Open `src/MyLMUHub.App/wwwroot/index.html` in Chrome or Edge to see the dashboard on demo data; keys **1-5** switch the scenario.
 
 ### How it's put together
-- **`Pitwall.Core`** (C#, no UI): reads the game's shared memory and turns it into numbers: standings, gaps, stints, pace and flags.
-- **`Pitwall.App`** (WPF + WebView2): the windows, a small local web server with a WebSocket, auto-update and settings.
+- **`MyLMUHub.Core`** (C#, no UI): reads the game's shared memory and turns it into numbers: standings, gaps, stints, pace and flags.
+- **`MyLMUHub.App`** (WPF + WebView2): the windows, a small local web server with a WebSocket, auto-update and settings.
 - **`wwwroot`** (plain JavaScript, no build step, no npm): every page and widget. All text formatting lives in `js/format.js`.
 
-"Pitwall" is the internal code name from the first version.
+"MyLMUHub" is the internal code name from the first version.
 
 ## Ideas, bugs and contributions
 Ideas are very welcome: that's why this project is open source. Open an [issue](https://github.com/SKMots/MyLMUHub/issues) for a bug or a feature idea.

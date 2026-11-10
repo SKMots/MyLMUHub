@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MyLMUHub.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- layout of LMU's shared memory (generated from the game's SDK header by tools/gen_catalog.py) -->
+    <EmbeddedResource Include="lmu_fields.json" LogicalName="lmu_fields.json" />
+  </ItemGroup>
+</Project>
