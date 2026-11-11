@@ -117,6 +117,11 @@
   function pct(v, d) { return v >= 0 ? (d ? v.toFixed(d) : String(Math.round(v))) + '%' : '--'; }
   function laps1(v) { return v > 0 ? v.toFixed(1) : '--'; }
   function levelColor(p, okColor, k) { k = k || { none: C.label, low: C.red, mid: C.yellow }; return !(p >= 0) ? k.none : (p < 15 ? k.low : (p < 30 ? k.mid : okColor)); }
+  // VE use per lap against the goal: 'over' (more than the goal: you will not make the stint), 'close' (within close % under it), 'ok' (well under), '' = unknown
+  function goalLevel(use, goal, close) {
+    if (!(use > 0) || !(goal > 0)) return '';
+    return use > goal ? 'over' : use > goal * (1 - (close >= 0 ? close : 2) / 100) ? 'close' : 'ok';
+  }
   // per-lap use: the 5-lap average, else the live estimate marked with ~
   function perLap(u, unit) {
     if (!u) return '--';
@@ -199,7 +204,7 @@
                veColor: veColor, tyreColor: tyreColor, bestColor: bestColor, lastColor: lastColor, deltaColor: deltaColor, sectorColor: sectorColor,
                hms: hms, sessionName: sessionName, diff: diff, liveDelta: liveDelta, lapsLeft: lapsLeft, diffColor: diffColor, sectorBoxColor: sectorBoxColor,
                tyreTempColor: tyreTempColor, pressure: pressure, brakeTempColor: brakeTempColor, deg: deg, wear: wear, psi: psi, compound: compound, compoundColor: compoundColor,
-               level: level, bias: bias, litres: litres, pct: pct, laps1: laps1, levelColor: levelColor, perLap: perLap, raceLaps: raceLaps,
+               level: level, bias: bias, litres: litres, pct: pct, laps1: laps1, levelColor: levelColor, perLap: perLap, goalLevel: goalLevel, raceLaps: raceLaps,
                dentColor: dentColor, wheelColor: wheelColor, condColor: condColor, weatherText: weatherText, trackWet: trackWet, weatherColor: weatherColor, temp1: temp1,
                hhmm: hhmm, timeOfDay: timeOfDay, forecastRows: forecastRows, plusSec: plusSec, pctOver: pctOver, pctPts: pctPts, km: km, spread: spread, day: day, count: count, wallClock: wallClock, hm: hm,
                relGap: relGap, penalty: penalty, skyName: skyName, skyArt: skyArt, tempBand: tempBand, surface: surface, relLaps: relLaps, predGap: predGap, stops: stops, posMove: posMove };

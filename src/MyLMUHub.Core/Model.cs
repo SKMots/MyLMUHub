@@ -76,6 +76,7 @@ public sealed class CarSnap
     public double Last2 { get; set; } = -1;
     public double BehindNext { get; set; }    // seconds behind the next car in the overall order
     public double EstLap { get; set; } = -1;  // the game's estimated lap time (mEstimatedLapTime: what its own relative uses), -1 = none
+    public double TimeInto { get; set; } = -1; // the game's estimated time into the lap at the car's place (mTimeIntoLap), -1 = none
     public double LapDist { get; set; }       // metres round the current lap
     public int Penalties { get; set; }        // mNumPenalties: penalties still to serve
     public bool InPits { get; set; }

@@ -49,6 +49,7 @@ public sealed class DashServer : IDisposable
     public Action<string, string> Open { get; set; }
     /// <summary>/api/strategy GET / PUT: the strategy planner's plans (one JSON file).</summary>
     public string StrategyPath { get; set; }
+    public string VeGoalsPath { get; set; }
     /// <summary>/api/stints?file= GET: your car's whole race in that results file (PaceService.CarLaps), 404 = none.</summary>
     public Func<string, object> CarLaps { get; set; }
     /// <summary>/api/race-live GET: the session now, the followed car and its race so far (DataPump.RaceLive).</summary>
@@ -152,7 +153,15 @@ public sealed class DashServer : IDisposable
             if (!LanOn && !ctx.Request.IsLocal) { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("My LMU Hub: network access is off on that PC")); return; }
             string path = ctx.Request.Url.AbsolutePath;
             if (path == "/ws" && ctx.Request.IsWebSocketRequest) { await Socket(ctx); return; }
-            if (path == "/api/layout") { await JsonFile(ctx, layoutPath); return; }
+            if (path == "/api/layout")
+            {
+                bool put = ctx.Request.HttpMethod == "PUT" || ctx.Request.HttpMethod == "POST";
+                await JsonFile(ctx, layoutPath);
+                // a page saved the layout file (theme, hotkeys, views): open dashboards read it again; 'by' = the page that saved (it skips its own)
+                if (put) { string by = ctx.Request.Headers["X-Page"] ?? ""; var msg = JsonSerializer.Serialize(new { type = "layout", by }); foreach (var c in clients.Values) _ = SendTo(c, msg, true); }
+                return;
+            }
+            if (path == "/api/vegoals" && VeGoalsPath != null) { await JsonFile(ctx, VeGoalsPath); return; }
             if (path == "/api/strategy" && StrategyPath != null) { await JsonFile(ctx, StrategyPath); return; }
             if (path == "/api/race-live" && RaceLive != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(RaceLive(), Opt)); return; }
             if (path == "/api/stints" && CarLaps != null) { var r = CarLaps(ctx.Request.QueryString["file"]); await Send(ctx, r == null ? 404 : 200, "application/json; charset=utf-8", r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return; }

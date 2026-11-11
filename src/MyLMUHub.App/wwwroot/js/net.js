@@ -14,6 +14,7 @@
         var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
         if (m && m.type === 'state') store.set({ standings: m.standings || null, top: m.top || null, car: m.car || null, track: m.track || null, forecast: m.forecast || null, pb: m.pb || null, rel: m.rel || null, pred: m.pred || null, status: 'live' });
         else if (m && m.type === 'map') store.set({ map: m });                       // the learned track outline (rare)
+        else if (m && m.type === 'layout') store.set({ layoutMsg: { by: m.by || '', at: Date.now() } });   // a page saved the layout file (theme, keys, views: hub Race Control page)
       };
       ws.onclose = retry; ws.onerror = function () { try { ws.close(); } catch (e) {} };
     }

@@ -34,10 +34,10 @@
   <section class="card" id="fromCard" style="margin-top:14px">
     <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
       <div>
-        <h2>Start from a race you drove</h2>
-        <div class="sub" style="margin-bottom:0">Your pace, stints, pit stop and VE use from one race: check it, then fill the plan with one click.</div>
+        <h2>Start from a session you drove</h2>
+        <div class="sub" style="margin-bottom:0">Your pace, stints, pit stop, VE use and tyre wear from one race or practice session: check it, then fill the plan with one click.</div>
       </div>
-      <label class="field inline">Race<select class="sel" id="raceSel"><option value="">Open this page in the app to read your races</option></select></label>
+      <label class="field inline">Session<select class="sel" id="raceSel"><option value="">Open this page in the app to read your races</option></select></label>
     </div>
     <div id="fromBody" style="margin-top:14px"></div>
   </section>
@@ -66,6 +66,7 @@
         <label class="field" id="fVePer">VE per lap (%)<input class="input short" data-k="ve.perLap" data-num></label>
         <label class="field">VE a stint starts with (%)<input class="input short" data-k="ve.max" data-num></label>
         <label class="field">Reserve (laps kept spare)<input class="input short" data-k="ve.reserve" data-num></label>
+        <label class="field">Last stint push: % more VE per lap<input class="input short" data-k="ve.push" data-num placeholder="15"></label>
         <label class="field">Pit stop time lost (s)<input class="input short" data-k="pit.base" data-num></label>
         <label class="field">+ tyre change (s)<input class="input short" data-k="pit.tyres" data-num></label>
         <label class="field">+ driver swap (s)<input class="input short" data-k="pit.swap" data-num></label>

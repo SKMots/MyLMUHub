@@ -79,6 +79,7 @@ public static class AppPaths
     public static string Layout => Path.Combine(Dir, "layout.json");
     public static string Spectate => Path.Combine(Dir, "spectate.json");
     public static string Strategy => Path.Combine(Dir, "strategy.json");      // the strategy planner's plans
+    public static string VeGoals => Path.Combine(Dir, "vegoals.json");        // your VE goal per track (hub Race Control page): { "Bahrain (wec)": 3.8 }
     public static string RaceLog => Path.Combine(Dir, "race-live.json");      // the followed car's stints in the current race (StintTracker)
 }
 

@@ -17,7 +17,9 @@
     bg: function (e, c) { if (e._b !== c) { e.style.backgroundColor = c; e._b = c; } },
     show: function (e, on) { var d = on ? '' : 'none'; if (e._d !== d) { e.style.display = d; e._d = d; } },
     left: function (e, x) { if (e._l !== x) { e.style.left = x + 'px'; e._l = x; } },
-    src: function (e, s) { if (e._s !== s) { e.src = s; e._s = s; } }
+    src: function (e, s) { if (e._s !== s) { e.src = s; e._s = s; } },
+    // a CSS class on / off (e.g. pw-flash), touched only on change
+    cls: function (e, c, on) { on = !!on; e._k = e._k || {}; if (e._k[c] !== on) { var l = (e.className || '').split(/\s+/).filter(function (x) { return x && x !== c; }); if (on) l.push(c); e.className = l.join(' '); e._k[c] = on; } }
   };
   if (typeof module !== 'undefined') module.exports = P.dom;
 })(typeof window !== 'undefined' ? window : globalThis);

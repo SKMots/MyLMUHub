@@ -60,6 +60,7 @@ public sealed class SnapshotReader
             c.Last1 = Pos(Num(v, "mLastSector1", i)); c.Last2 = Pos(Num(v, "mLastSector2", i));
             c.BehindNext = Num(v, "mTimeBehindNext", i);
             c.EstLap = Pos(Num(v, "mEstimatedLapTime", i));
+            { double ti = Num(v, "mTimeIntoLap", i); c.TimeInto = ti >= 0 && !double.IsNaN(ti) && !double.IsInfinity(ti) ? ti : -1; }
             c.LapDist = Num(v, "mLapDist", i);
             c.InPits = Num(v, "mInPits", i) != 0;
             c.Penalties = Math.Max(0, (int)Num(v, "mNumPenalties", i));

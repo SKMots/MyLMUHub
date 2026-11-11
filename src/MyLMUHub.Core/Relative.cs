@@ -10,6 +10,7 @@ public sealed class RelCar
     public bool Pit { get; set; }
     public double Gap { get; set; }              // seconds on track: + = ahead of the focus car on the road, - = behind; 0 for the focus car
     public bool HasGap { get; set; }             // false = no lap time known yet (only the order is right)
+    public double Alt { get; set; }              // DIAGNOSTIC: the gap from the lap profile / distance (the way before the game's time into the lap was used)
     public int Laps { get; set; }                // race only: + = this many laps ahead of the focus car in the race, - = laps behind (lapped)
 }
 
@@ -52,7 +53,10 @@ public sealed class LapProfile
 }
 
 /// <summary>The relative: every car on the track (not in the garage) ordered by the road distance to the focus car, half a lap each way.
-/// Gap = the time the focus car needs to get where the other car is: the lap profile (share of the lap time at each bit of the track, LapProfile) between the
+/// Gap = the game's own way (as its relative MFD and TinyPedal): the other car's estimated time into the lap minus the focus car's (mTimeIntoLap), wrapped
+/// round the focus car's estimated lap time (mEstimatedLapTime) to the side the car is on the road. Owner 2026-11-11: the old way was off from the MFD on
+/// track and in the pits. When the game gives no time into the lap: the old way, which follows.
+/// Old way: the time the focus car needs to get where the other car is: the lap profile (share of the lap time at each bit of the track, LapProfile) between the
 /// two places x the focus car's lap time: the game's estimate (mEstimatedLapTime, also there before the first lap), else its best, else its last lap, else
 /// the class best. Until the profile is learned (about a lap): road distance / lap length x that lap time.</summary>
 public static class Relative
@@ -76,10 +80,16 @@ public static class Relative
                 share = profile.At(c.LapDist, L) - profile.At(focus.LapDist, L);
                 if (d > 0 && share < 0) share += 1; else if (d < 0 && share > 0) share -= 1;           // the same way round as the distance
             }
+            double alt = c == focus || lap <= 0 ? 0 : Math.Round(share * lap, 3), gap = alt;
+            if (c != focus && focus.EstLap > 0 && focus.TimeInto >= 0 && c.TimeInto >= 0)
+            {
+                double E = focus.EstLap, t = c.TimeInto - focus.TimeInto, m = t - Math.Floor(t / E) * E;    // 0 .. E: how far ahead in time
+                gap = Math.Round(d >= 0 ? m : m - E, 3);
+            }
             list.Add(new RelCar
             {
                 Driver = c.Driver, Cls = c.Cls, ClassPos = pos, Me = c == focus, Pit = c.InPits,
-                Gap = c == focus || lap <= 0 ? 0 : Math.Round(share * lap, 3), HasGap = lap > 0,
+                Gap = gap, Alt = alt, HasGap = lap > 0,
                 Laps = race && c != focus ? (int)Math.Round((total - d) / L) : 0,
             });
             if (c != focus && lap <= 0) list[^1].Gap = d;                                  // no lap time: keep the order by distance

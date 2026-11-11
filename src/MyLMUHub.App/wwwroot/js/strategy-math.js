@@ -25,6 +25,8 @@
 
   // the plan -> { stints: [...], stops, laps, end (race time at the finish), drivers: { name: { time, stints, laps } }, warnings: [] }
   // stint = { n, driver, lap (s), laps, fromLap, toLap, start, end, veNeed (% per lap allowed), veUsed, veLeft (null = VE use unknown), set, newSet, wearEnd,
+  //           fill (only a stint that needs less than a full refill): { mode: 'save' | 'push', save / push (fill to, %), max, rate (the race's VE per lap),
+  //           pushPerLap (VE per lap with the push fill), room (pushPerLap / rate - 1) },
   //           changed: { driver, laps, tyres } (your changes), stop: null | { loss, tyres, swap, next } (the stop after it) }
   // live (optional, the race so far from the live data): { time: race time now, stints: [{ driver, laps, newSet, start, end }] (finished stints, as driven),
   //   current: { driver, laps (done in this stint), newSet, start, ve (VE % now, optional) } }. Finished stints keep what really happened (a stop that came early
@@ -86,6 +88,21 @@
       var last = timed ? end >= total : lap + n >= total, s = { n: k + 1, driver: d.name, lap: d.lap, laps: n, fromLap: lap + 1, toLap: lap + n, start: t, end: end, state: state,
         veNeed: veNeeded(ve, n), veUsed: per > 0 ? per * n : null, veLeft: per > 0 ? veMax - per * n : null, set: set, newSet: newSet,
         wearEnd: wearPer > 0 ? wear - wearPer * n : null, changed: { driver: !real && ovDriver >= 0, laps: !real && ovLaps > 0, tyres: !real && k > 0 && (ov.tyres === 'new' || ov.tyres === 'used') }, stop: null };
+      // a stint shorter than a full one (the last one, mostly) does not need a full refill (more VE = a longer stop and a heavier car). SAVE = fill what it
+      // needs at the race's VE per lap (what a full stint allows in 'laps I aim for', else the plan's VE per lap) + the reserve; PUSH = ve.push % more per
+      // lap (default 15; owner: a session's VE use can be a lift-and-coast one, so it is not 'your use without saving'); never over the max.
+      // ov.fill = 'push' | 'save' (default)
+      var res = num(ve.reserve, 0), pushPct = ve.push === null || ve.push === undefined || ve.push === '' ? 15 : num(ve.push, 15);
+      var rate = ve.mode === 'laps' ? (isFinite(maxLaps) ? veNeeded(ve, maxLaps) : 0) : num(ve.perLap, 0);
+      if (state === 'plan' && rate > 0) {
+        var saveFill = Math.min(veMax, Math.ceil((n + res) * rate - 1e-9));
+        if (saveFill < veMax - 0.5) {
+          var pushRate = rate * (1 + Math.max(0, pushPct) / 100), pushFill = Math.min(veMax, Math.ceil((n + res) * pushRate - 1e-9)), push = ov.fill === 'push';
+          s.fill = { mode: push ? 'push' : 'save', save: saveFill, push: pushFill, max: veMax, rate: rate, pushPerLap: pushFill / (n + res), room: pushFill / (n + res) / rate - 1 };
+          s.veNeed = (push ? pushFill : saveFill) / (n + res);
+          if (per > 0) { s.veUsed = per * n; s.veLeft = (push ? pushFill : saveFill) - per * n; }
+        }
+      }
       out.stints.push(s);
       t = s.end; lap += n; wear -= wearPer * n; onSet++; prev = s;
       var dd = out.drivers[d.name]; dd.time += end - s.start; dd.stints++; dd.laps += n;
@@ -208,6 +225,50 @@
     return out;
   }
 
+  // ---- a suggested stint length from your sessions on a track (Race Pace sessions with VE per lap: races and practice).
+  // o = { sessions, max (VE a stint starts with), reserve, pitLoss (s), length: { kind, time, laps } (the plan's race), rate (VE per lap to plan with: the
+  //       session you picked, as events scale VE differently; else the average of the sessions), cost (typed s per % per lap: used when not measured),
+  //       kind: how that session was driven: 'push' (no saving: rate = your normal use), 'lift' (saving VE: rate = what you can hold; the pace = that session's
+  //       pace, ownPace, as it includes the lifting; 'save' = saving MORE than that), 'mixed' (as push; its spread lets the cost be measured) }
+  // Your pace = the median of the sessions' paces (races first), your VE use = the average over their normal laps. What saving VE costs: lap time against
+  // VE per lap over all normal laps, each session around its own averages (an event can scale VE: 5.3 % a lap in one, 3.8 % in another) (a straight
+  // line: s per % less per lap), only when there are 20+ laps with at least 0.15 % spread and it is a cost
+  // (less VE = slower). Per stint length (what your VE allows - 1 .. + 4): VE per lap allowed, the saving, the lap time with that saving, the stops and
+  // the laps (timed race: the most laps first) or the finish time (laps race). best = the most laps, then the earliest finish.
+  // -> { pace, rate, laps (normal laps used), sessions, cost (s per % per lap, null = not known), options: [{ laps, perLap, save, lap, stops, raceLaps, end }], best }
+  function suggest(o) {
+    var M = P.paceMath, paces = [], racePaces = [], pts = [], vSum = 0, vN = 0, used = 0, max = num(o.max, 100), res = num(o.reserve, 0), loss = num(o.pitLoss, 0);
+    (o.sessions || []).forEach(function (s) {
+      var x = fromRace(s, { veStart: max, reserve: res }); if (!(x.vePerLap > 0) || x.veFrom !== 'file') return;
+      used++; vSum += x.vePerLap * x.veLaps; vN += x.veLaps; if (x.pace) (s.type === 'Race' ? racePaces : paces).push(x.pace);
+      var own = [];                                                                   // this session's laps, centred on its own averages (events scale VE differently)
+      M.classify(s, 0.05).forEach(function (l) { var v = s.laps.filter(function (q) { return q[0] === l.n; })[0][7]; if (!l.why && !l.wet && v > 0 && Math.abs(v - x.vePerLap) <= x.vePerLap * 0.15) own.push([v, l.t]); });
+      if (own.length >= 3) { var ov = M.mean(own.map(function (p) { return p[0]; })), ot = M.mean(own.map(function (p) { return p[1]; })); own.forEach(function (p) { pts.push([p[0] - ov, p[1] - ot]); }); }
+    });
+    var out = { pace: M.median(racePaces.length ? racePaces : paces), rate: num(o.rate, 0) > 0 ? num(o.rate, 0) : vN ? vSum / vN : null, laps: vN, sessions: used, cost: null, measured: false, options: [], best: null };
+    if ((o.kind === 'lift' || !out.pace) && num(o.ownPace, 0) > 0) out.pace = num(o.ownPace, 0);   // no session with VE in the file: the picked one's pace
+    out.kind = o.kind || 'push';
+    if (!out.pace || !out.rate) return out;
+    if (pts.length >= 20) {
+      var mv = M.mean(pts.map(function (p) { return p[0]; })), mt = M.mean(pts.map(function (p) { return p[1]; })), sxx = 0, sxy = 0;
+      pts.forEach(function (p) { sxx += (p[0] - mv) * (p[0] - mv); sxy += (p[0] - mv) * (p[1] - mt); });
+      var sd = Math.sqrt(sxx / pts.length), b = sxx > 0 ? sxy / sxx : 0;
+      if (sd >= 0.15 && b < 0) { out.cost = Math.min(10, -b); out.measured = true; }
+    }
+    if (out.cost === null && num(o.cost, -1) >= 0 && o.cost !== '' && o.cost !== null) out.cost = num(o.cost, 0);
+    var fit = Math.max(1, Math.floor(max / out.rate - res + 1e-9)), timed = !o.length || o.length.kind !== 'laps', total = timed ? num(o.length && o.length.time, 0) : num(o.length.laps, 0);
+    if (!(total > 0)) return out;
+    for (var L = Math.max(1, fit - 1); L <= fit + 4; L++) {
+      var per = veNeeded({ max: max, reserve: res }, L), save = Math.max(0, out.rate - per), lap = out.pace + save * (out.cost || 0), n, stops;
+      if (timed) { for (stops = 0; stops < 400; stops++) { n = Math.max(1, Math.ceil((total - stops * loss) / lap - 1e-9)); if (Math.ceil(n / L) - 1 <= stops) break; } }
+      else { n = total; stops = Math.ceil(n / L) - 1; }
+      stops = Math.max(0, Math.ceil(n / L) - 1);
+      out.options.push({ laps: L, perLap: per, save: save, lap: lap, stops: stops, raceLaps: n, end: n * lap + stops * loss });
+    }
+    if (out.cost !== null) out.best = out.options.slice().sort(function (a, b) { return b.raceLaps - a.raceLaps || a.end - b.end; })[0];
+    return out;
+  }
+
   // ---- quick race: q ={ length: { kind, time, laps }, lap: s, unit: 've' | 'fuel', perLap (VE % / litres), max (the most you may fill: VE % cap / tank litres),
   //      reserve: laps kept spare at the end of every stint, pitLoss: s per stop }
   // -> { laps, stops, lapsPerFill, stints: [{ n, fromLap, toLap, laps, fill (fill to), add (at the stop before it), window: [earliest, latest] lap of that stop }], warnings }
@@ -294,6 +355,6 @@
       greenEstimated: !(log.greenClock > 0), stints: done, current: cur, inPit: !cur, driver: r.car ? r.car.driver : '', lapsBefore: lapsBefore, entry: log.entry };
   }
 
-  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
+  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
   if (typeof module !== 'undefined') module.exports = P.strategyMath;
 })(typeof window !== 'undefined' ? window : globalThis);

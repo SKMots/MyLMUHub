@@ -20,6 +20,8 @@ button, select, input { font:inherit; color:inherit; }
 /* header */
 .hdr { display:flex; align-items:center; gap:18px; padding:14px 22px; background:var(--card); border:1px solid var(--line); border-radius:6px 22px 6px 22px;
   background-image:repeating-linear-gradient(115deg, rgba(255,255,255,.022) 0 2px, transparent 2px 10px); background-size:38% 100%; background-position:right; background-repeat:no-repeat; }
+/* the header stays at the top while the page scrolls (the page colour above it hides what scrolls by) */
+.hdr { position:sticky; top:0; z-index:40; box-shadow:0 -16px 0 var(--bg), 0 6px 18px rgba(0,0,0,.35); }
 .brand { display:flex; align-items:center; gap:12px; }
 .brand img { width:36px; height:36px; }
 .brand b { font-size:22px; font-weight:800; letter-spacing:-.02em; font-style:italic; }
@@ -272,3 +274,7 @@ button, select, input { font:inherit; color:inherit; }
 #ovSide .btn.on { background:var(--lime); color:var(--lime-ink); border-color:var(--lime); }
 details.explain { margin-top:14px; color:var(--faint); font-size:12px; line-height:1.6; } details.explain summary { cursor:pointer; color:var(--muted); font-size:13px; margin-bottom:4px; }
 details.explain summary:hover { color:var(--lime); }
+
+/* Race Control page: spectate list */
+.spec-row { padding:7px 10px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+.spec-row:hover { background:var(--tile); } .spec-row.on { border-color:var(--lime); background:var(--tile); }

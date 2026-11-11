@@ -170,7 +170,7 @@ public sealed class DataPump : IDisposable
         for (int i = Math.Max(0, me - 4); i <= Math.Min(rel.Count - 1, me + 4); i++)
         {
             var r = rel[i]; game.TryGetValue(PenaltyParse.Key(r.Driver), out var g);
-            relHist.Enqueue("   " + (r.Me ? "ME " : "   ") + "P" + r.ClassPos + " " + r.Cls + " | app " + (r.Me ? "0" : r.Gap.ToString("+0.000;-0.000")) + (r.Laps != 0 ? " (" + r.Laps.ToString("+0;-0") + "L)" : "") + " | game " + (g ?? "-"));
+            relHist.Enqueue("   " + (r.Me ? "ME " : "   ") + "P" + r.ClassPos + " " + r.Cls + " | app " + (r.Me ? "0" : r.Gap.ToString("+0.000;-0.000") + " (old way " + r.Alt.ToString("+0.000;-0.000") + ")") + (r.Laps != 0 ? " (" + r.Laps.ToString("+0;-0") + "L)" : "") + " | game " + (g ?? "-"));
         }
         while (relHist.Count > 400) relHist.Dequeue();
         try { var dir = Path.Combine(AppPaths.Dir, "webapi"); Directory.CreateDirectory(dir); File.WriteAllLines(Path.Combine(dir, "relative-compare.txt"), relHist); } catch (Exception) { }

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Race Control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Race Control</h2>
+        <div class="sub" style="margin-bottom:0">The live dashboard for your second screen. Set it up here; moving and resizing widgets and each widget's own settings stay in the dashboard (press E there).</div>
+      </div>
+      <div class="bar"><button class="btn lime" id="openBtn">Open dashboard</button><span class="faint" id="openInfo"></span></div>
+    </div>
+  </section>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
+    <section class="card">
+      <h2>VE goal per track</h2>
+      <div class="sub">The fuel widget colours your VE use against it on that track: green well under, yellow cutting close, red (flashing) over. A track without a goal here uses your strategy plan for that track, if there is one.</div>
+      <div class="scroll"><table class="tbl" id="goalTbl"></table></div>
+      <div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" id="goalAdd">Add a track</button><span class="faint" id="goalInfo"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>Theme</h2>
+      <div class="sub">The look of the dashboard (all views). Single colours and fonts: the Theme button in the dashboard's edit mode.</div>
+      <div class="form" id="themeForm"></div>
+      <div class="faint" id="themeInfo" style="margin-top:8px"></div>
+    </section>
+
+    <section class="card">
+      <h2>Views</h2>
+      <div class="sub">Several layouts (e.g. driving, spectating). New, rename and delete: in the dashboard's edit mode.</div>
+      <div class="form"><label class="field">The dashboard shows<select class="sel" id="viewSel"></select></label></div>
+      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <button class="btn" id="exportBtn" title="All views + the theme in one file (to share)">Export</button><button class="btn" id="importBtn" title="Add the views from a layout file">Import</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden><span class="faint" id="viewInfo"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Hotkeys</h2>
+      <div class="sub">Switch views while you drive. Click Set, then press a key (letters, digits, F1-F24 or numpad, with Ctrl / Alt / Shift) or a button on your wheel, button box or gamepad. Pick one the game does not use, e.g. Ctrl+Alt+1. Esc = cancel. They work while the dashboard is open.</div>
+      <div id="keyList"></div>
+    </section>
+
+    <section class="card">
+      <h2>Network</h2>
+      <div class="sub">Open the dashboard in a browser on another PC, laptop or tablet at home (same views, live). My LMU Hub has to run on this PC.</div>
+      <div id="netBody" class="muted">...</div>
+    </section>
+
+    <section class="card">
+      <h2>Spectate</h2>
+      <div class="sub">Whose car the dashboard follows. Your own car always comes first while you drive it.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><input class="input" id="specFind" placeholder="search driver / team"><button class="btn" id="specRefresh">Refresh</button></div>
+      <div id="specList" class="muted">...</div>
+    </section>
+  </div>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/views.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/rc.js"></script>
+</body>
+</html>

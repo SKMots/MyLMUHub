@@ -15,17 +15,16 @@
     h.className = 'hdr';
     h.innerHTML = '<a class="brand" href="home.html"><img src="assets/logo.svg" alt=""><b><i>my</i>lmu<i>hub</i></b><small>sim<br>racing</small></a>' +
       '<div class="rule" id="liveRule">offline</div>' +
-      '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="#" id="navRc">Race Control</a>' +
+      '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="racecontrol.html"' + (active === 'rc' ? ' class="on"' : '') + '>Race Control</a>' +
       '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a><a href="coach.html"' + (active === 'coach' ? ' class="on"' : '') + '>AI Coach</a></nav>' +
       '<span class="upd" id="upd"></span>' +
-      '<select class="sel themeSel" id="hubTheme" title="Hub theme (Race Control has its own, in its edit mode)">' + HUB_THEMES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === hubTheme() ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
+      '<select class="sel themeSel" id="hubTheme" title="Hub theme (Race Control has its own: Race Control page)">' + HUB_THEMES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === hubTheme() ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
       '<button class="btn" id="guestBtn" title="A friend drives on your rig: keep his laps apart from yours">Guest</button>' +
       '<button class="who" id="who" title="Your driver names"><span>?</span><em>Your names</em></button>' +
       '<div class="pop" id="whoPop" hidden></div><div class="pop" id="guestPop" hidden></div>';
     h.parentNode.insertBefore(document.getElementById('whoPop'), h.nextSibling); h.parentNode.insertBefore(document.getElementById('guestPop'), h.nextSibling);
     document.getElementById('guestBtn').onclick = function () { var p = document.getElementById('guestPop'); document.getElementById('whoPop').hidden = true; if (p.hidden) guestPanel(p); else p.hidden = true; };
     guestState();
-    document.getElementById('navRc').onclick = function (e) { e.preventDefault(); openRaceControl(); };
     document.getElementById('who').onclick = function () { var p = document.getElementById('whoPop'); if (p.hidden) names(p); else p.hidden = true; };
     document.getElementById('hubTheme').onchange = function () { try { localStorage.setItem('pw-hub-theme', this.value); } catch (e) {} applyHubTheme(); };
     if (inApp && here) update();                                                          // the update button: only on the PC the app runs on

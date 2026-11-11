@@ -4,13 +4,14 @@
   'use strict';
   var P = root.MyLMUHub = root.MyLMUHub || {};
   var KEY = 'pitwall.layout';
+  P.pageId = 'p' + Math.random().toString(36).slice(2, 10);                            // sent with a layout save: the app tells the other pages, this one skips its own
   P.localPersist = {
     load: function () { try { var t = root.localStorage.getItem(KEY); return Promise.resolve(t ? JSON.parse(t) : null); } catch (e) { return Promise.resolve(null); } },
     save: function (l) { try { root.localStorage.setItem(KEY, JSON.stringify(l)); } catch (e) {} return Promise.resolve(); }
   };
   P.httpPersist = {
     load: function () { return root.fetch('/api/layout').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); },
-    save: function (l) { return root.fetch('/api/layout', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(l) }).catch(function () {}); }
+    save: function (l) { return root.fetch('/api/layout', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Page': P.pageId }, body: JSON.stringify(l) }).catch(function () {}); }
   };
 
   function boot() {
@@ -115,7 +116,23 @@
       choose: function (t) { return root.fetch('/api/spectate', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(t || {}) }); } });
     // HUB: open the hub window (this window stays); opened from disk = the hub page
     $('hubBtn').onclick = function () { if (demo || remote) root.location.href = 'home.html'; else root.fetch('/api/open?what=hub', { method: 'POST' }); };   // from another PC: the hub page here
+    // another page saved the layout file (the hub's Race Control page: theme, text size, hotkeys, which view to show): take those over
+    var lastMsg = 0;
+    function fromFile() {
+      if (demo) return;
+      P.httpPersist.load().then(function (latest) {
+        if (!latest) return;
+        var n = norm(latest), f = ws.file, oldTh = JSON.stringify(f.theme), oldSize = f.theme && f.theme.textSize;
+        f.theme = n.theme; f.keys = n.keys; if (base) { base.theme = JSON.parse(JSON.stringify(n.theme)); base.keys = JSON.parse(JSON.stringify(n.keys)); }
+        Object.keys(n.views).forEach(function (v) { if (v !== f.current) f.views[v] = n.views[v]; });
+        Object.keys(f.views).forEach(function (v) { if (!(v in n.views) && v !== f.current) delete f.views[v]; });
+        if (JSON.stringify(f.theme) !== oldTh) { P.theme.applyTheme(doc.documentElement, f.theme); if ((f.theme && f.theme.textSize) !== oldSize) lm.setLayout(ws.current()); }
+        sendKeys(); if (keysPanel) openKeys();
+        if (!urlView && !lm.edit && n.current !== f.current && f.views[n.current]) { lm.flush(); if (ws.select(n.current)) show(); } else fillViews();
+      });
+    }
     store.subscribe(function (s) {
+      if (s.layoutMsg && s.layoutMsg.at !== lastMsg) { lastMsg = s.layoutMsg.at; if (s.layoutMsg.by !== P.pageId) fromFile(); }
       lm.update(s); spec.update(s);
       status.textContent = s.status === 'demo' ? 'DEMO DATA – keys 1-5 switch scenario, E edits the layout' : (s.standings ? '' : (s.status === 'live' ? 'WAITING FOR LE MANS ULTIMATE…' : 'CONNECTING…'));
     });
