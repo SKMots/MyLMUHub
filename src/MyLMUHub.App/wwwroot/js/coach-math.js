@@ -90,10 +90,14 @@
       var w = f.sectors.filter(function (x) { return x.weakest >= 2; }).sort(function (x, y) { return y.weakest - x.weakest; })[0];
       if (w && f.sessions >= 2) L.push('Pattern: ' + SEC[w.i] + ' was your weakest sector in ' + w.weakest + ' of your last ' + f.sessions + ' sessions here.');
     }
-    var z = o.zones;
-    if (z && z.zones && z.zones.length) L.push('Weak spots (numbered as on the driver\'s map: call them spot 1, spot 2, spot 3; ' + (z.turns ? 'the lap split corner by corner (a turn = from braking for a corner to braking for the next one); ' : '') + 'segment timing, your last ' + z.sessions + ' sessions here, your usual time against your best' + (z.turns ? ' through that turn' : ' per ~150 m') + '; lap ' +
+    var z = o.zones, official = !!(z && z.turns && z.turns[0] && z.turns[0].apexes);
+    // the circuit's own turns (numbers / names as on the track maps) with their apexes, so places can be said the way drivers do ('100 m before Turn 8')
+    if (official) L.push('The circuit\'s official turns (name them like this, never by distance into the lap; say places the way drivers do: "100 m before Turn 8", "at the Turn 8 apex", "on the exit of Turn 8"; ' +
+      'apex = metres into the lap): ' + [].concat.apply([], z.turns.map(function (g) { return g.apexes; })).map(function (a) { return (a.n ? 'Turn ' + a.n : '') + (a.n && a.name ? ' ' : '') + (a.name || '') + ' (' + (a.dir === 'L' ? 'left' : 'right') + ') ' + Math.round(a.d) + ' m'; }).join('; ') + '.');
+    if (z && z.zones && z.zones.length) L.push('Weak spots (numbered as on the driver\'s map: call them spot 1, spot 2, spot 3; ' + (official ? 'the lap split by the circuit\'s official turns (a turn = its braking zone, the corner and the straight after it; turns closer than 150 m together); ' :
+      z.turns ? 'the lap split corner by corner (a turn = from braking for a corner to braking for the next one); ' : '') + 'segment timing, your last ' + z.sessions + ' sessions here, your usual time against your best' + (z.turns ? ' through that turn' : ' per ~150 m') + '; lap ' +
       (z.segs.length && z.segs[z.segs.length - 1].to ? F.km(z.segs[z.segs.length - 1].to) : '') + '): ' + z.zones.map(function (q) {
-        return q.n + ') ' + (q.turn ? 'turn ' + q.turn + ' of the lap, ' : '') + F.km(q.from) + '-' + F.km(q.to) + (q.sector >= 0 ? ' (' + SEC[q.sector] + ')' : '') + ': ' + s3(q.loss) + ' per lap';
+        return q.n + ') ' + (official ? q.label : (q.turn ? 'turn ' + q.turn + ' of the lap, ' : '') + F.km(q.from) + '-' + F.km(q.to)) + (q.sector >= 0 ? ' (' + SEC[q.sector] + ')' : '') + ': ' + s3(q.loss) + ' per lap';
       }).join('; '));
     // the driving lines at those spots (optional): o.spots = [{ n, best, usual }] (potential-math lineSpot / lineMedian)
     var sp = z && z.zones && z.zones.length ? (o.spots || []).filter(function (x) { return x && (x.best || x.usual); }) : [];

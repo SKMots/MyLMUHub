@@ -58,12 +58,26 @@
     }).filter(function (o) { return o.gap !== null; }).sort(function (a, b) { return b.gap - a.gap; });
   }
 
-  // one track + car's segments (SegmentStore record): theoretical best (your best ever in every segment added up), your best lap, and per segment what
-  // your best lap lost there (its segment minus your best there) and what you TYPICALLY lose there (median of your last 20 laps minus your best).
+  // one track + car's segments (SegmentStore record): theoretical best, your best lap, and per segment what your best lap lost there (its segment minus
+  // your best there) and what you TYPICALLY lose there (median of your last 20 laps minus your best).
+  // Theoretical best = your best time over every stretch of about 600 m (a corner with its braking and exit), added up, from the kept laps and your best lap.
+  // Not the best of every 150 m segment: those trade time with each other (brake later = faster here, slower apex next), so that sum is a lap nobody drives
+  // (Bahrain: 1:58.8 against a 2:01.5 best; per 600 m 2:00.6).
+  function theoretical(rec, step) {
+    var k = Math.max(1, Math.round(600 / step)), n = rec.n;
+    var laps = (rec.laps || []).map(function (l) { return l.segs; }).concat(rec.bestLapSegs ? [rec.bestLapSegs] : [])
+      .filter(function (s) { return s && s.length === n && s.every(function (v) { return v > 0; }); });
+    if (!laps.length) return null;
+    var t = 0;
+    for (var a = 0; a < n; a += k) {
+      t += Math.min.apply(null, laps.map(function (s) { var x = 0; for (var i = a; i < Math.min(n, a + k); i++) x += s[i]; return x; }));
+    }
+    return rec.bestLap > 0 ? Math.min(t, rec.bestLap) : t;
+  }
   function segments(rec) {
     if (!rec || !rec.n || !rec.best || rec.best.length !== rec.n) return null;
     var laps = (rec.laps || []).slice(-20), seg = [], step = rec.length / rec.n;
-    var theo = rec.best.every(function (b) { return b > 0; }) ? rec.best.reduce(function (a, b) { return a + b; }, 0) : null;
+    var theo = theoretical(rec, step);
     for (var i = 0; i < rec.n; i++) {
       var med = M.median(laps.map(function (l) { return l.segs[i]; }).filter(function (v) { return v > 0; }));
       seg.push({ i: i, from: i * step, to: (i + 1) * step, best: rec.best[i], bestAt: rec.bestAt ? rec.bestAt[i] : 0,
@@ -164,9 +178,60 @@
   // within a segment), a segment before the bend. The cuts snap to the 150 m segments (the timing). -> [{ t: 1.., i0, len (segments), from, to (m) }] in lap
   // order (Turn 1 = the first after the line; the last one runs over the line), null = fewer than 2 turns found.
   var SH = 5;
+  // ---------- the official turns (data/turns.json, built once from the circuits' maps: per track [{ n: number, name, dir: 'L' | 'R', x, z }] at the apex, in
+  // world x / z). On a lap: each apex's metres into the lap (the nearest point of your best lap's line, else of the segment points), in lap order.
+  var TURNS = null;
+  function apexes(rec) {
+    var list = rec && TURNS && TURNS[rec.track]; if (!list || !list.length || !rec.n || !(rec.length > 0)) return null;
+    var pts = [], sh = rec.shape, i, step = rec.length / rec.n;
+    if (sh && sh.length >= SH * 100) for (i = 0; i + SH <= sh.length; i += SH) pts.push([sh[i], sh[i + 1], sh[i + 2]]);
+    else if (rec.points && rec.points.length === rec.n) rec.points.forEach(function (p, k) { if (p && p.length >= 4) { pts.push([k * step, p[0], p[1]]); pts.push([(k + 0.5) * step, p[2], p[3]]); } });
+    if (pts.length < 20) return null;
+    var out = [];
+    list.forEach(function (t) {
+      var best = null, bd = Infinity;
+      pts.forEach(function (p) { var dd = (p[1] - t.x) * (p[1] - t.x) + (p[2] - t.z) * (p[2] - t.z); if (dd < bd) { bd = dd; best = p; } });
+      if (best && bd <= 80 * 80) out.push({ d: best[0], n: t.n || null, name: t.name || null, dir: t.dir });    // not on this lap's track (another layout): left out
+    });
+    out.sort(function (a, b) { return a.d - b.d; });
+    return out.length >= 2 ? out : null;
+  }
+  // the name of a group of official turns: 'Turn 1', 'Turns 9–10', 'Turn 1 · La Source', 'Dunlop Chicane', 'Ford Chicane / Raccordement'
+  function turnLabel(ap) {
+    var ns = ap.filter(function (a) { return a.n; }).map(function (a) { return a.n; }), names = [];
+    ap.forEach(function (a) { if (a.name && names.indexOf(a.name) < 0) names.push(a.name); });
+    var num = !ns.length ? '' : ns.length === 1 ? 'Turn ' + ns[0] : 'Turns ' + ns[0] + '–' + ns[ns.length - 1];
+    return num && names.length ? num + ' · ' + names.join(' / ') : num || names.join(' / ');
+  }
+  // a place on the lap the way a driver says it, from the official turns: '100 m before Turn 8', 'Turn 8 apex', '50 m after Turn 8' (boards: 50 m steps)
+  function whereOnLap(rec, d) {
+    var ap = apexes(rec); if (!ap) return null;
+    var L = rec.length, best = null, bd = Infinity;
+    ap.forEach(function (a) { var x = ((d - a.d) % L + 1.5 * L) % L - L / 2; if (Math.abs(x) < Math.abs(bd) || (Math.abs(x) === Math.abs(bd) && x < 0)) { bd = x; best = a; } });
+    var nm = best.n ? 'Turn ' + best.n : best.name, m = Math.round(Math.abs(bd) / 50) * 50;     // short: 'Turn 8', or the name when the turn has no number
+    if (Math.abs(bd) > 300) return 'on the straight ' + (bd < 0 ? 'before ' : 'after ') + nm;
+    return Math.abs(bd) < 25 ? nm + ' apex' : (m || 50) + ' m ' + (bd < 0 ? 'before ' : 'after ') + nm;
+  }
   function turns(rec) {
     if (!rec || !rec.n || !(rec.length > 0)) return null;
     var n = rec.n, step = rec.length / n, starts = [], sh = rec.shape, i;
+    // the official turns when this track has them: a turn = from about 200 m before its apex (braking / turn-in; never before the middle to the previous apex)
+    // to the next one's start; turns closer than one segment (150 m) are one group ('Turns 1–2')
+    var ap = apexes(rec);
+    if (ap) {
+      var gs = [];
+      ap.forEach(function (a, k) {
+        var prev = k ? ap[k - 1] : null, start = prev ? Math.max(a.d - 200, (prev.d + a.d) / 2) : a.d - 200, c = ((Math.round(start / step) % n) + n) % n;
+        var g = gs[gs.length - 1];
+        if (g && (a.d - prev.d < step || c === g.c)) g.ap.push(a); else gs.push({ c: c, ap: [a] });
+      });
+      if (gs.length > 1 && gs[0].c === gs[gs.length - 1].c) { gs[0].ap = gs.pop().ap.concat(gs[0].ap); }
+      gs.sort(function (a, b) { return a.c - b.c; });
+      if (gs.length >= 2) return gs.map(function (g, k) {
+        var next = k + 1 < gs.length ? gs[k + 1].c : gs[0].c + n, len = next - g.c;
+        return { t: k + 1, label: turnLabel(g.ap), apexes: g.ap, i0: g.c, len: len, from: g.c * step, to: ((g.c + len) * step) % rec.length || rec.length };
+      });
+    }
     if (sh && sh.length >= SH * 100) {
       var top = -1, topD = 0, low = Infinity, armed = true;
       for (i = 0; i + SH <= sh.length; i += SH) {
@@ -192,7 +257,7 @@
     if (cuts.length < 2) return null;
     return cuts.map(function (c, k) {
       var next = k + 1 < cuts.length ? cuts[k + 1] : cuts[0] + n, len = next - c;
-      return { t: k + 1, i0: c, len: len, from: c * step, to: ((c + len) * step) % rec.length || rec.length };
+      return { t: k + 1, label: 'Turn ' + (k + 1), i0: c, len: len, from: c * step, to: ((c + len) * step) % rec.length || rec.length };
     });
   }
   // a turn's time on a lap = the sum of its segments
@@ -231,7 +296,7 @@
           .sort(function (a, b) { return b.loss - a.loss; }).slice(0, 3).map(function (x) { return x.t; });
       });
       var zt = tg.slice().sort(function (a, b) { return b.loss - a.loss || a.t - b.t; }).filter(function (g) { return g.loss >= 0.03; }).slice(0, 3).map(function (g, k) {
-        return { n: k + 1, turn: g.t, i0: g.i0, len: g.len, from: g.from, to: g.to, loss: g.loss, sector: g.sector, seen: top3.filter(function (l) { return l.indexOf(g.t) >= 0; }).length,
+        return { n: k + 1, turn: g.t, label: g.label, i0: g.i0, len: g.len, from: g.from, to: g.to, loss: g.loss, sector: g.sector, seen: top3.filter(function (l) { return l.indexOf(g.t) >= 0; }).length,
                  of: ses.length, pts: g.pts };
       });
       return { segs: segs, zones: zt, turns: tg, sessions: ses.length, laps: laps, lost: lost, inZones: zt.reduce(function (a, w) { return a + w.loss; }, 0), sectors: rec.sectors || [-1, -1] };
@@ -307,6 +372,9 @@
   }
 
   P.potentialMath = { markOld: markOld, tracks: tracks, optimal: optimal, segments: segments, focus: focus, zones: zones, segSessions: segSessions, windows: windows, sectorAt: sectorAt, repeats: repeats, fastestCar: fastestCar,
-                      lineSpot: lineSpot, lineMedian: lineMedian, optimalLine: optimalLine, turns: turns };
+                      lineSpot: lineSpot, lineMedian: lineMedian, optimalLine: optimalLine, turns: turns,
+                      apexes: apexes, turnLabel: turnLabel, whereOnLap: whereOnLap, setTurns: function (t) { TURNS = t || null; } };
+  // the turn table, loaded once in the page (pages wait for it before they draw turns; without it the turns come from your speed as before)
+  P.potentialMath.ready = typeof fetch === 'function' && typeof document !== 'undefined' ? fetch('data/turns.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (t) { TURNS = t || null; }, function () {}) : Promise.resolve();
   if (typeof module !== 'undefined') module.exports = P.potentialMath;
 })(typeof window !== 'undefined' ? window : globalThis);

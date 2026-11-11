@@ -131,7 +131,7 @@
     var m = segAll.filter(function (x) { return (R.trackName(x.track, '') || x.track) === base && (R.className(x.cls) || x.cls) === c; });
     var hit = m.filter(function (x) { return x.car === s.car; })[0] || m.sort(function (a, b) { return b.laps - a.laps; })[0];
     if (!hit) return Promise.resolve(null);
-    return H.json('api/segments?key=' + encodeURIComponent(hit.key)).then(function (rec) {
+    return U.ready.then(function () { return H.json('api/segments?key=' + encodeURIComponent(hit.key)); }).then(function (rec) {
       if (!(rec && rec.n)) return null;
       var sg = { rec: rec, z: U.zones(rec, 5), car: hit.car, key: hit.key, spots: null };
       return spotsFor(sg).then(function (sp) { sg.spots = sp; return sg; }, function () { return sg; });

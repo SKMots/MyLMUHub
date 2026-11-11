@@ -122,7 +122,8 @@ button, select, input { font:inherit; color:inherit; }
 /* strategy planner */
 .form { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
 .form .field[hidden] { display:none; }
-.form .input { min-width:0; width:100%; } .form .sel { width:100%; }
+.form { align-items:end; }
+.form .input, .form .input.short { min-width:0; width:100%; } .form .sel { width:100%; }
 .input.short { min-width:0; width:110px; } .tbl .input { padding:6px 9px; }
 .row { display:flex; gap:8px; align-items:center; }
 .timeline { display:flex; height:30px; margin-top:16px; border-radius:6px; overflow:hidden; background:var(--tile); }
@@ -232,6 +233,17 @@ button, select, input { font:inherit; color:inherit; }
 #ovMap path[data-i], #ovMap .zn { cursor:pointer; }
 #ovSide { overflow:auto; min-height:0; }
 #ovSide .tbl td { padding:7px 8px; }
+/* Track study, "Where you lose time": the weak spots as rows (number = the map's), the chosen one as bars */
+.ls-spot { display:flex; align-items:center; gap:12px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; margin-bottom:6px; cursor:pointer; }
+.ls-spot:hover { border-color:var(--muted); } .ls-spot.sel { border-color:var(--lime); }
+.ls-num { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:13px; background:var(--text); color:var(--bg); flex:none; }
+.ls-spot.sel .ls-num { background:var(--lime); color:var(--lime-ink); }
+.ls-what { flex:1; display:flex; flex-direction:column; min-width:0; } .ls-what b { font-size:15px; } .ls-what small { color:var(--faint); font-size:12px; }
+.ls-loss { color:var(--red); font-family:var(--mono, monospace); font-size:15px; font-weight:700; }
+.ls-part { display:grid; grid-template-columns:150px 1fr 70px; align-items:center; gap:10px; padding:6px 6px; border-radius:6px; cursor:pointer; font-size:13px; }
+.ls-part:hover { background:var(--line); } .ls-part.sel { outline:1px solid var(--lime); }
+.ls-part .ls-what b { font-size:13px; } .ls-part .ls-what small { font-size:11px; }.ls-val { text-align:right; color:var(--red); font-family:var(--mono, monospace); }
+.ls-bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; } .ls-bar i { display:block; height:100%; background:var(--red); border-radius:4px; }
 
 /* AI Coach */
 .coach-terms { max-width:900px; font-size:13px; line-height:1.55; color:var(--muted); margin-left:26px; }

@@ -141,7 +141,48 @@
     return { laps: laps.length, lap: M.mean(laps), vePerLap: M.median(veUse), veLaps: veUse.length, wearPerLap: M.median(wearUse), pitLoss: M.median(losses), stops: losses.length };
   }
 
-  // ---- quick race: q = { length: { kind, time, laps }, lap: s, unit: 've' | 'fuel', perLap (VE % / litres), max (the most you may fill: VE % cap / tank litres),
+  // ---- one race you drove (a Race Pace session: laps [n, t, s1, s2, s3, flags, pos, ve, wear]) -> what a plan needs from it.
+  // o = { veStart: % a stint started with (100), veLeft: % left when you came in after the first full stint (typed by you; null = use the file's VE) }
+  // -> { pace (median clean lap), best, laps, stints: [{ from, to, laps, avg, stop }], stops: [{ after (in lap), loss (in + out lap - 2 x pace), tyres: true / false / null }],
+  //      full (the first stint that ended in a stop), vePerLap, veLeft, veFrom: 'file' | 'typed' | null, spareLaps (laps the VE left was worth),
+  //      more: { laps (one more than the full stint), perLap (VE % per lap allowed, the same reserve as the plan), save (% per lap less than you used) } }
+  function fromRace(s, o) {
+    o = o || {};
+    var M = P.paceMath, c = M.classify(s, 0.05), byN = {}, out = { pace: null, best: null, laps: 0, stints: [], stops: [], full: null, vePerLap: null, veLeft: null, veFrom: null, spareLaps: null, more: null };
+    s.laps.forEach(function (l) { byN[l[0]] = l; });
+    var clean = c.filter(function (l) { return !l.why && !l.wet; }).map(function (l) { return l.t; });
+    out.pace = M.median(clean); out.best = clean.length ? Math.min.apply(null, clean) : null; out.laps = s.laps.length ? s.laps[s.laps.length - 1][0] : 0;
+    var cur = null;
+    c.forEach(function (l, i) {
+      if (!cur) cur = { from: l.n, to: l.n, laps: 0, times: [], stop: false };
+      cur.laps++; cur.to = l.n; if (!l.why && !l.wet) cur.times.push(l.t);
+      var last = i === c.length - 1;
+      if (l.pit && !last) {
+        cur.stop = true;
+        var inL = byN[l.n], outL = byN[l.n + 1], wb = inL && inL[8], wa = outL && outL[8];
+        out.stops.push({ after: l.n, loss: out.pace && inL[1] > 0 && outL && outL[1] > 0 ? Math.max(0, inL[1] + outL[1] - 2 * out.pace) : null,
+          tyres: wb > 0 && wa > 0 ? wa > wb + 2 : null });
+      }
+      if (cur.stop || last) { cur.avg = M.mean(cur.times); delete cur.times; out.stints.push(cur); cur = null; }
+    });
+    out.full = out.stints.filter(function (x) { return x.stop; })[0] || null;
+    var start = num(o.veStart, 100), reserve = num(o.reserve, 0), f = out.full;
+    if (f) {
+      var ves = []; for (var n = f.from; n <= f.to; n++) if (byN[n] && byN[n][7] > 0) ves.push(byN[n][7]);
+      if (ves.length >= f.laps / 2) { out.vePerLap = M.median(ves); out.veLeft = Math.max(0, start - out.vePerLap * f.laps); out.veFrom = 'file'; }
+      else if (o.veLeft !== null && o.veLeft !== undefined && o.veLeft !== '' && num(o.veLeft, -1) >= 0 && num(o.veLeft, 0) < start) {
+        out.veLeft = num(o.veLeft, 0); out.vePerLap = (start - out.veLeft) / f.laps; out.veFrom = 'typed';
+      }
+      if (out.vePerLap > 0) {
+        out.spareLaps = out.veLeft / out.vePerLap;
+        var per = veNeeded({ max: start, reserve: reserve }, f.laps + 1);
+        out.more = { laps: f.laps + 1, perLap: per, save: out.vePerLap - per };
+      }
+    }
+    return out;
+  }
+
+  // ---- quick race: q ={ length: { kind, time, laps }, lap: s, unit: 've' | 'fuel', perLap (VE % / litres), max (the most you may fill: VE % cap / tank litres),
   //      reserve: laps kept spare at the end of every stint, pitLoss: s per stop }
   // -> { laps, stops, lapsPerFill, stints: [{ n, fromLap, toLap, laps, fill (fill to), add (at the stop before it), window: [earliest, latest] lap of that stop }], warnings }
   // Fewest stops first (stops cost laps in a timed race); with stops the car starts full and the last fill is only what the finish needs (a shorter stop).
@@ -194,6 +235,15 @@
     return out;
   }
 
+  // a race length as typed -> s: "8" / "8h" = 8 h, "8:00" / "8h00" / "8.30" (h.mm) = 8 h (30 min), "800" / "1230" (no separator, 3-4 digits) = h mm; else 0
+  function parseDur(t) {
+    var m = /^\s*(\d+)\s*(?:[:h.]\s*(\d{1,2}))?\s*h?\s*$/i.exec(t || '');
+    if (!m) return 0;
+    var h = Number(m[1]), min = Number(m[2] || 0);
+    if (m[2] === undefined && m[1].length >= 3 && m[1].length <= 4) { h = Math.floor(h / 100); min = Number(m[1].slice(-2)); }
+    return min < 60 ? h * 3600 + min * 60 : 0;
+  }
+
   // real clock (ms) of a race time: the green flag (ms) + race time (s)
   function clockAt(greenMs, raceSec) { return greenMs + raceSec * 1000; }
 
@@ -218,6 +268,6 @@
       greenEstimated: !(log.greenClock > 0), stints: done, current: cur, inPit: !cur, driver: r.car ? r.car.driver : '', lapsBefore: lapsBefore, entry: log.entry };
   }
 
-  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, clockAt: clockAt, fromLive: fromLive, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
+  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
   if (typeof module !== 'undefined') module.exports = P.strategyMath;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -21,6 +21,9 @@ public sealed class PaceService
     PaceSession live;                                       // the session being driven now (LiveSession), until its results file is read
     FileSystemWatcher watcher; Timer soon;                  // a results file written / changed: read it ~2 s later (no polling of the folder)
     string CachePath => Path.Combine(AppPaths.Dir, "pace", "cache.json");
+    // your live laps with the VE used and the tyre wear (LiveSession): online result files have neither, so they are added to the file's laps when it comes
+    string RecordedPath => Path.Combine(AppPaths.Dir, "pace", "live-laps.json");
+    List<PaceSession> recorded;
 
     public PaceService(AppSettings s) { settings = s; soon = new Timer(_ => { lock (gate) { if (running == null) { lastLook = DateTime.UtcNow; running = Task.Run(Scan); } else soon.Change(2000, Timeout.Infinite); } }); }   // still reading: again in 2 s
 
@@ -107,7 +110,34 @@ public sealed class PaceService
     /// <summary>The results folder (null = not found).</summary>
     public string Folder => folder ?? FindFolder();
     /// <summary>A lap of yours was driven: the live session (LiveSession) as it is now.</summary>
-    public void SetLive(PaceSession s) { lock (gate) { live = s; Generation++; } }
+    public void SetLive(PaceSession s) { lock (gate) { live = s; Generation++; Remember(s); } }
+    // keeps the live session's laps on disk when they hold VE or wear (the last 60 sessions); called under the gate
+    void Remember(PaceSession s)
+    {
+        if (s == null || !s.Laps.Any(l => l[7] != null || l[8] != null)) return;
+        recorded ??= LoadRecorded();
+        recorded.RemoveAll(r => r.Time == s.Time && r.Veh == s.Veh && r.Track == s.Track);
+        recorded.Add(s); while (recorded.Count > 60) recorded.RemoveAt(0);
+        try { Directory.CreateDirectory(Path.GetDirectoryName(RecordedPath)); File.WriteAllText(RecordedPath, JsonSerializer.Serialize(recorded, Opt)); } catch (Exception) { }
+    }
+    List<PaceSession> LoadRecorded()
+    {
+        try { if (File.Exists(RecordedPath)) return JsonSerializer.Deserialize<List<PaceSession>>(File.ReadAllText(RecordedPath), Opt) ?? new(); } catch (Exception) { }
+        return new();
+    }
+    /// <summary>A session from a result file: the VE / wear the app recorded live go into its laps that have none (matched by lap time).</summary>
+    internal static void Fill(PaceSession file, IEnumerable<PaceSession> rec)
+    {
+        if (file.Laps.All(l => l[7] != null && l[8] != null)) return;
+        foreach (var r in rec.Where(r => IsLive(file, r)))
+            foreach (var l in file.Laps)
+            {
+                if (!(l[1] > 0)) continue;
+                var m = r.Laps.FirstOrDefault(x => x[1] != null && Math.Abs(x[1].Value - l[1].Value) < 0.002);
+                if (m == null) continue;
+                l[7] ??= m[7]; l[8] ??= m[8];
+            }
+    }
     /// <summary>Your latest session on this track from the result files (its layout / setting / game version for the live session); null = none.</summary>
     public PaceSession LastOnTrack(string track)
     {
@@ -233,6 +263,7 @@ public sealed class PaceService
             else todo.Add((name, key, f));
         }
         total = todo.Count; done = 0;
+        List<PaceSession> rec; lock (gate) rec = (recorded ??= LoadRecorded()).ToList();
         var results = new System.Collections.Concurrent.ConcurrentDictionary<string, Entry>();
         Parallel.ForEach(todo, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2) }, t =>
         {
@@ -242,7 +273,8 @@ public sealed class PaceService
                 foreach (var s in ResultsXml.Parse(t.Path))
                 {
                     e.Names.AddRange(ResultsXml.Humans(s).Where(n => !e.Names.Contains(n)));
-                    e.Sessions.AddRange(PaceSession.Mine(s, names, t.Name));
+                    var mine = PaceSession.Mine(s, names, t.Name); foreach (var m in mine) Fill(m, rec);
+                    e.Sessions.AddRange(mine);
                     if (s.RaceKey.Length > 0 && !e.RaceKeys.Contains(s.RaceKey)) e.RaceKeys.Add(s.RaceKey);
                 }
             }

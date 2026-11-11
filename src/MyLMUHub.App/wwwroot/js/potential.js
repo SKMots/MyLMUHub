@@ -130,10 +130,10 @@
   function loadSeg() {
     $('segSel').hidden = false;
     var key = segKey;
-    H.json('api/segments?key=' + encodeURIComponent(key)).then(function (rec) {
+    U.ready.then(function () { return H.json('api/segments?key=' + encodeURIComponent(key)); }).then(function (rec) {      // after the turn table (official turns)
       if (key !== segKey) return;
       var a = U.segments(rec); if (!a) { segEmpty('Not enough laps on this one yet.'); return; }
-      $('segTiles').innerHTML = tile('Best lap', F.lap(a.bestLap), '', 'purple') + tile('Theoretical best', F.lap(a.theoretical), 'your best in every segment') +
+      $('segTiles').innerHTML = tile('Best lap', F.lap(a.bestLap), '', 'purple') + tile('Theoretical best', F.lap(a.theoretical), 'your best on every ~600 m stretch') +
         tile('On the table', F.plusSec(a.gap), 'best lap vs theoretical', 'red') + tile('Typical lap', F.lap(a.typicalLap), F.plusSec(a.typicalGap) + ' vs theoretical') +
         tile('Laps timed', String(a.laps), rec.n + ' segments of ' + Math.round(rec.length / rec.n) + ' m');
       var s = segList.filter(function (x) { return x.key === key; })[0];
@@ -172,7 +172,7 @@
     return m.filter(function (s) { return s.car === f.car; })[0] || m.sort(function (a, b) { return b.laps - a.laps; })[0] || null;
   }
   function getRec(key) {
-    return H.json('api/segments?key=' + encodeURIComponent(key)).then(function (rec) { segCache[key] = { gen: segGen, rec: rec }; return rec; });
+    return U.ready.then(function () { return H.json('api/segments?key=' + encodeURIComponent(key)); }).then(function (rec) { segCache[key] = { gen: segGen, rec: rec }; return rec; });
   }
   function paintFocus(f, rec, key) {
     var z = rec ? U.zones(rec, 5) : null;

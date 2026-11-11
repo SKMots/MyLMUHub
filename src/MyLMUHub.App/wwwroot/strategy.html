@@ -31,6 +31,17 @@
     <div class="lb-line" id="lbLine"></div>
   </section>
 
+  <section class="card" id="fromCard" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Start from a race you drove</h2>
+        <div class="sub" style="margin-bottom:0">Your pace, stints, pit stop and VE use from one race: check it, then fill the plan with one click.</div>
+      </div>
+      <label class="field inline">Race<select class="sel" id="raceSel"><option value="">Open this page in the app to read your races</option></select></label>
+    </div>
+    <div id="fromBody" style="margin-top:14px"></div>
+  </section>
+
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
     <section class="card">
       <h2>Event</h2>
@@ -41,7 +52,7 @@
         <label class="field">Class<select class="sel" data-k="cls" id="clsSel"></select></label>
         <label class="field">Car<input class="input" data-k="car" list="carList" placeholder="optional"><datalist id="carList"></datalist></label>
         <label class="field">Race length<span class="row"><span class="seg" id="segLen"><button data-v="time">Time</button><button data-v="laps">Laps</button></span>
-          <input class="input short" id="lenInput" placeholder="6:00"></span></label>
+          <input class="input short" id="lenInput" placeholder="6:00"><span class="faint" id="lenHint" style="white-space:nowrap"></span></span></label>
         <label class="field">Planned green flag (your clock)<input class="input" type="datetime-local" data-k="start"></label>
       </div>
     </section>

@@ -8,7 +8,11 @@
   var P = root.MyLMUHub, F = P.format, U = P.potentialMath, SEC = ['S1', 'S2', 'S3'];
   function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function $(id) { return document.getElementById(id); }
-  function where(z) { return (z.turn ? 'Turn ' + z.turn + ' · ' : '') + F.km(z.from) + ' – ' + F.km(z.to) + (z.sector >= 0 ? ' (' + SEC[z.sector] + ')' : ''); }
+  function where(z) { return (z.label ? z.label : z.turn ? 'Turn ' + z.turn : F.km(z.from) + ' – ' + F.km(z.to)) + (z.sector >= 0 ? ' (' + SEC[z.sector] + ')' : ''); }
+  // a turn / weak spot's name: the official turn(s) ('Turns 9–10', 'Turn 1 · La Source'), else 'Spot n'
+  function nameOf(w) { return w.label || (w.turn ? 'Turn ' + w.turn : 'Spot ' + w.n); }
+  // a place on the lap like the boards at the track ('100 m before Turn 8', 'Turn 8 apex'); without the turn table: km into the lap
+  function pos(d) { return (ov && U.whereOnLap(ov.rec, d)) || F.km(d); }
   // the turns of a track (potential-math turns(): corner by corner) and which turn each segment is in
   function turnsOf(rec, z) { var t = (z && z.turns) || U.turns(rec); if (!t) return null; var of = []; t.forEach(function (g) { for (var j = 0; j < g.len; j++) of[(g.i0 + j) % rec.n] = g; }); return { list: t, of: of }; }
   // the colour value of every segment: per turn when the track has turns (a turn is one colour), else per segment. layer: loss | sd | bestlap
@@ -163,7 +167,7 @@
   function lineData(id) { var v = id && id !== 'none' ? ov.lines.data[id] : null; return v && v.line && v.line.length ? v.line : null; }
   // the line where it is d metres into the lap: [x, z]
   function at(line, d) { var b = null; for (var i = 0; i + 5 < line.length; i += 6) if (b === null || Math.abs(line[i] - d) < Math.abs(line[b] - d)) b = i; return b === null ? null : [line[b + 1], line[b + 2]]; }
-  function m(v) { return v === null || v === undefined ? '--' : Math.round(v) + ' m'; }
+  function m(v) { return v === null || v === undefined ? '--' : pos(v); }
   function kmh(v) { return v === null || v === undefined ? '--' : Math.round(v) + ' km/h'; }
   function sgn(v, unit) { return v === null || v === undefined || isNaN(v) ? '' : (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(Math.round(v)) + unit; }
 
@@ -171,7 +175,7 @@
     var z = ov.z, a = ov.a, rec = ov.rec, n = rec.n, st = rec.length / n, lines = ov.mode === 'lines';
     var zl = z ? z.zones : [], sel = ov.pick || zl.filter(function (w) { return w.n === ov.zone; })[0] || null;   // a clicked turn, else a weak spot
     function inZone(i, w) { return (i - w.i0 + n) % n < w.len; }
-    var range = ov.seg !== null ? { name: 'Segment ' + (ov.seg + 1), from: ov.seg * st, len: st } : sel ? { name: sel.turn ? 'Turn ' + sel.turn + (sel.n ? ' (spot ' + sel.n + ')' : '') : 'Spot ' + sel.n, from: sel.from, len: sel.len * st } : null;
+    var range = ov.seg !== null ? { name: 'Segment ' + (ov.seg + 1), from: ov.seg * st, len: st } : sel ? { name: nameOf(sel) + (sel.turn && sel.n ? ' (spot ' + sel.n + ')' : ''), from: sel.from, len: sel.len * st } : null;
     // the mode switch (Driving lines only when this track + car has any)
     var can = hasLines();
     $('ovMode').innerHTML = '<button data-m="lose"' + (!lines ? ' class="on"' : '') + '>Where you lose time</button><button data-m="lines"' + (lines ? ' class="on"' : '') + (can ? '' : ' disabled') +
@@ -214,32 +218,69 @@
     $('ovSide').innerHTML = side;
     zoomable();
   }
-  // 'Where you lose time': the weak spots, the chosen one segment by segment, what the numbers mean (folded)
+  // the pieces of a turn in driving terms, from your best lap (rec.shape: [d, x, z, km/h, brake %]): [{ what: 'Braking', how: '245 → 120 km/h' }, ...];
+  // without a shape just the km
+  function parts(list, rec, st) {
+    var sh = rec.shape, has = sh && sh.length >= 250;
+    var p = list.map(function (i) {
+      var o = { from: i * st, to: (i + 1) * st, vin: null, vout: null, vmin: null, dmin: null, brake: 0 };
+      if (has) for (var j = 0; j + 4 < sh.length; j += 5) {
+        var d = sh[j]; if (d < o.from || d >= o.to) continue;
+        var v = sh[j + 3]; if (o.vin === null) o.vin = v; o.vout = v; if (o.vmin === null || v < o.vmin) { o.vmin = v; o.dmin = d; } if (sh[j + 4] > o.brake) o.brake = sh[j + 4];
+      }
+      return o;
+    });
+    var apex = -1; p.forEach(function (o, k) { if (o.vmin !== null && (apex < 0 || o.vmin < p[apex].vmin)) apex = k; });
+    return p.map(function (o, k) {
+      var kmh = o.vin !== null ? Math.round(o.vin) + ' → ' + Math.round(o.vout) + ' km/h' : '';
+      if (apex < 0) return { what: 'Part ' + (k + 1), how: kmh };
+      var brakes = o.brake >= 10 && o.vout < o.vin - 5, up = o.vout > o.vin + 5;      // braking = on the brake AND slowing down (not a touch while accelerating)
+      var what = k === apex ? 'Slowest point' : k < apex ? (brakes ? 'Braking' : 'Approach') : brakes ? 'Braking for the next turn' : !up ? 'Flat out' : k === apex + 1 ? 'Corner exit' : 'Accelerating out';
+      return { what: what, how: k === apex ? 'down to ' + Math.round(o.vmin) + ' km/h' + (o.brake >= 10 ? ', still braking' : '') : kmh };
+    });
+  }
+  // 'Where you lose time': the weak spots, the chosen one step by step, what the numbers mean (folded)
   function loseSide(zl, sel, rec, n) {
-    var z = ov.z, a = ov.a, h = '';
+    var z = ov.z, a = ov.a, st = rec.length / n, h = '';
+    function km(from, to) { return F.km(from) + ' – ' + F.km(to); }
+    // 1. the list: the number on the map, the turn, where, and what it costs per lap
     if (zl.length) {
-      h += '<div class="sub" style="margin:0 0 6px">Your weak spots</div><table class="tbl"><thead><tr><th>#</th><th>Where</th><th class="num">Per lap</th><th class="num">Came back</th></tr></thead><tbody>' +
-        zl.map(function (w) { return '<tr class="click' + (ov.seg === null && w.n === ov.zone ? ' sel' : '') + '" data-z="' + w.n + '"><td>' + w.n + '</td><td>' + esc(where(w)) + '</td><td class="num red">' + F.plusSec(w.loss) + '</td><td class="num">' + w.seen + ' / ' + w.of + '</td></tr>'; }).join('') + '</tbody></table>';
+      h += '<div class="sub" style="margin:0 0 2px">Where you lose the most time</div><div class="faint" style="margin-bottom:8px">Per lap, against your best there. The numbers match the map.</div>' +
+        zl.map(function (w) {
+          return '<div class="ls-spot click' + (ov.seg === null && w.n === ov.zone ? ' sel' : '') + '" data-z="' + w.n + '"><span class="ls-num">' + w.n + '</span><span class="ls-what"><b>' + esc(nameOf(w)) + '</b>' +
+            '<small>' + (w.label ? '' : km(w.from, w.to) + ' · ') + (w.sector >= 0 ? 'Sector ' + (w.sector + 1) + ' · ' : '') + 'in ' + w.seen + ' of ' + w.of + ' sessions</small></span><span class="ls-loss">' + F.plusSec(w.loss) + ' s</span></div>';
+        }).join('');
     } else h += '<div class="muted" style="margin-bottom:10px">' + (z ? 'No weak spots: you are close to your best everywhere.' : 'The weak spots appear after a session with 3 or more laps within 5 % of your best here.') + '</div>';
+    // 2. the chosen turn (or segment), part by part (150 m each) in driving terms: approach, braking, slowest point, exit (from your best lap's speed and brake),
+    //    each with its share of the turn's loss, so the parts add up to the turn's number above
     var list = ov.seg !== null ? [ov.seg] : sel ? Array.apply(null, Array(sel.len)).map(function (x, k) { return (sel.i0 + k) % n; }) : [];
     if (list.length) {
-      h += '<div class="sub" style="margin:16px 0 6px">' + (ov.seg !== null ? 'Segment ' + (ov.seg + 1) : (sel.turn ? 'Turn ' + sel.turn : 'Spot ' + sel.n) + ', piece by piece (150 m each)') + '</div><table class="tbl"><thead><tr><th>Seg</th><th class="num">Your best</th><th class="num">You lose</th><th class="num">Varies</th><th class="num">Best lap</th></tr></thead><tbody>' +
-        list.map(function (i) {
-          var s = z ? z.segs[i] : null, b = a ? a.segs[i] : null;
-          return '<tr class="click' + (ov.seg === i ? ' sel' : '') + '" data-i="' + i + '" title="' + esc(segLine(i)) + '"><td>' + (i + 1) + '</td><td class="num purple">' + F.sector(rec.best[i]) + '</td><td class="num red">' + (s ? F.plusSec(s.loss) : '--') +
-            '</td><td class="num">' + (s ? F.spread(s.sd) : '--') + '</td><td class="num">' + (b && b.lost !== null ? F.plusSec(b.lost) : '--') + '</td></tr>';
-        }).join('') + '</tbody></table>';
+      var raw = function (i) { var s = z ? z.segs[i] : null; return s ? Math.max(0, s.loss) : null; };
+      var sum = list.reduce(function (t, i) { return t + (raw(i) || 0); }, 0), total = ov.seg === null && sel && sel.loss !== undefined ? Math.max(0, sel.loss) : sum;
+      var share = function (i) { var v = raw(i); return v === null ? null : sum > 0 ? total * v / sum : 0; };
+      var info = parts(list, rec, st), top = Math.max.apply(null, list.map(function (i) { return share(i) || 0; })) || 1, worst = null;
+      list.forEach(function (i, k) { if (share(i) !== null && (worst === null || share(i) > share(list[worst]))) worst = k; });
+      var name = ov.seg !== null ? 'Segment ' + (ov.seg + 1) : nameOf(sel);
+      h += '<div class="sub" style="margin:18px 0 2px">' + name + ' step by step</div><div class="faint" style="margin-bottom:8px">' +
+        (z ? 'You lose <b class="red">' + F.plusSec(total) + ' s</b> per lap here' + (worst !== null && list.length > 1 && share(list[worst]) > 0 ? '. Most of it: <b class="red">' + esc(info[worst].what) + ' (' + F.plusSec(share(list[worst])) + ' s)</b>' : '') + '. ' : '') +
+        'In driving order; click one to see it on the map.</div>' +
+        list.map(function (i, k) {
+          var s = z ? z.segs[i] : null, b = a ? a.segs[i] : null, v = share(i), p = info[k];
+          return '<div class="ls-part click' + (ov.seg === i ? ' sel' : '') + '" data-i="' + i + '" title="' + esc(pos(i * st) + ' to ' + pos((i + 1) * st) + ' · your best there ' + F.sector(rec.best[i]) + ' s' + (s ? ' · varies ' + F.spread(s.sd) : '') + (b && b.lost !== null ? ' · your best lap lost ' + F.plusSec(b.lost) + ' s' : '')) + '">' +
+            '<span class="ls-what"><b>' + esc(p.what) + '</b><small>' + esc(pos((i + 0.5) * st) + (p.how ? ' · ' + p.how : '')) + '</small></span><span class="ls-bar"><i style="width:' + (v ? Math.max(3, Math.round(100 * v / top)) : 0) + '%"></i></span><span class="ls-val">' + (v !== null ? F.plusSec(v) : '--') + '</span></div>';
+        }).join('');
     }
-    return h + '<details class="explain"><summary>What do these numbers mean?</summary>Per lap / You lose = your average there in your last sessions (laps within 5 % of your best lap) minus your best ever there. ' +
-      'Varies = how much it changes from lap to lap. Best lap = what your best lap lost there. Came back = in how many of those sessions this spot was one of your 3 biggest losses.</details>';
+    return h + '<details class="explain"><summary>What do these numbers mean?</summary>The time you lose = your average there in your last sessions (laps within 5 % of your best lap) minus your best there. ' +
+      '"In 3 of 4 sessions" = how often this spot was one of your 3 biggest losses. Step by step: the turn in pieces of 150 m, named from your best lap (where you brake, where you are slowest, where you accelerate out), ' +
+      'each with its part of the turn\'s loss. Turn names and numbers are the circuit\'s own (as on the track maps); places are given like the boards at the track (100 m before a turn, the apex). Hover a step for where it starts and ends, your best time there, how much it varies, and what your best lap lost there.</details>';
   }
   // 'Driving lines': pick a spot (or click the track), then line A against line B there
   function linesSide(zl, sel, range, A, B, rec) {
     var h = '<div class="sub" style="margin:0 0 6px">Where</div><div class="bar" style="flex-wrap:wrap;gap:6px">' +
-      zl.map(function (w) { return '<button class="btn' + (ov.seg === null && !ov.pick && w.n === ov.zone ? ' on' : '') + '" data-z="' + w.n + '" title="' + esc(where(w)) + '">Spot ' + w.n + (w.turn ? ' · Turn ' + w.turn : '') + '</button>'; }).join('') +
+      zl.map(function (w) { return '<button class="btn' + (ov.seg === null && !ov.pick && w.n === ov.zone ? ' on' : '') + '" data-z="' + w.n + '" title="' + esc(where(w)) + '">' + esc(w.label || ('Spot ' + w.n + (w.turn ? ' · Turn ' + w.turn : ''))) + '</button>'; }).join('') +
       '<span class="faint">' + (zl.length ? 'or click the track' : 'Click the track') + '</span></div>';
     if (!range) return h + '<div class="muted" style="margin-top:14px">Pick a spot to compare the two lines there.</div>';
-    h += '<div class="faint" style="margin:10px 0 6px">' + esc(range.name) + ' · ' + F.km(range.from) + ' – ' + F.km((range.from + range.len) % rec.length || rec.length) + '</div>';
+    h += '<div class="faint" style="margin:10px 0 6px">' + esc(range.name) + ' · from ' + esc(pos(range.from)) + ' to ' + esc(pos((range.from + range.len) % rec.length)) + '</div>';
     if (!A && !B) return h + '<div class="muted">Pick a line above.</div>';
     var sa = A ? U.lineSpot(A, range.from, range.len, rec.length) : null, sb = B ? U.lineSpot(B, range.from, range.len, rec.length) : null;
     var rows = [['Brakes at', 'brakeAt', m, ' m', 'later'], ['Brake', 'brakeMax', function (v) { return v === null || v === undefined ? '--' : Math.round(v) + ' %'; }, ' %'],
@@ -258,7 +299,7 @@
     var g = ov.T && ov.T.of[i]; ov.seg = null;
     if (!g) { ov.seg = i; ov.pick = null; return; }
     var zz = ov.z ? ov.z.zones.filter(function (w) { return w.turn === g.t; })[0] : null;
-    if (zz) { ov.zone = zz.n; ov.pick = null; } else { ov.pick = { turn: g.t, i0: g.i0, len: g.len, from: g.from, to: g.to }; ov.zone = null; }
+    if (zz) { ov.zone = zz.n; ov.pick = null; } else { ov.pick = { turn: g.t, label: g.label, i0: g.i0, len: g.len, from: g.from, to: g.to }; ov.zone = null; }
   }
   // the controls (bound once per place: the pop-up, or a page's map view)
   function bind() {
@@ -279,7 +320,7 @@
       draw();
     };
     $('ovSide').onclick = function (e) {
-      if (!ov) return; var r = e.target.closest('[data-z]'), s = e.target.closest('tr[data-i]');
+      if (!ov) return; var r = e.target.closest('[data-z]'), s = e.target.closest('[data-i]');
       if (r) { ov.zone = +r.getAttribute('data-z'); ov.seg = null; ov.pick = null; } else if (s) ov.seg = +s.getAttribute('data-i'); else return;
       draw();
     };
@@ -333,8 +374,8 @@
     var rec = ov ? ov.rec : null; if (!rec) return 'Segment ' + (i + 1);
     var st = rec.length / rec.n, sc = U.sectorAt((i + 0.5) * st, rec.sectors), s = ov.z ? ov.z.segs[i] : null;
     var g = ov.T && ov.T.of[i];
-    if (g) return 'Turn ' + g.t + ' · ' + F.km(g.from) + ' – ' + F.km(g.to) + (g.loss !== undefined ? ' · you lose ' + F.plusSec(g.loss) + ' s, varies ' + F.spread(g.sd) : '');
-    return 'Segment ' + (i + 1) + ' · ' + F.km(i * st) + ' – ' + F.km((i + 1) * st) + (sc >= 0 ? ' · ' + SEC[sc] : '') + (s ? ' · you lose ' + F.plusSec(s.loss) + ' s, varies ' + F.spread(s.sd) : '');
+    if (g) return (g.label || 'Turn ' + g.t) + ' · ' + pos((i + 0.5) * st) + (g.loss !== undefined ? ' · you lose ' + F.plusSec(g.loss) + ' s, varies ' + F.spread(g.sd) : '');
+    return 'Segment ' + (i + 1) + ' · ' + pos((i + 0.5) * st) + (sc >= 0 ? ' · ' + SEC[sc] : '') + (s ? ' · you lose ' + F.plusSec(s.loss) + ' s, varies ' + F.spread(s.sd) : '');
   }
   // the game's own outline of a track (no timing): paths = [[[x, z], ...], ...] (the first = the track, others e.g. the pit lane), drawn grey
   function outline(paths, o) {
