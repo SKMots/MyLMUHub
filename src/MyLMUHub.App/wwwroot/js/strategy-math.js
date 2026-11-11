@@ -142,42 +142,68 @@
   }
 
   // ---- one race you drove (a Race Pace session: laps [n, t, s1, s2, s3, flags, pos, ve, wear]) -> what a plan needs from it.
-  // o = { veStart: % a stint started with (100), veLeft: % left when you came in after the first full stint (typed by you; null = use the file's VE) }
-  // -> { pace (median clean lap), best, laps, stints: [{ from, to, laps, avg, stop }], stops: [{ after (in lap), loss (in + out lap - 2 x pace), tyres: true / false / null }],
-  //      full (the first stint that ended in a stop), vePerLap, veLeft, veFrom: 'file' | 'typed' | null, spareLaps (laps the VE left was worth),
-  //      more: { laps (one more than the full stint), perLap (VE % per lap allowed, the same reserve as the plan), save (% per lap less than you used) } }
+  // o = { veStart: % a stint starts with (100), veLeft: % left when you came in after the first stint that ended in a stop (typed; only used when the
+  //       file has no VE), reserve: laps kept spare (as the plan) }
+  // VE and tyre wear per lap = the AVERAGE over your normal laps: not a pit / out / slow (incident) / wet lap, and not a lap far from the others
+  // (more than 15 % VE, 50 % wear off the median: damage, a refill). So one bad moment does not change the plan.
+  // A pit lap that follows a pit lap or opens the race is an out lap (pit lane start, out of a repair), not a new stop. A stop with more than 1.5 laps of VE
+  // left is EARLY (damage, a penalty): its time is not a pit stop time and its stint is not a full stint.
+  // -> { pace (median clean lap), best, laps, stints: [{ from, to, laps, avg, stop }], stops: [{ after (in lap), loss (in + out lap - 2 x pace), tyres: true /
+  //      false / null, early, veLeft }], full (the first stint that ended in a normal stop), vePerLap, veLaps (laps it is the average of), veOut (laps left
+  //      out), veFrom: 'file' | 'typed' | null, wearPerLap, wearLaps, wearOut, fit (laps a stint of veStart allows with the reserve), veLeft / spareLaps (at
+  //      the end of the full stint), more: { laps (fit + 1), perLap (VE % per lap allowed), save (% per lap less than your average) },
+  //      options: the same for fit, fit + 1, + 2, + 3 laps }
   function fromRace(s, o) {
     o = o || {};
-    var M = P.paceMath, c = M.classify(s, 0.05), byN = {}, out = { pace: null, best: null, laps: 0, stints: [], stops: [], full: null, vePerLap: null, veLeft: null, veFrom: null, spareLaps: null, more: null };
+    var M = P.paceMath, c = M.classify(s, 0.05), byN = {}, out = { pace: null, best: null, laps: 0, stints: [], stops: [], full: null, vePerLap: null, veLaps: 0, veOut: 0,
+      veFrom: null, wearPerLap: null, wearLaps: 0, wearOut: 0, fit: null, veLeft: null, spareLaps: null, more: null };
     s.laps.forEach(function (l) { byN[l[0]] = l; });
-    var clean = c.filter(function (l) { return !l.why && !l.wet; }).map(function (l) { return l.t; });
+    var normal = c.filter(function (l) { return !l.why && !l.wet; });
+    var clean = normal.map(function (l) { return l.t; });
     out.pace = M.median(clean); out.best = clean.length ? Math.min.apply(null, clean) : null; out.laps = s.laps.length ? s.laps[s.laps.length - 1][0] : 0;
+    var start = num(o.veStart, 100), reserve = num(o.reserve, 0);
+    // the averages over the normal laps, far-off laps left out
+    function avg(vals, tol) {
+      var m = M.median(vals); if (m === null) return { v: null, n: 0, out: 0 };
+      var keep = vals.filter(function (v) { return Math.abs(v - m) <= m * tol; });
+      return { v: M.mean(keep), n: keep.length, out: vals.length - keep.length };
+    }
+    var ve = avg(normal.map(function (l) { return byN[l.n][7]; }).filter(function (v) { return v > 0; }), 0.15);
+    var wr = avg(normal.map(function (l) { var a = byN[l.n - 1], b = byN[l.n]; return a && a[8] > 0 && b[8] > 0 && a[8] > b[8] ? a[8] - b[8] : null; })
+      .filter(function (v) { return v > 0; }), 0.5);
+    if (wr.v > 0) { out.wearPerLap = wr.v; out.wearLaps = wr.n; out.wearOut = wr.out; }
+    if (ve.v > 0 && ve.n >= 3) { out.vePerLap = ve.v; out.veLaps = ve.n; out.veOut = ve.out + (c.length - normal.length); out.veFrom = 'file'; }
+    // stints and stops (stint laps by the lap counter: a lap without a time still counts)
     var cur = null;
     c.forEach(function (l, i) {
       if (!cur) cur = { from: l.n, to: l.n, laps: 0, times: [], stop: false };
-      cur.laps++; cur.to = l.n; if (!l.why && !l.wet) cur.times.push(l.t);
-      var last = i === c.length - 1;
-      if (l.pit && !last) {
+      cur.to = l.n; cur.laps = cur.to - cur.from + 1; if (!l.why && !l.wet) cur.times.push(l.t);
+      var last = i === c.length - 1, prev = byN[l.n - 1], outLap = i === 0 || (prev && (prev[5] & 1));
+      if (l.pit && !last && !outLap) {
         cur.stop = true;
         var inL = byN[l.n], outL = byN[l.n + 1], wb = inL && inL[8], wa = outL && outL[8];
-        out.stops.push({ after: l.n, loss: out.pace && inL[1] > 0 && outL && outL[1] > 0 ? Math.max(0, inL[1] + outL[1] - 2 * out.pace) : null,
-          tyres: wb > 0 && wa > 0 ? wa > wb + 2 : null });
+        out.stops.push({ after: l.n, stint: cur, loss: out.pace && inL[1] > 0 && outL && outL[1] > 0 ? Math.max(0, inL[1] + outL[1] - 2 * out.pace) : null,
+          tyres: wb > 0 && wa > 0 ? wa > wb + 2 : null, early: false, veLeft: null });
       }
       if (cur.stop || last) { cur.avg = M.mean(cur.times); delete cur.times; out.stints.push(cur); cur = null; }
     });
-    out.full = out.stints.filter(function (x) { return x.stop; })[0] || null;
-    var start = num(o.veStart, 100), reserve = num(o.reserve, 0), f = out.full;
-    if (f) {
-      var ves = []; for (var n = f.from; n <= f.to; n++) if (byN[n] && byN[n][7] > 0) ves.push(byN[n][7]);
-      if (ves.length >= f.laps / 2) { out.vePerLap = M.median(ves); out.veLeft = Math.max(0, start - out.vePerLap * f.laps); out.veFrom = 'file'; }
-      else if (o.veLeft !== null && o.veLeft !== undefined && o.veLeft !== '' && num(o.veLeft, -1) >= 0 && num(o.veLeft, 0) < start) {
-        out.veLeft = num(o.veLeft, 0); out.vePerLap = (start - out.veLeft) / f.laps; out.veFrom = 'typed';
-      }
-      if (out.vePerLap > 0) {
-        out.spareLaps = out.veLeft / out.vePerLap;
-        var per = veNeeded({ max: start, reserve: reserve }, f.laps + 1);
-        out.more = { laps: f.laps + 1, perLap: per, save: out.vePerLap - per };
-      }
+    // VE left at each stop (the stint's recorded VE, your average for laps without it): an early stop had plenty left
+    if (out.vePerLap) out.stops.forEach(function (p) {
+      var used = 0; for (var n = p.stint.from; n <= p.stint.to; n++) used += byN[n] && byN[n][7] > 0 ? byN[n][7] : out.vePerLap;
+      p.veLeft = Math.max(0, start - used);                                         // every stint starts with veStart
+      p.early = p.veLeft !== null && p.veLeft > 1.5 * out.vePerLap;
+    });
+    out.stops.forEach(function (p) { p.stint.early = p.early; delete p.stint; });
+    out.full = out.stints.filter(function (x) { return x.stop && !x.early; })[0] || null;
+    if (!out.vePerLap && out.full && o.veLeft !== null && o.veLeft !== undefined && o.veLeft !== '' && num(o.veLeft, -1) >= 0 && num(o.veLeft, 0) < start) {
+      out.vePerLap = (start - num(o.veLeft, 0)) / out.full.laps; out.veLaps = out.full.laps; out.veFrom = 'typed';
+    }
+    if (out.vePerLap > 0) {
+      out.fit = Math.max(1, Math.floor(start / out.vePerLap - reserve + 1e-9));
+      if (out.full) { out.veLeft = out.veFrom === 'typed' ? num(o.veLeft, 0) : out.stops.filter(function (p) { return p.after === out.full.to; })[0].veLeft; out.spareLaps = out.veLeft / out.vePerLap; }
+      var per = veNeeded({ max: start, reserve: reserve }, out.fit + 1);
+      out.more = { laps: out.fit + 1, perLap: per, save: out.vePerLap - per };
+      out.options = [0, 1, 2, 3].map(function (k) { var p = veNeeded({ max: start, reserve: reserve }, out.fit + k); return { laps: out.fit + k, perLap: p, save: out.vePerLap - p }; });
     }
     return out;
   }
