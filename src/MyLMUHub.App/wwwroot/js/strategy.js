@@ -116,16 +116,15 @@
 
   // ---------- the stint plan ----------
   function plannedMs() { var t = plan.start ? Date.parse(plan.start) : NaN; return isFinite(t) ? t : NaN; }
-  function startMs() { return following() ? liveS.greenMs : plannedMs(); }          // live: clock times follow the real green flag
+  function startMs() { return plannedMs(); }
   function at(raceSec) { var g = startMs(); return F.clock(raceSec) + (isFinite(g) ? '<span class="two">' + F.wallClock(SM.clockAt(g, raceSec)) + '</span>' : ''); }
   function color(name) { for (var i = 0; i < plan.drivers.length; i++) if (plan.drivers[i].name === name) return DRIVER_COLORS[i % DRIVER_COLORS.length]; return 'var(--muted)'; }
   function tile(k, v, n, cls) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || '') + '">' + v + '</div><div class="n">' + (n || '') + '</div></div>'; }
   function render() {
     if (!plan) return;
-    var fol = following(), pure = SM.build(plan), r = fol ? SM.build(plan, liveS) : pure, g = startMs(), cls = (CLASSES.filter(function (c) { return c[0] === plan.cls; })[0] || [0, plan.cls])[1];
+    var fol = false, pure = SM.build(plan), r = pure, g = startMs(), cls = (CLASSES.filter(function (c) { return c[0] === plan.cls; })[0] || [0, plan.cls])[1];
     $('planSub').textContent = [plan.track || 'no track yet', cls, plan.car, plan.length.kind === 'laps' ? plan.length.laps + ' laps' : F.hm(plan.length.time) + ' h race',
-      isFinite(g) ? 'green flag ' + F.wallClock(g) + (fol ? (liveS.greenEstimated ? ' (live, estimated)' : ' (live)') : '') : 'no start time: clock times hidden'].filter(Boolean).join(' · ');
-    liveBar(r, pure);
+      isFinite(g) ? 'green flag ' + F.wallClock(g) : 'no start time: clock times hidden'].filter(Boolean).join(' · ');
     var maxL = SM.stintLaps(plan.ve);
     var h = tile('Stints', r.stints.length, isFinite(maxL) ? 'up to ' + maxL + ' laps each' : 'set the VE per lap') + tile('Pit stops', r.stops, r.stints.filter(function (s) { return s.newSet; }).length - 1 + ' tyre changes') +
       tile('Laps', r.laps || '--', 'expected at the finish') + tile('Finish', F.clock(r.end), isFinite(g) ? F.wallClock(SM.clockAt(g, r.end)) : 'race time');
@@ -148,7 +147,7 @@
       t += '<tr data-k="' + k + '" class="' + (s.state || '') + (any && !real ? ' edited' : '') + '"><td class="num">' + s.n + '</td>' +
         '<td><span class="dot" style="background:' + color(s.driver) + '"></span>' + (real ? esc(s.driver) + tag : '<select class="sel cell' + (s.changed.driver ? ' on' : '') + '" data-o="driver"><option value="">' + esc(ov.driver ? 'Automatic' : s.driver) + '</option>' +
           plan.drivers.filter(function (d) { return d.name; }).map(function (d) { return '<option' + (ov.driver === d.name ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select>' + tag) + '</td>' +
-        '<td class="num">' + (real ? (s.state === 'now' ? (liveS.current ? liveS.current.laps : 0) + ' / ' + s.laps : s.laps) : '<input class="input cell mono' + (s.changed.laps ? ' on' : '') + '" data-o="laps" value="' + (ov.laps || '') + '" placeholder="' + s.laps + '">') +
+        '<td class="num">' + (real ? s.laps : '<input class="input cell mono' + (s.changed.laps ? ' on' : '') + '" data-o="laps" value="' + (ov.laps || '') + '" placeholder="' + s.laps + '">') +
           '<span class="two">' + s.fromLap + '-' + s.toLap + '</span></td>' +
         '<td class="num">' + at(s.start) + (adjusted && p0 ? '<span class="two">' + F.diff((s.start - p0.start) / 60, 0) + ' min vs plan</span>' : '') + '</td><td class="num">' + at(s.end) + '</td><td class="num">' + F.lap(s.lap) + '</td>' +
         '<td class="num">' + (s.fill ? '<select class="sel cell" data-o="fill"><option value="">Save: fill ' + F.pct(s.fill.save, 0) + '</option><option value="push"' + (s.fill.mode === 'push' ? ' selected' : '') + '>Push: fill ' + F.pct(s.fill.push, 0) + '</option></select>' +
@@ -178,48 +177,8 @@
   $('stintTbl').onclick = function (e) { var k = e.target.getAttribute('data-undo'); if (k === null) return; plan.stints[Number(k)] = {}; setOverride(Number(k), 'x', ''); };
   $('resetBtn').onclick = function () { plan.stints = []; render(); saveSoon(); };
 
-  // ---------- live: api/race-live every 3 s while this page is open (the app records the race either way) ----------
-  var liveR = null, liveS = { status: 'off' }, liveErr = false, lastOk = 0, liveKey = '', lastR = null, lastPure = null;
-  function trackMatches() {
-    if (!plan.track || !liveS.track) return true;
-    var n = R.trackName(liveS.track, '') || liveS.track;
-    return n === plan.track || plan.track.indexOf(n) === 0 || n.indexOf(plan.track) === 0;
-  }
-  function following() { return !!plan && (liveS.status === 'live' || liveS.status === 'over') && trackMatches(); }
-  function session(id) { var n = F.sessionName(id); return n ? n.charAt(0) + n.slice(1).toLowerCase() : 'Session'; }
-  function liveBar(r, pure) {
-    lastR = r; lastPure = pure;
-    var st = liveS.status, label = 'PLAN', cls = '', main = '', sub = '', line = '';
-    if (!H.inApp) { main = 'Plan only'; sub = 'Open this page in the app to follow a race live.'; }
-    else if (liveErr) { label = 'NO LIVE DATA'; cls = 'bad'; main = 'The app does not answer.'; }
-    else if (st === 'off') { main = 'Not live'; sub = 'Start Le Mans Ultimate: when the race starts, this plan follows it by itself.'; }
-    else if (st === 'waiting') {
-      label = 'WAITING'; cls = 'wait'; main = session(liveS.session) + (liveS.endsIn >= 0 ? ' ends in ' + F.clock(liveS.endsIn) : '') + (liveS.track ? ' · ' + liveS.track : '');
-      sub = (liveS.endsIn >= 0 ? 'at ' + F.wallClock(Date.now() + liveS.endsIn * 1000) + '. ' : '') + 'Following starts at the green flag.';
-    } else if (st === 'grid') {
-      var p = plannedMs(); label = 'WAITING FOR THE GREEN FLAG'; cls = 'wait'; main = liveS.track || '';
-      sub = isFinite(p) ? 'Planned start ' + F.wallClock(p) + (Date.now() > p + 30000 ? ' · already ' + F.clock((Date.now() - p) / 1000) + ' later' : '') : '';
-    } else if (!trackMatches()) { label = 'OTHER TRACK'; cls = 'wait'; main = 'The live race is at ' + liveS.track + '.'; sub = 'This plan is for ' + plan.track + ': not following it.'; }
-    else {
-      label = st === 'over' ? 'FINISHED' : 'LIVE'; cls = 'live';
-      main = 'Following ' + (liveS.driver || '?') + (liveS.entry ? ' · ' + liveS.entry : '') + ' · lap ' + ((liveR.car ? liveR.car.laps : 0) + 1) + ' · race time ' + F.clock(liveS.time) + (liveS.inPit ? ' · in the pit' : '');
-      sub = 'adjusting the plan to the live data · updated ' + Math.round((Date.now() - lastOk) / 1000) + ' s ago';
-      var pm = plannedMs(), parts = ['Green flag ' + F.wallClock(liveS.greenMs) + (liveS.greenEstimated ? ' (estimated: the app started during the race)' : '')];
-      if (isFinite(pm) && !liveS.greenEstimated) { var d = (liveS.greenMs - pm) / 1000; if (Math.abs(d) >= 30) parts.push(F.clock(Math.abs(d)) + (d > 0 ? ' later' : ' earlier') + ' than planned: all clock times moved'); }
-      if (r && pure) { var dl = r.laps - pure.laps; parts.push(dl === 0 ? 'On plan: ' + r.laps + ' laps expected' : (dl > 0 ? 'Ahead of plan by ' : 'Behind plan by ') + Math.abs(dl) + (Math.abs(dl) === 1 ? ' lap' : ' laps') + ' (' + r.laps + ' expected, plan ' + pure.laps + ')'); }
-      line = parts.join(' · ');
-    }
-    $('lbChip').textContent = label; $('lbChip').className = 'lb-chip ' + cls; $('lbMain').textContent = main; $('lbSub').textContent = sub; $('lbLine').textContent = line;
-  }
-  function editing() { var a = document.activeElement; return !!(a && a.closest && (a.closest('#stintTbl') || a.closest('#drvTbl')) && /INPUT|SELECT/.test(a.tagName)); }
-  function poll() {
-    H.json('api/race-live').then(function (x) {
-      liveR = x; liveErr = false; lastOk = Date.now(); liveS = SM.fromLive(x, plan ? plan.length : null);
-      var key = JSON.stringify([liveS.status, liveS.track, x.log && x.log.stints, x.log && x.log.greenEt, x.car && [x.car.laps, x.car.inPits, x.car.driver]]);
-      if (plan && key !== liveKey && !editing()) { liveKey = key; render(); } else if (plan) liveBar(lastR, lastPure);
-    }, function () { liveErr = true; if (plan) liveBar(lastR, lastPure); });
-  }
-  if (H.inApp) { poll(); setInterval(poll, 3000); }
+  // the race live: the Live tab (live.html, live.js) follows it with a plan you pick there; this page is the plan only (owner 2026-11-12: the plan must not change
+  // while you drive other races)
 
   // ---------- copy the stint pattern of a past race (your car, every driver: api/stints) ----------
   var pastList = null;

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Live strategy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Live strategy</h2>
+        <div class="sub" style="margin-bottom:0">Follows the race you are in with the plan you pick here. Your plan itself is not changed: what happened and what is left is worked out live from it.</div>
+      </div>
+      <div class="bar">
+        <span class="seg"><a class="segl" href="strategy.html">Endurance plan</a><a class="segl" href="quick.html">Quick race</a><a class="segl on" href="live.html">Live</a></span>
+        <label class="field inline">Plan<select class="sel" id="planSel"></select></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="lstat idle" id="stat">
+    <div class="lstat-main"><span class="lstat-chip" id="statChip">NOT LIVE</span><b id="statMain">Waiting for a race</b></div>
+    <div class="lstat-sub" id="statSub"></div>
+    <div class="lstat-nums" id="statNums"></div>
+  </section>
+
+  <section class="card" style="margin-top:14px" id="liftCard" hidden>
+    <h2>Lifting: still worth it?</h2>
+    <div class="sub" id="liftSub"></div>
+    <div class="tiles" id="liftTiles"></div>
+    <div class="form" style="margin-top:12px;max-width:620px">
+      <label class="field">Your VE per lap when you do not lift (%)<input class="input short" id="naturalIn" placeholder="e.g. 5.3"></label>
+      <label class="field">Lap times<select class="sel" id="paceSel"><option value="live">From this race (live)</option><option value="plan">From the plan</option></select></label>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>The race</h2><span class="faint" id="raceInfo"></span></div>
+    <div class="sub" id="raceSub"></div>
+    <div class="tiles" id="sumTiles"></div>
+    <div id="warn"></div>
+    <div class="timeline" id="timeline"></div>
+    <div class="legend"><span><i style="background:var(--green)"></i>Done</span><span><i style="background:var(--lime)"></i>Now</span><span><i style="background:var(--tile2)"></i>Still to drive</span></div>
+    <div class="scroll" style="margin-top:12px"><table class="tbl" id="stintTbl"></table></div>
+  </section>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/live.js"></script>
+</body>
+</html>

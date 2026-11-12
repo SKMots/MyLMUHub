@@ -355,6 +355,30 @@
       greenEstimated: !(log.greenClock > 0), stints: done, current: cur, inPit: !cur, driver: r.car ? r.car.driver : '', lapsBefore: lapsBefore, entry: log.entry };
   }
 
-  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
+  // ---- live pace per driver (api/race-live: log.stints in session time, session.et now): a stint's average lap = its time / its laps (stints of 3+ laps;
+  // the in and out lap are in it, so a little slow). Per driver the median of his stints. -> { name: s }
+  function livePace(r) {
+    var log = r && r.log, et = r && r.session ? r.session.et : -1, per = {};
+    ((log && log.stints) || []).forEach(function (x) {
+      var end = x.end >= 0 ? x.end : et, n = x.laps; if (!(n >= 3) || !(end > x.start) || !x.driver) return;
+      (per[x.driver] = per[x.driver] || []).push((end - x.start) / n);
+    });
+    var out = {}; Object.keys(per).forEach(function (d) { out[d] = P.paceMath.median(per[d]); }); return out;
+  }
+  // ---- the stint you are in: the VE per lap you may still use to reach its planned end (planned laps, or the finish if that comes first) with the
+  // reserve. plan, live = fromLive(), lap = the driver's lap time -> { laps (planned), left (laps to go), pitLap (the car's lap count at the stop, null =
+  // the finish), target (% per lap), ve (now), finish } or null (not in a stint / VE not known)
+  function liveTarget(plan, live, lap) {
+    var cur = live && live.current; if (!cur || !(cur.ve >= 0)) return null;
+    var k = (live.stints || []).length, ov = (plan.stints || [])[k] || {}, n = Math.round(num(ov.laps, 0)) > 0 ? Math.round(ov.laps) : stintLaps(plan.ve), res = num(plan.ve && plan.ve.reserve, 0);
+    var timed = !plan.length || plan.length.kind !== 'laps', total = timed ? num(plan.length && plan.length.time, 0) : num(plan.length.laps, 0);
+    var done = (live.stints || []).reduce(function (a, x) { return a + x.laps; }, 0) + cur.laps;
+    var toGo = timed ? (lap > 0 && total > 0 ? Math.max(0, Math.ceil((total - live.time) / lap - 1e-9)) : Infinity) : Math.max(0, total - done);
+    var left = isFinite(n) ? Math.max(0, n - cur.laps) : toGo, finish = toGo <= left;
+    left = Math.min(left, toGo); if (!isFinite(left)) return null;
+    return { laps: n, left: left, pitLap: finish ? null : done + left, target: left > 0 ? cur.ve / (left + (finish ? 0 : res)) : null, ve: cur.ve, finish: finish };
+  }
+
+  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, livePace: livePace, liveTarget: liveTarget, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
   if (typeof module !== 'undefined') module.exports = P.strategyMath;
 })(typeof window !== 'undefined' ? window : globalThis);

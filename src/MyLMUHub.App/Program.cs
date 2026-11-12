@@ -42,7 +42,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         }
         catch (Exception ex) { MessageBox.Show("Cannot open the replay file:\n" + ex.Message, "My LMU Hub"); return 1; }
 
-        var server = new DashServer(usePort, www ?? System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot"), AppPaths.Layout) { StrategyPath = AppPaths.Strategy, VeGoalsPath = AppPaths.VeGoals };
+        var server = new DashServer(usePort, www ?? System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot"), AppPaths.Layout) { StrategyPath = AppPaths.Strategy, VeGoalsPath = AppPaths.VeGoals, StrategyLivePath = AppPaths.StrategyLive };
         try { server.Start(); }
         catch (Exception ex) { MessageBox.Show($"Cannot start the local web server on port {usePort}.\nIs another copy already running?\n\n{ex.Message}", "My LMU Hub"); return 1; }
         if (settings.LanAccess && port == 0) server.SetLan(true);                                // network access (no prompt here: a refused one shows in the page)

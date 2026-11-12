@@ -69,10 +69,10 @@
       }
       return out;
     }
-    var worst = Math.max.apply(null, vals.map(function (v) { return v || 0; }).concat([0.05])), under = '', svg = '', zs = '';
+    var worst = Math.max.apply(null, vals.map(function (v, i) { return o.dim && o.dim(i) ? 0 : v || 0; }).concat([0.05])), under = '', svg = '', zs = '';
     for (var i = 0; i < n; i++) {
       var d = segPath(i); if (!d) continue;
-      var f = Math.max(0, Math.min(1, (vals[i] || 0) / worst)), col = o.plain ? '#3A3D43' : 'hsl(' + Math.round(130 - 130 * f) + ',75%,52%)', w = o.plain ? 16 : (6 + 6 * f) * k;
+      var dim = o.dim && o.dim(i), f = dim ? 0 : Math.max(0, Math.min(1, (vals[i] || 0) / worst)), col = o.plain || dim ? '#3A3D43' : 'hsl(' + Math.round(130 - 130 * f) + ',75%,52%)', w = o.plain ? 16 : dim ? 5 * k : (6 + 6 * f) * k;   // dim = greyed out (not the part being talked about)
       if (o.hi && o.hi(i)) under += '<path d="' + d + '" fill="none" stroke="' + (o.plain ? '#6B7079' : 'var(--text)') + '" stroke-width="' + (w + (o.plain ? 6 : 7)).toFixed(1) + '" stroke-linecap="round" stroke-linejoin="round"/>';   // the chosen spot (soft grey under the lines)
       svg += '<path data-i="' + i + '" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + w.toFixed(1) + '" stroke-linecap="round" stroke-linejoin="round"><title>' + esc(o.title ? o.title(i) : '') + '</title></path>';
     }
@@ -251,7 +251,10 @@
             '<small>' + (w.label ? '' : km(w.from, w.to) + ' · ') + (w.sector >= 0 ? 'Sector ' + (w.sector + 1) + ' · ' : '') + 'in ' + w.seen + ' of ' + w.of + ' sessions</small></span><span class="ls-loss">' + F.plusSec(w.loss) + ' s</span></div>';
         }).join('');
     } else h += '<div class="muted" style="margin-bottom:10px">' + (z ? 'No weak spots: you are close to your best everywhere.' : 'The weak spots appear after a session with 3 or more laps within 5 % of your best here.') + '</div>';
-    // 2. the chosen turn (or segment), part by part (150 m each) in driving terms: approach, braking, slowest point, exit (from your best lap's speed and brake),
+    // 2. tips: how your fastest lap drove this spot against how you usually drive it (driving lines: best lap vs the median of your recent laps)
+    var spot = ov.seg !== null ? { from: ov.seg * st, len: st } : sel ? { from: sel.from, len: sel.len * st } : null;
+    if (spot && ov.key) h += tipsHtml(spot, rec);
+    // 3. the chosen turn (or segment), part by part (150 m each) in driving terms: approach, braking, slowest point, exit (from your best lap's speed and brake),
     //    each with its share of the turn's loss, so the parts add up to the turn's number above
     var list = ov.seg !== null ? [ov.seg] : sel ? Array.apply(null, Array(sel.len)).map(function (x, k) { return (sel.i0 + k) % n; }) : [];
     if (list.length) {
@@ -273,6 +276,42 @@
     return h + '<details class="explain"><summary>What do these numbers mean?</summary>The time you lose = your average there in your last sessions (laps within 5 % of your best lap) minus your best there. ' +
       '"In 3 of 4 sessions" = how often this spot was one of your 3 biggest losses. Step by step: the turn in pieces of 150 m, named from your best lap (where you brake, where you are slowest, where you accelerate out), ' +
       'each with its part of the turn\'s loss. Turn names and numbers are the circuit\'s own (as on the track maps); places are given like the boards at the track (100 m before a turn, the apex). Hover a step for where it starts and ends, your best time there, how much it varies, and what your best lap lost there.</details>';
+  }
+  // your fastest lap and your recent laps (up to 8 within 5 % of your best), loaded once per map: { best, laps } (lines), null while loading, false = none
+  function tipLines() {
+    if (ov.tips) return ov.tips.data;
+    var me = ov, t = ov.tips = { data: null };
+    getLine(ov.key, 'list').then(function (l) {
+      if (!l || (!l.best && !(l.laps || []).length)) return false;
+      var top = l.best ? l.best.time : me.rec.bestLap, laps = (l.laps || []).filter(function (x) { return x.time > 0 && (!(top > 0) || x.time <= top * 1.05); }).slice(0, 8);
+      return Promise.all([l.best ? getLine(me.key, 'best') : null].concat(laps.map(function (x) { return getLine(me.key, String(x.t)); }))).then(function (r) {
+        var b = r[0] && r[0].line && r[0].line.length ? r[0].line : null, ls = r.slice(1).filter(function (x) { return x && x.line && x.line.length; }).map(function (x) { return x.line; });
+        return b && ls.length ? { best: b, laps: ls } : false;
+      });
+    }).then(function (d) { t.data = d || false; if (ov === me) draw(); }, function () { t.data = false; if (ov === me) draw(); });
+    return null;
+  }
+  function tipsHtml(spot, rec) {
+    var d = tipLines(), h = '<div class="sub" style="margin:18px 0 2px">How your fastest lap did it</div>';
+    if (d === null) return h + '<div class="faint">Reading your driving lines...</div>';
+    if (!d) return h + '<div class="faint">Tips appear when there are driving lines of your best lap and a few recent laps here (recorded from your next valid laps).</div>';
+    var L = rec.length, best = U.lineSpot(d.best, spot.from, spot.len, L), usual = U.lineMedian(d.laps.map(function (l) { return U.lineSpot(l, spot.from, spot.len, L); }));
+    if (!best || !usual) return h + '<div class="faint">No line data for this spot.</div>';
+    var tips = U.spotTips(best, usual, L), mm = function (v) { return Math.round(Math.abs(v)) + ' m'; }, kk = function (v) { return Math.round(Math.abs(v)) + ' km/h'; };
+    function at2(t) { var a = m(t.best), b = m(t.usual); return a === b ? ' (around ' + esc(a) + ')' : ' (' + esc(a) + ', usually ' + esc(b) + ')'; }   // both on the same board: once
+    h += '<div class="faint" style="margin-bottom:8px">Your best lap against how you usually drive it (the middle of your last ' + usual.n + (usual.n === 1 ? ' lap' : ' laps') + ' within 5 % of your best).</div>';
+    if (!tips.length) return h + '<div class="ls-tip">Your usual line here is close to your fastest lap: the time is in small details, not one thing. Keep driving it like your best lap.</div>';
+    return h + tips.map(function (t) {
+      var x = t.k === 'brake' ? (t.d > 0 ? '<b>Brake later</b>: on your fastest lap ' + mm(t.d) + ' later than usual' + at2(t) + '.'
+                                          : '<b>Brake earlier</b>: on your fastest lap ' + mm(t.d) + ' earlier than usual' + at2(t) + ': a calmer entry paid off.')
+        : t.k === 'brakeHard' ? '<b>Brake harder</b>: up to ' + Math.round(t.best) + ' % on your fastest lap, usually ' + Math.round(t.usual) + ' %.'
+        : t.k === 'min' ? (t.d > 0 ? '<b>Carry more speed</b> through the slowest point: ' + kk(t.best) + ' on your fastest lap, usually ' + kk(t.usual) + ' (+' + kk(t.d) + ').'
+                                   : '<b>Slow down a little more</b> for the corner: your fastest lap was ' + kk(t.d) + ' slower at the slowest point (' + kk(t.best) + ' vs ' + kk(t.usual) + '), for a better exit.')
+        : t.k === 'throttle' ? (t.d > 0 ? '<b>Full throttle sooner</b>: ' + mm(t.d) + ' earlier on your fastest lap' + at2(t) + '.'
+                                        : '<b>Wait a little with full throttle</b>: ' + mm(t.d) + ' later on your fastest lap' + at2(t) + ': less wheelspin, a cleaner exit.')
+        : (t.d > 0 ? '<b>Better exit</b>: ' + kk(t.d) + ' faster out of it on your fastest lap (' + kk(t.best) + ' vs ' + kk(t.usual) + ').' : '<b>Exit</b>: your fastest lap came out ' + kk(t.d) + ' slower here (' + kk(t.best) + ' vs ' + kk(t.usual) + '), but gained more before it.');
+      return '<div class="ls-tip">' + x + '</div>';
+    }).join('');
   }
   // 'Driving lines': pick a spot (or click the track), then line A against line B there
   function linesSide(zl, sel, range, A, B, rec) {

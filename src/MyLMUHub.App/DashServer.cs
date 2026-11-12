@@ -50,6 +50,7 @@ public sealed class DashServer : IDisposable
     /// <summary>/api/strategy GET / PUT: the strategy planner's plans (one JSON file).</summary>
     public string StrategyPath { get; set; }
     public string VeGoalsPath { get; set; }
+    public string StrategyLivePath { get; set; }
     /// <summary>/api/stints?file= GET: your car's whole race in that results file (PaceService.CarLaps), 404 = none.</summary>
     public Func<string, object> CarLaps { get; set; }
     /// <summary>/api/race-live GET: the session now, the followed car and its race so far (DataPump.RaceLive).</summary>
@@ -162,6 +163,7 @@ public sealed class DashServer : IDisposable
                 return;
             }
             if (path == "/api/vegoals" && VeGoalsPath != null) { await JsonFile(ctx, VeGoalsPath); return; }
+            if (path == "/api/strategy-live" && StrategyLivePath != null) { await JsonFile(ctx, StrategyLivePath); return; }
             if (path == "/api/strategy" && StrategyPath != null) { await JsonFile(ctx, StrategyPath); return; }
             if (path == "/api/race-live" && RaceLive != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(RaceLive(), Opt)); return; }
             if (path == "/api/stints" && CarLaps != null) { var r = CarLaps(ctx.Request.QueryString["file"]); await Send(ctx, r == null ? 404 : 200, "application/json; charset=utf-8", r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return; }

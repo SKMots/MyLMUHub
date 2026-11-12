@@ -361,6 +361,25 @@
     });
     return o;
   }
+  // tips for one spot: your fastest lap there (best = lineSpot) against your usual (lineMedian of your recent laps). L = lap length (metres wrap round the
+  // line). -> [{ k: 'brake' | 'brakeHard' | 'min' | 'throttle' | 'exit', d (the difference, m / km/h / %), best, usual }], biggest first-ish in driving order;
+  // [] = your usual is like your fastest here. Only differences big enough to feel: 5 m, 2 km/h, 10 % brake.
+  function spotTips(best, usual, L) {
+    var out = []; if (!best || !usual) return out;
+    function dm(a, b) { if (a === null || b === null || a === undefined || b === undefined) return null; var d = a - b; if (L > 0) { if (d > L / 2) d -= L; else if (d < -L / 2) d += L; } return d; }
+    function dv(a, b) { return a === null || b === null || a === undefined || b === undefined ? null : a - b; }
+    var b = dm(best.brakeAt, usual.brakeAt);                                                  // + = your fastest lap braked later
+    if (b !== null && Math.abs(b) >= 5) out.push({ k: 'brake', d: b, best: best.brakeAt, usual: usual.brakeAt });
+    var h = dv(best.brakeMax, usual.brakeMax);
+    if (h !== null && h >= 10) out.push({ k: 'brakeHard', d: h, best: best.brakeMax, usual: usual.brakeMax });
+    var m = dv(best.min, usual.min);
+    if (m !== null && Math.abs(m) >= 2) out.push({ k: 'min', d: m, best: best.min, usual: usual.min });
+    var t = dm(usual.throttleAt, best.throttleAt);                                             // + = your fastest lap was on full throttle sooner
+    if (t !== null && Math.abs(t) >= 5) out.push({ k: 'throttle', d: t, best: best.throttleAt, usual: usual.throttleAt });
+    var e = dv(best.exit, usual.exit);
+    if (e !== null && Math.abs(e) >= 2) out.push({ k: 'exit', d: e, best: best.exit, usual: usual.exit });
+    return out;
+  }
   // optimal.json -> one line (the pieces of your best segments in order; a missing piece leaves a gap) and how many pieces are known
   function optimalLine(opt) {
     var out = [], have = 0, last = -1;
@@ -372,7 +391,7 @@
   }
 
   P.potentialMath = { markOld: markOld, tracks: tracks, optimal: optimal, segments: segments, focus: focus, zones: zones, segSessions: segSessions, windows: windows, sectorAt: sectorAt, repeats: repeats, fastestCar: fastestCar,
-                      lineSpot: lineSpot, lineMedian: lineMedian, optimalLine: optimalLine, turns: turns,
+                      lineSpot: lineSpot, lineMedian: lineMedian, spotTips: spotTips, optimalLine: optimalLine, turns: turns,
                       apexes: apexes, turnLabel: turnLabel, whereOnLap: whereOnLap, setTurns: function (t) { TURNS = t || null; } };
   // the turn table, loaded once in the page (pages wait for it before they draw turns; without it the turns come from your speed as before)
   P.potentialMath.ready = typeof fetch === 'function' && typeof document !== 'undefined' ? fetch('data/turns.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (t) { TURNS = t || null; }, function () {}) : Promise.resolve();

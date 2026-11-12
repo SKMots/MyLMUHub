@@ -180,8 +180,11 @@
     var box = $('focMap');
     if (rec && rec.points && rec.n) {
       var a = U.segments(rec), vals = TM.vals(rec, z, a, z ? 'loss' : 'bestlap');                     // one colour per turn
-      box.innerHTML = drawMap(rec, vals || [], { zones: z ? z.zones : [], title: function (i) { return 'Segment ' + (i + 1); } }) +
-        '<div class="hint">' + (z ? 'Red = where you lose the most · numbers = your weak spots · ' : 'Red = where your best lap lost the most · ') + 'click to study this track</div>';
+      // only the sector to work on in colour (owner: the map should show what the text says), the rest grey; its weak spots only
+      var st = rec.length / rec.n, secOf = function (i) { return U.sectorAt((i + 0.5) * st, rec.sectors); }, known = secOf(0) >= 0;
+      var dim = known ? function (i) { return secOf(i) !== f.top; } : null, zs = z ? z.zones.filter(function (w) { return !known || w.sector === f.top; }) : [];
+      box.innerHTML = drawMap(rec, vals || [], { zones: zs, dim: dim, title: function (i) { return (known ? SEC[secOf(i)] + ' · ' : '') + 'Segment ' + (i + 1); } }) +
+        '<div class="hint">' + (known ? SEC[f.top] + ' in colour, the rest grey · ' : '') + (z ? 'red = where you lose the most · numbers = your weak spots · ' : 'red = where your best lap lost the most · ') + 'click to study this track</div>';
       box.className = 'mapbox click'; box.onclick = function () { study(key); };
     } else {
       box.className = 'mapbox'; box.onclick = null;

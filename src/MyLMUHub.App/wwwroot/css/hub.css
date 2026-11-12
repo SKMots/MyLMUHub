@@ -278,3 +278,24 @@ details.explain summary:hover { color:var(--lime); }
 /* Race Control page: spectate list */
 .spec-row { padding:7px 10px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
 .spec-row:hover { background:var(--tile); } .spec-row.on { border-color:var(--lime); background:var(--tile); }
+
+/* Live strategy: the status bar (colour = how your VE use stands against what this stint may use) and done / now rows */
+.lstat { margin-top:14px; padding:18px 22px; border-radius:6px 22px 6px 22px; border:2px solid var(--line); background:var(--card); }
+.lstat-main { display:flex; flex-wrap:wrap; align-items:center; gap:14px; font-size:20px; }
+.lstat-chip { padding:6px 16px; border-radius:8px; font-size:20px; font-weight:900; letter-spacing:.05em; font-style:italic; background:var(--tile2); color:var(--muted); }
+.lstat-sub { margin-top:6px; color:var(--muted); }
+.lstat-nums { display:flex; flex-wrap:wrap; gap:26px; margin-top:12px; } .lstat-nums div { display:flex; flex-direction:column; } .lstat-nums span { font-size:12px; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; }
+.lstat-nums b { font-size:22px; font-family:var(--mono, Consolas, monospace); }
+.lstat.ok { border-color:var(--green); } .lstat.ok .lstat-chip { background:var(--green); color:#04140a; }
+.lstat.close { border-color:var(--yellow); } .lstat.close .lstat-chip { background:var(--yellow); color:#1b1600; }
+.lstat.over { border-color:var(--red); background:linear-gradient(90deg, rgba(255,90,95,.14), transparent 60%), var(--card); } .lstat.over .lstat-chip { background:var(--red); color:#fff; }
+.lstat.live .lstat-chip { background:var(--lime); color:var(--lime-ink); } .lstat.wait .lstat-chip { background:var(--yellow); color:#1b1600; }
+.tbl tr.ls-done td { background:rgba(61,220,132,.08); } .tbl tr.ls-done td:first-child { box-shadow:inset 3px 0 0 var(--green); }
+.tbl tr.ls-now td { background:var(--tile); } .tbl tr.ls-now td:first-child { box-shadow:inset 3px 0 0 var(--lime); }
+.chip.ok { background:var(--green); color:#04140a; }
+
+/* Track study: tips from your fastest lap; the A / B table fits the side panel (long places wrap) */
+.ls-tip { padding:8px 10px; margin-bottom:6px; background:var(--tile); border-left:3px solid var(--lime); border-radius:4px 10px 4px 10px; font-size:13px; line-height:1.45; }
+.mapov-body { grid-template-columns:minmax(0, 1fr) 420px; }
+#ovSide .tbl { width:100%; table-layout:fixed; } #ovSide .tbl th, #ovSide .tbl td { white-space:normal; overflow-wrap:anywhere; font-size:12.5px; }
+#ovSide .tbl th:first-child, #ovSide .tbl td:first-child { width:26%; }

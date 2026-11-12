@@ -24,21 +24,26 @@
   };
   // the goal for the track you are on: your VE goal for that track (hub Race Control page, vegoals.json { "Bahrain (wec)": 3.8 }), else the strategy plan's
   // goal when the plan is for this track, else none
-  P.veGoalFor = function (goals, st, live) {
+  // lv = the Live strategy page's file (strategy-live.json): while a race is on there, its VE target for the stint you are in comes first (set in the last
+  // 15 minutes, for this track), and its plan is the plan used
+  P.veGoalFor = function (goals, st, live, lv, now) {
     if (!live) return null;
+    var tg = lv && lv.target; if (tg && tg.perLap > 0 && tg.track === live && (now || Date.now()) - tg.at < 15 * 60000) return tg.perLap;
+    if (lv && lv.plan && st && (st.plans || []).some(function (x) { return x.id === lv.plan; })) st = { current: lv.plan, plans: st.plans };
     var R = P.paceRef, n = (R && R.trackName(live, '')) || live, g = goals && (goals[n] || goals[live]);
     if (g > 0) return g;
     return P.planTrackMatches(st, live) ? P.veGoalOfPlan(st) : null;
   };
-  var plan = { at: -1e9, st: null, goals: null };
+  var plan = { at: -1e9, st: null, goals: null, lv: null };
   function planGoal(live) {
     var now = Date.now();
     if (now - plan.at > 15000 && typeof root.fetch === 'function' && !(root.location && root.location.protocol === 'file:')) {
       plan.at = now;
       root.fetch('/api/strategy').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.st = j; }, function () {});
       root.fetch('/api/vegoals').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.goals = j; }, function () {});
+      root.fetch('/api/strategy-live').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.lv = j; }, function () {});
     }
-    return P.veGoalFor(plan.goals, plan.st, live);
+    return P.veGoalFor(plan.goals, plan.st, live, plan.lv);
   }                                          // label y; the value sits 12.9 below
   var T = P.panelWidget('fuel', 'Fuel / energy', 520, 482.3, 245, 218.8, 'green', [
     ['titles', 'Titles + row names', 'label'], ['values', 'Values', 'white'], ['divider', 'Middle divider', 'track'], ['barBg', 'Bar background', 'rowLine'],
