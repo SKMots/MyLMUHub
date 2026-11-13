@@ -176,6 +176,24 @@
     }
     return best ? best.c : null;
   }
+  // a layout on a canvas of another shape (owner 2026-11-13: portrait / ultrawide): the widgets placed again in reading order (top to bottom, left to right as
+  // they were), each in the first free place, keeping its size and proportions; only when they do not all fit, all of them get smaller by the same factor
+  // (in steps) until they do. -> rects in the same order (always inside; the last try simply stacks what still does not fit)
+  function reflow(rs, cw, ch) {
+    var order = rs.map(function (r, i) { return i; }).sort(function (a, b) { return rs[a].y - rs[b].y || rs[a].x - rs[b].x; });
+    var area = rs.reduce(function (t, r) { return t + r.w * r.h; }, 0), k = Math.min(1, area > 0 ? Math.sqrt(cw * ch * 0.92 / area) : 1), out = null;
+    for (var tries = 0; tries < 14 && !out; tries++, k *= 0.94) {
+      var placed = [], res = new Array(rs.length), ok = true;
+      for (var j = 0; j < order.length; j++) {
+        var r = rs[order[j]], f = Math.min(k, cw / r.w, ch / r.h), w = Math.max(40, Math.floor(r.w * f)), h = Math.max(30, Math.floor(r.h * f));
+        var s = freeSpot(placed, w, h, cw, ch);
+        if (!s) { ok = false; break; }
+        res[order[j]] = s; placed.push(s);
+      }
+      if (ok) out = res;
+    }
+    return out || rs.map(function (r) { var f = Math.min(1, cw / r.w, ch / r.h); return clampRect({ x: r.x, y: r.y, w: Math.floor(r.w * f), h: Math.floor(r.h * f) }, cw, ch); });
+  }
   // first free place for a w x h box (top to bottom, left to right), tried at the canvas corner and next to / below every widget; null = no room
   function freeSpot(rects, w, h, cw, ch) {
     var xs = [0], ys = [0];
@@ -223,6 +241,6 @@
     return { k: k, ox: (winW - cw * k) / 2, oy: (winH - ch * k) / 2 };
   }
   P.layoutMath = { snap: snap, clampRect: clampRect, edgesOf: edgesOf, drag: drag, resize: resize, fitScale: fitScale, stageFit: stageFit,
-                   bbox: bbox, scaleInto: scaleInto, overlap: overlap, push: push, arrange: arrange, nearestFree: nearestFree, freeSpot: freeSpot, align: align };
+                   bbox: bbox, scaleInto: scaleInto, reflow: reflow, overlap: overlap, push: push, arrange: arrange, nearestFree: nearestFree, freeSpot: freeSpot, align: align };
   if (typeof module !== 'undefined') module.exports = P.layoutMath;
 })(typeof window !== 'undefined' ? window : globalThis);

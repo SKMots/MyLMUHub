@@ -244,124 +244,124 @@
     });
   };
 
-  // ---------- start from a race you drove (Race Pace sessions): pace, stints, the stop, VE use -> the plan ----------
-  // plan.from = { file, veLeft (% you came in with, typed when the file has no VE), veStart } is kept with the plan
-  var races = null, raceAsked = false;
-  function raceSession() { var f = plan.from && plan.from.file; return (races || []).filter(function (s) { return s.file === f; })[0] || null; }
+  // ---------- start from sessions you drove (Race Pace sessions, races and practice): the ticked ones together (strategy-math combine) -> the suggested
+  // stint lengths (stintOptions) -> the plan. plan.from = { files: { file: 'push' | 'lift' | 'mixed' }, veStart, cost (typed, used while not measured) }
+  var races = null, raceAsked = false, allTracks = false, showMore = false;
   function raceList() {
     if (!H.inApp || raceAsked) return; raceAsked = true;
-    $('raceSel').innerHTML = '<option value="">Reading your races...</option>';
+    $('fromBody').innerHTML = '<div class="faint">Reading your sessions...</div>';
     H.loadPace(function () {}, function (data) {
       races = (data.sessions || []).filter(function (s) { return (s.type === 'Race' || s.type === 'Practice') && !s.live && s.laps.length >= 5; }).sort(function (a, b) { return b.time - a.time; });
       fromRace();
     });
   }
+  function trackOf(s) { return R.trackName(s.track, s.layout) || s.track; }
+  function fromState() {
+    var fr = plan.from = plan.from || {};
+    if (!fr.files) { fr.files = {}; if (fr.file) fr.files[fr.file] = fr.kind || 'push'; }                     // plans from before: their one session
+    delete fr.file; delete fr.kind; delete fr.veLeft;
+    if (!(fr.veStart > 0)) fr.veStart = plan.ve.max || 100;
+    if (!Object.keys(fr.files).length && races) {                                                          // first time: your newest sessions here with VE (up to 3)
+      races.filter(function (s) { return (!plan.track || trackOf(s) === plan.track) && s.laps.some(function (l) { return l[7] > 0; }); }).slice(0, 3).forEach(function (s) { fr.files[s.file] = 'push'; });
+    }
+    return fr;
+  }
+  var KINDS = [['push', 'Normal'], ['lift', 'Saving VE'], ['mixed', 'Mixed']];
   function fromRace() {
     if (!plan) return;
-    if (!H.inApp) { $('fromBody').innerHTML = '<div class="faint">Open this page in the app: it reads your races from the result files.</div>'; return; }
+    if (!H.inApp) { $('fromBody').innerHTML = '<div class="faint">Open this page in the app: it reads your sessions from the result files.</div>'; return; }
     if (!races) { raceList(); return; }
-    if (!races.length) { $('raceSel').innerHTML = '<option value="">No races found</option>'; $('fromBody').innerHTML = ''; return; }
-    if (!raceSession()) {                                                              // first time: your latest race on this plan's track, else your latest race
-      var same = races.filter(function (s) { return R.trackName(s.track, s.layout) === plan.track; })[0];
-      plan.from = { file: (same || races[0]).file, veLeft: null, veStart: plan.ve.max || 100 };
-    }
-    var s = raceSession(), fr = plan.from;
-    $('raceSel').innerHTML = races.map(function (r) {
-      return '<option value="' + esc(r.file) + '"' + (r === s ? ' selected' : '') + '>' + esc(F.day(r.time) + ' · ' + r.type + ' · ' + (R.trackName(r.track, r.layout) || r.track) + ' · ' + r.car + ' · ' + r.laps[r.laps.length - 1][0] + ' laps') + '</option>';
-    }).join('');
-    var x = SM.fromRace(s, { veStart: fr.veStart, veLeft: fr.veLeft, reserve: plan.ve.reserve }), prac = s.type === 'Practice', full = prac ? null : x.full, stop = prac ? null : normalStop(x);
-    var mins = Math.round(s.laps.reduce(function (a, l) { return a + (l[1] > 0 ? l[1] : x.pace || 0); }, 0) / 60);
-    var h = '<div class="faint" style="margin-bottom:10px">' + esc(s.type + ' · ' + (R.trackName(s.track, s.layout) || s.track) + ' · ' + s.car + ' · ' + x.laps + ' laps in about ' + mins + ' min' +
-      (s.classPos && !prac ? ' · P' + s.classPos + ' of ' + s.classCars + ' in class' : '')) +
-      (prac ? '<br>A practice session: its VE and tyre wear per lap are used, not its stops. Your lap times in the plan stay (empty ones get this pace).' : '') + '</div>';
-    h += '<div class="tiles">' +
-      tile(prac ? 'Pace' : 'Race pace', x.pace ? F.lap(x.pace) : '--', x.best ? 'best ' + F.lap(x.best) + ' · median of the clean laps' : '') +
-      tile('Stints', x.stints.map(function (t) { return t.laps; }).join(' + ') + ' laps', x.stops.length ? x.stops.length + (x.stops.length === 1 ? ' stop' : ' stops') + ', after lap ' + x.stops.map(function (p) { return p.after; }).join(', ') : 'no stop') +
-      tile('Pit stop', stop && stop.loss !== null ? Math.round(stop.loss) + ' s' : '--', prac ? 'not used from a practice session' : stop ? 'lost vs your pace (in lap + out lap)' : x.stops.length ? 'only an early stop: not a normal stop time' : 'no stop in this race') +
-      tile('Tyre wear per lap', x.wearPerLap ? F.pct(x.wearPerLap, 2) : '--', x.wearPerLap ? 'average of ' + x.wearLaps + ' normal laps' + (x.wearOut ? ', ' + x.wearOut + ' left out' : '') +
-        (x.stops.some(function (p) { return p.tyres === true; }) ? ' · tyres changed' : x.stops.length && x.stops.every(function (p) { return p.tyres === false; }) ? ' · tyres not changed' : '') : 'not recorded in that race') +
-      tile('VE per lap', x.vePerLap ? F.pct(x.vePerLap, 2) : '--', x.veFrom === 'file' ? 'average of ' + x.veLaps + ' normal laps' + (x.veOut ? ' (' + x.veOut + ' left out: pit, out, incident laps)' : '') :
-        x.veFrom === 'typed' ? 'from the VE you came in with' : 'not in the file: type the VE you came in with') + '</div>';
-    // the stints, lap by lap groups
-    h += '<div class="scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th class="num">Stint</th><th class="num">Laps</th><th class="num">Lap</th><th class="num">Average clean lap</th><th>Ended</th></tr></thead><tbody>' +
-      x.stints.map(function (t, k) {
-        var p = x.stops.filter(function (q) { return q.after === t.to; })[0];
-        return '<tr><td class="num">' + (k + 1) + '</td><td class="num">' + t.laps + '</td><td class="num">' + t.from + '-' + t.to + '</td><td class="num">' + (t.avg ? F.lap(t.avg) : '--') + '</td><td>' +
-          (p && prac ? 'Pit / garage' : p ? (p.early ? 'Early stop (' + F.pct(p.veLeft, 0) + ' VE left: damage?)' : 'Pit stop') + (p.loss !== null ? ', ' + Math.round(p.loss) + ' s lost' : '') +
-            (p.tyres === true ? ', new tyres' : p.tyres === false ? ', same tyres' : '') : 'Finish') + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-    // VE: your average per lap, how you drove that session (pushing / saving VE / mixed), the VE a stint starts with (VE left typed only when the file has no VE)
-    var kd = fr.kind || 'push';
-    h += '<div class="form" style="margin-top:14px;max-width:820px">' +
-      (x.veFrom === 'file' || !full ? '' : '<label class="field">VE left when you came in after lap ' + full.to + ' (%)<input class="input" id="veLeftIn" data-num value="' + (fr.veLeft !== null && fr.veLeft !== undefined ? fr.veLeft : '') + '" placeholder="e.g. 4"></label>') +
-      '<label class="field">How you drove that session<select class="sel" id="kindSel">' + [['push', 'Normal: no saving'], ['lift', 'Saving VE (lift and coast)'], ['mixed', 'Mixed: some laps saving']].map(function (o) {
-        return '<option value="' + o[0] + '"' + (kd === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label class="field">VE a stint starts with (%)<input class="input" id="veStartIn" data-num value="' + (fr.veStart || 100) + '"></label></div>';
-    var rsv = plan.ve.reserve > 0 ? ' (with your reserve of ' + plan.ve.reserve + (plan.ve.reserve === 1 ? ' lap' : ' laps') + ')' : '';
-    if (x.vePerLap) {
-      h += '<div class="sub" style="margin:10px 0 0 0;color:var(--text)">At <b>' + F.pct(x.vePerLap, 2) + '</b> per lap ' + (kd === 'lift' ? '(saving) ' : '') + 'a stint of ' + F.pct(fr.veStart || 100, 0) + ' lasts <b>' + x.fit + ' laps</b>' + rsv + '.' +
-        (full && x.spareLaps !== null ? ' Your stop after lap ' + full.to + ' had ' + F.pct(x.veLeft, 1) + ' left' + (x.spareLaps >= 1 ? ': ' + Math.floor(x.spareLaps) + ' more ' + (Math.floor(x.spareLaps) === 1 ? 'lap' : 'laps') + ' were there.' : '.') : '') +
-        x.stops.filter(function (p) { return p.early && !prac; }).map(function (p) { return ' The stop after lap ' + p.after + ' came early (' + F.pct(p.veLeft, 0) + ' VE left): not used for the stint length or the pit time.'; }).join('') + '</div>';
-    }
-    // the app's suggestion: all your sessions on this track with this car (races and practice with VE per lap)
-    var tk = R.trackName(s.track, s.layout) || s.track, sg = SM.suggest({ sessions: races.filter(function (r) { return (R.trackName(r.track, r.layout) || r.track) === tk && r.car === s.car; }),
-      max: fr.veStart || 100, reserve: plan.ve.reserve, pitLoss: plan.pit.base, length: plan.length, rate: x.vePerLap, cost: fr.cost, kind: kd, ownPace: x.pace });
-    if (sg.rate && sg.options.length) {
-      h += '<h3 style="margin:18px 0 4px 0">Suggested strategy</h3><div class="sub" style="margin:0 0 8px 0">From ' + sg.sessions + (sg.sessions === 1 ? ' session' : ' sessions') + ' on ' + esc(tk) + ' with the ' + esc(s.car) + ' (' + sg.laps + ' normal laps): pace ' + F.lap(sg.pace) +
-        (kd === 'lift' ? ' (the session above, saving VE)' : ' (races first)') + ', VE ' + F.pct(sg.rate, 2) + ' per lap (the session above' + (kd === 'lift' ? ', saving' : '') + '). ' + (sg.measured ? 'Saving VE costs you about <b>' + sg.cost.toFixed(2) + ' s per lap for every 1 % less per lap</b> (measured from your laps).' :
-        'What saving VE costs in lap time is not measured yet: your VE use hardly varies from lap to lap. Type it below, or drive a few laps in practice saving VE (lift and coast) and the app measures it.' +
-        '<div class="form" style="margin-top:8px;max-width:420px"><label class="field">Saving 1 % VE per lap costs (s per lap)<input class="input" id="costIn" data-num value="' + (fr.cost !== null && fr.cost !== undefined ? fr.cost : '') + '" placeholder="e.g. 0.8"></label></div>' +
-        (sg.cost === null ? 'Without it no stint length is picked.' : '')) +
-        ' Stops at ' + Math.round(plan.pit.base) + ' s each (the pit stop time in the plan).</div>';
-      h += '<div class="scroll" style="max-width:900px"><table class="tbl"><thead><tr><th class="num">Stint</th><th class="num">VE per lap allowed</th><th class="num">' + (kd === 'lift' ? 'Save more than you did' : 'Save per lap') + '</th><th class="num">Lap time</th><th class="num">Stops</th><th class="num">' + (plan.length.kind === 'laps' ? 'Finish' : 'Laps in ' + esc(lenText())) + '</th><th></th></tr></thead><tbody>' +
+    // the list: this plan's track and car (and any ticked session), newest first, 12 (Show more: 60); 'Other tracks and cars too': all
+    var fr = fromState(), match = races.filter(function (s) { return allTracks || fr.files[s.file] || ((!plan.track || trackOf(s) === plan.track) && (!plan.car || s.car === plan.car)); });
+    var here = match.slice(0, showMore ? 60 : 12), more = match.length - here.length;
+    if (!here.length) { $('fromBody').innerHTML = '<div class="faint">No races or practice sessions' + (plan.track ? ' on ' + esc(plan.track) + (plan.car ? ' with the ' + esc(plan.car) : '') + ' yet: tick "Other tracks and cars too".' : ' found.') + '</div>'; return; }
+    var picked = races.filter(function (s) { return fr.files[s.file]; }), c = SM.combine(picked.map(function (s) { return { s: s, kind: fr.files[s.file] }; }), { max: fr.veStart, reserve: plan.ve.reserve });
+    var rowOf = {}; c.rows.forEach(function (r) { rowOf[r.s.file] = r; });
+    // the sessions: tick, how you drove it, and its own numbers (so one that does not fit, e.g. other VE settings, stands out)
+    var h = '<div class="scroll"><table class="tbl" id="sesTbl"><thead><tr><th></th><th>Session</th><th>Car</th><th class="num">Laps</th><th class="num">Pace</th><th class="num">VE / lap</th><th class="num">Tyre wear / lap</th><th>How you drove it</th></tr></thead><tbody>' +
+      here.map(function (s) {
+        var on = !!fr.files[s.file], x = on ? rowOf[s.file].x : SM.fromRace(s, { veStart: fr.veStart, reserve: plan.ve.reserve }), early = x.stops.some(function (p) { return p.early; });
+        return '<tr data-f="' + esc(s.file) + '"' + (on ? '' : ' class="off"') + '><td><input type="checkbox" data-pick' + (on ? ' checked' : '') + ' style="accent-color:var(--lime);width:16px;height:16px"></td>' +
+          '<td>' + esc(F.day(s.time) + ' · ' + s.type) + '<span class="two">' + esc(trackOf(s)) + (early ? ' · early stop left out' : '') + '</span></td><td>' + esc(s.car) + '</td><td class="num">' + s.laps[s.laps.length - 1][0] + '</td>' +
+          '<td class="num">' + (x.pace ? F.lap(x.pace) : '--') + '</td><td class="num">' + (x.vePerLap && x.veFrom === 'file' ? F.pct(x.vePerLap, 2) : '<span class="faint">not recorded</span>') + '</td>' +
+          '<td class="num">' + (x.wearPerLap ? F.pct(x.wearPerLap, 2) : '--') + '</td>' +
+          '<td><select class="sel cell" data-kind' + (on ? '' : ' disabled') + '>' + KINDS.map(function (k) { return '<option value="' + k[0] + '"' + ((fr.files[s.file] || 'push') === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select></td></tr>';
+      }).join('') + '</tbody></table></div>' + (more > 0 || showMore ? '<div style="margin-top:6px"><button class="btn" id="moreBtn">' + (showMore ? 'Show fewer' : 'Show ' + Math.min(more, 48) + ' more') + '</button></div>' : '');
+    if (!picked.length) { $('fromBody').innerHTML = h + '<div class="faint" style="margin-top:10px">Tick one or more sessions.</div>'; $('fromBody')._c = null; return; }
+    // together
+    var costTxt = c.costFrom === 'laps' ? 'measured from your laps' : c.costFrom === 'pair' ? 'from your normal vs saving sessions' :
+      c.costNote === 'faster' ? 'not measured: your saving session was faster (other conditions or VE settings?)' : 'not measured yet';
+    h += '<div class="tiles" style="margin-top:12px">' +
+      tile('Pace', c.pace ? F.lap(c.pace) : '--', c.kind === 'lift' ? 'your saving sessions (no normal one ticked)' : 'median of your normal sessions (races first)') +
+      tile('VE per lap, normal', c.vePush ? F.pct(c.vePush, 2) : '--', c.vePush ? 'no saving' : 'tick a session driven normally') +
+      tile('VE per lap, saving', c.veLift ? F.pct(c.veLift, 2) : '--', c.veLift ? (c.paceLift ? 'at ' + F.lap(c.paceLift) : '') : 'tick a session where you lifted') +
+      tile('Lifting costs', c.cost !== null ? F.plusSec(c.cost) + ' s' : '--', c.cost !== null ? 'per lap for 1 % less VE per lap · ' + costTxt : costTxt) +
+      tile('Tyre wear per lap', c.wear ? F.pct(c.wear, 2) : '--', c.wear ? 'average of the ticked sessions' : 'not recorded') +
+      tile('Pit stop', c.pitLoss ? Math.round(c.pitLoss) + ' s' : '--', c.pitLoss ? 'median of the normal stops in the ticked races' : 'no normal stop in the ticked races') + '</div>';
+    var useCost = c.cost !== null ? c.cost : (fr.cost !== null && fr.cost !== undefined && fr.cost !== '' ? Number(fr.cost) : null);
+    h += '<div class="form" style="margin-top:12px;max-width:620px"><label class="field">VE a stint starts with (%)<input class="input" id="veStartIn" data-num value="' + (fr.veStart || 100) + '"></label>' +
+      (c.cost === null ? '<label class="field">Lifting 1 % VE per lap costs (s per lap, until measured)<input class="input" id="costIn" data-num value="' + (fr.cost !== null && fr.cost !== undefined ? fr.cost : '') + '" placeholder="e.g. 0.8"></label>' : '') + '</div>';
+    if (c.cost === null) h += '<div class="faint" style="margin-top:4px">To measure it: tick a session you drove normally and one where you lifted (same track, car and VE settings).</div>';
+    // the suggestion
+    // warnings: a pit stop that looks like a repair, a 'saving' session that used as much VE as a normal one
+    var stopLoss = c.pitLoss || plan.pit.base, warn = '';
+    if (!c.pitLoss && stopLoss > 100) warn += '<div class="warnbox">No normal pit stop in the ticked races, so the plan\'s pit stop time is used: <b>' + Math.round(stopLoss) + ' s</b>. That looks like a repair stop; a normal one is often 40-70 s. Set it under Energy &amp; stops, or tick a race with a normal stop.</div>';
+    if (c.vePush && c.veLift && c.veLift >= c.vePush - 0.05) warn += '<div class="warnbox">Your "Saving VE" session used ' + F.pct(c.veLift, 2) + ' a lap, your "Normal" one ' + F.pct(c.vePush, 2) + ': no saving to learn from. Check how you marked them.</div>';
+    var sg = SM.stintOptions({ pace: c.pace, rate: c.rate, cost: useCost }, { max: fr.veStart || 100, reserve: plan.ve.reserve, pitLoss: stopLoss, length: plan.length });
+    if (sg.options.length) {
+      var kd = c.kind;
+      h += '<h3 style="margin:18px 0 4px 0">Suggested strategy</h3><div class="sub" style="margin:0 0 8px 0">Pace ' + F.lap(c.pace) + ', VE ' + F.pct(c.rate, 2) + ' per lap (' + (kd === 'lift' ? 'saving' : 'no saving') + '), stops at ' + Math.round(stopLoss) + ' s. ' +
+        (sg.cost !== null ? 'Lifting costs ' + sg.cost.toFixed(2) + ' s per lap for 1 % less: BEST = the most laps, then the earliest finish.' :
+          'What lifting costs is not known yet, so BEST is the best without extra lifting. A lifting option is only worth it if 1 % less VE per lap costs you less than the time in its last column.') + '</div>' + warn;
+      h += '<div class="scroll" style="max-width:1200px"><table class="tbl"><thead><tr><th class="num">Stint</th><th class="num">VE per lap allowed</th><th class="num">' + (kd === 'lift' ? 'Save more than you did' : 'Save per lap') + '</th><th class="num">Lap time</th><th class="num">Stops</th><th class="num">' + (plan.length.kind === 'laps' ? 'Finish' : 'Laps in ' + esc(lenText())) + '</th>' + (sg.cost === null ? '<th class="num">Worth it if lifting costs under</th>' : '') + '<th></th></tr></thead><tbody>' +
         sg.options.map(function (o) {
-          var best = sg.best === o;
+          var best = sg.best === o, be = sg.cost !== null ? '' : '<td class="num">' + (o.breakEven === undefined ? '<span class="faint">--</span>' : o.breakEven === null ? '<span class="faint">never: saves nothing</span>' : o.breakEven.toFixed(2) + ' s / lap') + '</td>';
           return '<tr' + (best ? ' class="now"' : '') + '><td class="num"><b>' + o.laps + ' laps</b>' + (best ? ' <span class="chip lime">BEST</span>' : '') + '</td><td class="num">' + F.pct(o.perLap, 2) + '</td><td class="num">' + (o.save > 0 ? F.pct(o.save, 2) : '<span class="faint">none</span>') +
-            '</td><td class="num">' + F.lap(o.lap) + '</td><td class="num">' + o.stops + '</td><td class="num">' + (plan.length.kind === 'laps' ? F.hms(o.end) : o.raceLaps) + '</td><td><button class="btn' + (best ? ' lime' : '') + '" data-use="' + o.laps + '" data-pace="' + o.lap.toFixed(3) + '">Plan this</button></td></tr>';
+            '</td><td class="num">' + F.lap(o.lap) + '</td><td class="num">' + o.stops + '</td><td class="num">' + (plan.length.kind === 'laps' ? F.hms(o.end) : o.raceLaps) + '</td>' + be + '<td><button class="btn' + (best ? ' lime' : '') + '" data-use="' + o.laps + '" data-pace="' + o.lap.toFixed(3) + '">Plan this</button></td></tr>';
         }).join('') + '</tbody></table></div>';
-    } else if (sg.rate) h += '<div class="sub" style="margin:14px 0 0 0">Set the race length (Event) to see the stint options.</div>';
-    h += '<div class="go" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">' +
-      (x.fit ? '' : '<button class="btn lime" data-use="0">Use this race</button>') +
-      '<span class="faint" id="fromInfo"></span></div>';
-    $('fromBody').innerHTML = h;
+    } else if (c.rate) h += '<div class="sub" style="margin:14px 0 0 0">Set the race length (Event) to see the stint options.</div>';
+    else h += '<div class="sub" style="margin:14px 0 0 0">None of the ticked sessions has VE per lap recorded: drive one with the app open.</div>';
+    h += '<div class="go" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="faint" id="fromInfo"></span></div>';
+    $('fromBody').innerHTML = h; $('fromBody')._c = c;
   }
-  function normalStop(x) { return x.stops.filter(function (p) { return !p.early; })[0] || null; }      // an early stop (damage) is not a pit stop time
-  $('raceSel').onchange = function () { plan.from = { file: this.value, veLeft: null, veStart: plan.ve.max || 100, cost: plan.from ? plan.from.cost : null, kind: 'push' }; fromRace(); saveSoon(); };
+  $('allTracks').onchange = function () { allTracks = this.checked; fromRace(); };
+  $('fromBody').onchange = function (e) {
+    var tr = e.target.closest('tr[data-f]'); if (!tr) return;
+    var f = tr.getAttribute('data-f'), files = plan.from.files;
+    if (e.target.hasAttribute('data-pick')) { if (e.target.checked) files[f] = files[f] || 'push'; else delete files[f]; }
+    else if (e.target.hasAttribute('data-kind')) files[f] = e.target.value;
+    fromRace(); saveSoon();
+  };
   $('fromBody').oninput = function (e) {
-    if (e.target.id === 'kindSel') { plan.from.kind = e.target.value; fromRace(); saveSoon(); return; }
-    if (e.target.id !== 'veLeftIn' && e.target.id !== 'veStartIn' && e.target.id !== 'costIn') return;
+    if (e.target.id !== 'veStartIn' && e.target.id !== 'costIn') return;
     var v = e.target.value.trim() === '' ? null : Number(e.target.value.replace(',', '.'));
-    if (e.target.id === 'veLeftIn') plan.from.veLeft = isFinite(v) ? v : null; else if (e.target.id === 'costIn') plan.from.cost = isFinite(v) && v !== null && v >= 0 ? v : null; else plan.from.veStart = v > 0 ? v : 100;
+    if (e.target.id === 'costIn') plan.from.cost = isFinite(v) && v !== null && v >= 0 ? v : null; else plan.from.veStart = v > 0 ? v : 100;
     var id = e.target.id, pos = e.target.selectionStart; fromRace(); var el = $(id); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (er) {} }
     saveSoon();
   };
-  // fill the plan: track, class, car, your lap time, the pit stop, the VE a stint starts with and the stint length (VE per lap allowed follows from it)
+  // fill the plan from a suggested row: track, class, car (the newest ticked session), your lap time (with that row's saving), the pit stop, the VE a stint
+  // starts with, your VE per lap, tyre wear and the stint length (VE per lap allowed follows from it)
   $('fromBody').onclick = function (e) {
-    var b = e.target.closest('[data-use]'); if (!b) return;
-    var s = raceSession(); if (!s) return;
-    var fr = plan.from, x = SM.fromRace(s, { veStart: fr.veStart, veLeft: fr.veLeft, reserve: plan.ve.reserve }), laps = Number(b.getAttribute('data-use')), done = [];
-    var sp = Number(b.getAttribute('data-pace')); if (sp > 0) x.pace = sp;                    // a suggested row: its lap time (with the saving)
+    if (e.target.id === 'moreBtn') { showMore = !showMore; fromRace(); return; }
+    var b = e.target.closest('[data-use]'), c = $('fromBody')._c; if (!b || !c || !c.rows.length) return;
+    var s = c.rows.map(function (r) { return r.s; }).sort(function (a, b2) { return b2.time - a.time; })[0], fr = plan.from, laps = Number(b.getAttribute('data-use')), pace = Number(b.getAttribute('data-pace')), done = [];
     var tr = R.trackName(s.track, s.layout); if (tr) { plan.track = tr; done.push('track'); }
-    var c = R.className(s['class']); if (c) plan.cls = c;
+    var cl = R.className(s['class']); if (cl) plan.cls = cl;
     plan.car = s.car; done.push('car');
-    var prac = s.type === 'Practice';
-    if (x.pace && prac && !(sp > 0)) {                                                              // practice: VE and wear; lap times only where none is set
-      var none = plan.drivers.filter(function (d) { return !(d.lap > 0); });
-      none.forEach(function (d) { d.lap = Math.round(x.pace * 1000) / 1000; }); if (none.length) done.push('empty lap times ' + F.lap(x.pace));
-    } else if (x.pace) {
+    if (pace > 0) {
       var mine = plan.drivers.filter(function (d) { return myNames.indexOf(d.name) >= 0; });
-      (mine.length ? mine : plan.drivers.slice(0, 1)).forEach(function (d) { d.lap = Math.round(x.pace * 1000) / 1000; });
-      plan.drivers.forEach(function (d) { if (!(d.lap > 0)) d.lap = Math.round(x.pace * 1000) / 1000; });
-      done.push('your lap time ' + F.lap(x.pace));
+      (mine.length ? mine : plan.drivers.slice(0, 1)).forEach(function (d) { d.lap = Math.round(pace * 1000) / 1000; });
+      plan.drivers.forEach(function (d) { if (!(d.lap > 0)) d.lap = Math.round(pace * 1000) / 1000; });
+      done.push('your lap time ' + F.lap(pace));
     }
-    var st = prac ? null : normalStop(x); if (st && st.loss !== null) { plan.pit.base = Math.round(st.loss); done.push('pit stop ' + plan.pit.base + ' s'); }
+    if (c.pitLoss) { plan.pit.base = Math.round(c.pitLoss); done.push('pit stop ' + plan.pit.base + ' s'); }
     plan.ve.max = fr.veStart || 100;
-    if (x.vePerLap) plan.ve.perLap = Math.round(x.vePerLap * 100) / 100;
-    if (x.wearPerLap) { plan.tyres.wearPerLap = Math.round(x.wearPerLap * 100) / 100; done.push('tyre wear ' + F.pct(plan.tyres.wearPerLap, 2) + ' per lap'); }
+    if (c.rate) plan.ve.perLap = Math.round(c.rate * 100) / 100;
+    if (c.wear) { plan.tyres.wearPerLap = Math.round(c.wear * 100) / 100; done.push('tyre wear ' + F.pct(plan.tyres.wearPerLap, 2) + ' per lap'); }
     if (laps > 0) { plan.ve.mode = 'laps'; plan.ve.laps = laps; done.push(laps + ' laps a stint (' + F.pct(SM.veNeeded(plan.ve, laps), 2) + ' VE per lap allowed)'); }
     var had = (plan.stints || []).length > 0; plan.stints = [];
     fillForm(); drivers(); render(); fromRace(); saveSoon();
-    $('fromInfo').textContent = 'Filled: ' + done.join(', ') + '.' + (had ? ' Your stint changes were cleared.' : '') + (x.wearPerLap ? ' Tyre change time and driver swaps: set them below.' : ' Tyres and driver swaps: set them below.');
+    $('fromInfo').textContent = 'Filled: ' + done.join(', ') + '.' + (had ? ' Your stint changes were cleared.' : '') + ' Tyre change time and driver swaps: set them below.';
   };
 
   // ---------- start ----------

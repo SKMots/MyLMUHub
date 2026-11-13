@@ -50,6 +50,9 @@ Press **E** and you're in edit mode:
 - **Per-widget settings:** colours, font, text size, opacity, what it shows, and **Float on top** (lies over the others).
 - **Themes:** Lime, Teal, Daylight and Navy, and car logos in one colour or full colour.
 - **Views:** several named views ("Race", "Qualifying", ...). Switch between them with keyboard shortcuts that work while the game has focus, or with buttons on your wheel or button box.
+- **Any screen shape:** the dashboard always fills its window, on 16:9, 4:3, ultrawide, super ultrawide or a portrait monitor. Each view keeps its own
+  arrangement per kind of screen: the first time it shows on a new one it lays itself out from your main layout, and what you change there stays for
+  that screen only.
 - **More screens:** another window per view, or a view on another device.
 - **Sharing:** export and import layouts, e.g. to pass one to a friend.
 
@@ -112,10 +115,11 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 
 **Endurance planner:**
 - **Plans:** several of them, each with its event (track, class, car, race length in time or laps, planned green flag).
-- **Start from a session you drove:** pick a race or a practice session and say how you drove it (normal, saving VE, or mixed). It reads your pace,
-  VE use and tyre wear per lap from it, leaving out pit, out and incident laps, and an early stop for damage. The **suggested strategy** then shows
-  every stint length with the VE per lap it allows, how much more you'd have to save, the lap time, the stops and the laps in the race, and marks the best.
-  **Plan this** fills the plan in one click.
+- **Start from sessions you drove:** tick one or more races or practice sessions and say how you drove each (normal, saving VE, or mixed). It reads
+  your pace, VE use and tyre wear per lap from them together, leaving out pit, out and incident laps and early stops for damage, and works out **what
+  lifting costs you** from a normal and a saving session. The **suggested strategy** shows every stint length with the VE per lap it allows, how much
+  more you'd have to save, the lap time, the stops and the laps in the race, and marks the best: until it knows what lifting costs, the best without
+  extra lifting, and for each lifting option how cheap lifting must be to be worth it. **Plan this** fills the plan in one click.
 - **Stints:** from laps or virtual energy per lap, start energy, spare laps, and the time lost to a pit stop, a tyre change and a driver swap.
   **Fill from my result files** takes your real numbers. A last stint that doesn't need a full refill can **save** (fill only what it needs) or **push**.
 - **Tyres:** change every N stints or by wear, with the sets available and the compound.

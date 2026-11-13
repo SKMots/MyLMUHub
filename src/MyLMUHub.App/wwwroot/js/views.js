@@ -7,10 +7,22 @@
   var P = root.MyLMUHub = root.MyLMUHub || {};
   function copy(o) { return JSON.parse(JSON.stringify(o)); }
 
+  // screen shapes (owner 2026-11-13: portrait and ultrawide screens, no setting to pick): the dashboard always fills its window; the canvas has the window's
+  // shape (landscape 1440 high, portrait 1440 wide, so widgets keep their size). A view keeps one arrangement per kind of screen: its main one (widgets, made
+  // on 'base', default 16:9) and the others in shapes[kind].widgets, made from the main one the first time that kind of screen shows the view.
+  var KINDS = [['portrait', 'portrait screen'], ['square', '4:3 screen'], ['wide', '16:9 screen'], ['ultrawide', 'ultrawide screen (21:9)'], ['superwide', 'super ultrawide screen (32:9)']];
+  function shapeClass(w, h) { var a = w > 0 && h > 0 ? w / h : 16 / 9; return a < 0.9 ? 'portrait' : a < 1.5 ? 'square' : a < 2.05 ? 'wide' : a < 2.9 ? 'ultrawide' : 'superwide'; }
+  function shapeFor(w, h) { var a = w > 0 && h > 0 ? w / h : 16 / 9; return a >= 1 ? { w: Math.round(1440 * a), h: 1440 } : { w: 1440, h: Math.round(1440 / a) }; }
+  function shapeLabel(k) { for (var i = 0; i < KINDS.length; i++) if (KINDS[i][0] === k) return KINDS[i][1]; return k; }
+  function isKind(k) { return KINDS.some(function (x) { return x[0] === k; }); }
   function normalize(raw, fallback) {
     var f = { version: 2, current: '', views: {}, theme: { colors: {}, font: '' }, keys: { next: '', views: {}, labels: {} } };
     if (raw && raw.views && typeof raw.views === 'object') {
-      for (var n in raw.views) if (raw.views[n] && Array.isArray(raw.views[n].widgets)) f.views[n] = { widgets: raw.views[n].widgets };
+      for (var n in raw.views) if (raw.views[n] && Array.isArray(raw.views[n].widgets)) {
+        var rv = raw.views[n]; f.views[n] = { widgets: rv.widgets };
+        if (isKind(rv.base) && rv.base !== 'wide') f.views[n].base = rv.base;                                                // the kind of screen it was made on
+        for (var k in rv.shapes || {}) if (isKind(k) && rv.shapes[k] && Array.isArray(rv.shapes[k].widgets)) (f.views[n].shapes = f.views[n].shapes || {})[k] = { widgets: rv.shapes[k].widgets };
+      }
       f.current = raw.current;
       if (raw.theme) {
         f.theme = { colors: Object.assign({}, raw.theme.colors), font: raw.theme.font || '' };
@@ -35,6 +47,11 @@
   W.current = function () { return this.file.views[this.file.current]; };
   W.theme = function () { return this.file.theme; };
   W.setWidgets = function (widgets) { this.current().widgets = widgets; };
+  // the current view's arrangement for a kind of screen: its widgets, or null = none yet (the page makes one from the main layout)
+  W.baseKind = function () { return this.current().base || 'wide'; };
+  W.arrangement = function (kind) { var v = this.current(); return kind === this.baseKind() ? v.widgets : v.shapes && v.shapes[kind] ? v.shapes[kind].widgets : null; };
+  W.setArrangement = function (kind, widgets) { var v = this.current(); if (kind === this.baseKind()) v.widgets = widgets; else (v.shapes = v.shapes || {})[kind] = { widgets: widgets }; };
+  W.resetArrangement = function (kind) { var v = this.current(); if (v.shapes && v.shapes[kind]) { delete v.shapes[kind]; if (!Object.keys(v.shapes).length) delete v.shapes; } };
   // a new / renamed view's name: '' = fine, else why not
   W.check = function (name) {
     var n = String(name || '').trim();
@@ -44,7 +61,9 @@
   // new view: a copy of the current one (empty = no widgets)
   W.create = function (name, empty) {
     var why = this.check(name); if (why) return why; name = String(name).trim();
-    this.file.views[name] = { widgets: empty ? [] : copy(this.current().widgets) }; this.file.current = name; return '';
+    var cur = this.current(), v = this.file.views[name] = { widgets: empty ? [] : copy(cur.widgets) };
+    if (!empty) { if (cur.base) v.base = cur.base; if (cur.shapes) v.shapes = copy(cur.shapes); }
+    this.file.current = name; return '';
   };
   W.rename = function (name) {
     var why = this.check(name); if (why) return why; name = String(name).trim();
@@ -119,6 +138,7 @@
     return out;
   }
 
+  P.shapeClass = shapeClass; P.shapeFor = shapeFor; P.shapeLabel = shapeLabel;
   P.Workspace = Workspace; P.normalizeViews = normalize; P.comboOf = comboOf; P.mergeLayouts = merge;
   if (typeof module !== 'undefined') module.exports = { Workspace: Workspace, normalize: normalize, comboOf: comboOf, merge: merge };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -79,7 +79,7 @@ public sealed class MainWindow : Window
     // the bar's colours (the page's theme: its panel colour, its accent) and the brand "my lmu hub" as on the hub pages: my / hub in the accent
     void Paint()
     {
-        bar.Background = barBg; page.Foreground = text; page.Text = PageName();
+        bar.Background = barBg; frame.Background = barBg; page.Foreground = text; page.Text = PageName();   // frame: the resize strip round the page
         brand.Inlines.Clear();
         brand.Inlines.Add(new System.Windows.Documents.Run("my") { Foreground = accent });
         brand.Inlines.Add(new System.Windows.Documents.Run("lmu") { Foreground = text, FontStyle = FontStyles.Italic });
@@ -97,6 +97,10 @@ public sealed class MainWindow : Window
     {
         double pad = WindowState == WindowState.Maximized && !full ? SystemParameters.WindowNonClientFrameThickness.Left : 0;
         frame.Padding = new Thickness(pad);
+        // a normal window: the page stops 5 px short of the left, right and bottom edge. The web view is a window of its own and takes the mouse, so over
+        // the page Windows never saw its resize edge (owner 2026-11-13: the hub could not be resized). The strip has the bar's colour.
+        bool edge = WindowState == WindowState.Normal && !full;
+        web.Margin = edge ? new Thickness(5, 0, 5, 5) : new Thickness(0);
         chrome.CaptionHeight = full ? 0 : BarH + pad;
         bar.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
         bMax.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";

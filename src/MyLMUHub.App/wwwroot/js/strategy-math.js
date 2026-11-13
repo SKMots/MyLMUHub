@@ -235,7 +235,8 @@
   // line: s per % less per lap), only when there are 20+ laps with at least 0.15 % spread and it is a cost
   // (less VE = slower). Per stint length (what your VE allows - 1 .. + 4): VE per lap allowed, the saving, the lap time with that saving, the stops and
   // the laps (timed race: the most laps first) or the finish time (laps race). best = the most laps, then the earliest finish.
-  // -> { pace, rate, laps (normal laps used), sessions, cost (s per % per lap, null = not known), options: [{ laps, perLap, save, lap, stops, raceLaps, end }], best }
+  // -> { pace, rate, laps (normal laps used), sessions, cost (s per % per lap, null = not known), options: [{ laps, perLap, save, lap, stops, raceLaps, end }], best,
+  //      breakEven (cost not known: s per % per lap lifting may cost for the best to be worth it; null = the best lifts no more than needed) }
   function suggest(o) {
     var M = P.paceMath, paces = [], racePaces = [], pts = [], vSum = 0, vN = 0, used = 0, max = num(o.max, 100), res = num(o.reserve, 0), loss = num(o.pitLoss, 0);
     (o.sessions || []).forEach(function (s) {
@@ -256,6 +257,13 @@
       if (sd >= 0.15 && b < 0) { out.cost = Math.min(10, -b); out.measured = true; }
     }
     if (out.cost === null && num(o.cost, -1) >= 0 && o.cost !== '' && o.cost !== null) out.cost = num(o.cost, 0);
+    return stintOptions(out, { max: max, reserve: res, pitLoss: loss, length: o.length });
+  }
+  // the stint lengths for numbers you already have: c = { pace, rate (VE per lap without extra saving), cost (s per % per lap, null = not known) } (filled in:
+  // options, best, breakEven); o = { max, reserve, pitLoss, length }
+  function stintOptions(out, o) {
+    var max = num(o.max, 100), res = num(o.reserve, 0), loss = num(o.pitLoss, 0); out.options = []; out.best = null; out.breakEven = null;
+    if (!(out.pace > 0) || !(out.rate > 0)) return out;
     var fit = Math.max(1, Math.floor(max / out.rate - res + 1e-9)), timed = !o.length || o.length.kind !== 'laps', total = timed ? num(o.length && o.length.time, 0) : num(o.length.laps, 0);
     if (!(total > 0)) return out;
     for (var L = Math.max(1, fit - 1); L <= fit + 4; L++) {
@@ -265,7 +273,58 @@
       stops = Math.max(0, Math.ceil(n / L) - 1);
       out.options.push({ laps: L, perLap: per, save: save, lap: lap, stops: stops, raceLaps: n, end: n * lap + stops * loss });
     }
-    if (out.cost !== null) out.best = out.options.slice().sort(function (a, b) { return b.raceLaps - a.raceLaps || a.end - b.end; })[0];
+    // best. Cost known: the most laps, then the earliest finish (the lap time has the cost of the saving in it), then the least lifting.
+    // Cost not known: only the options without extra lifting can be judged (owner 2026-11-13: it picked 3.45 % a lap, as lifting looked free): of those
+    // the most laps, then the fewest stops. Each lifting option gets breakEven = what 1 % less VE per lap may cost you a lap for it to beat that best
+    // (the stops it saves against the laps you lift), null = it saves nothing (never worth it).
+    var rank = function (a, b) { return b.raceLaps - a.raceLaps || (out.cost !== null ? a.end - b.end : a.stops - b.stops) || a.save - b.save; };
+    var minSave = Math.min.apply(null, out.options.map(function (o) { return o.save; }));
+    out.best = (out.cost !== null ? out.options.slice() : out.options.filter(function (o) { return o.save <= minSave + 0.05; })).sort(rank)[0] || null;   // 0.05 %: too little to call lifting
+    var base = out.best;
+    out.options.forEach(function (o) {
+      o.breakEven = out.cost === null && base && o.save > Math.max(base.save, minSave + 0.05) ? (o.stops < base.stops || o.raceLaps > base.raceLaps ? Math.max(0, (base.stops - o.stops) * loss + (o.raceLaps - base.raceLaps) * out.pace) / (o.raceLaps * (o.save - base.save)) : null) : undefined;
+    });
+    return out;
+  }
+
+  // ---- several sessions you drove, each with how you drove it (owner 2026-11-13: more than one session). items = [{ s: Race Pace session, kind: 'push' (no
+  // saving) | 'lift' (saving VE) | 'mixed' }], o = { max, reserve }. Per session fromRace() (normal laps only, early stops left out); together:
+  // pace = the median of the no-saving sessions (races first; none: the saving ones), VE per lap per kind (weighted by laps; mixed sessions only for the cost),
+  // what saving costs: lap time against VE inside each session (as suggest, 20+ laps, 0.15 % spread), else from a no-saving and a saving session:
+  // (saving pace - normal pace) / (normal VE - saving VE). rate / kind = what a plan starts from: your normal VE when known, else the saving VE.
+  // -> { rows: [{ s, kind, x (fromRace) }], pace, pacePush, paceLift, vePush, veLift, rate, kind, cost, costFrom: 'laps' | 'pair' | null, wear, pitLoss, laps }
+  function combine(items, o) {
+    var M = P.paceMath, max = num(o && o.max, 100), res = num(o && o.reserve, 0), rows = [], pts = [], losses = [], wearS = 0, wearN = 0, laps = 0;
+    var by = { push: { ve: 0, n: 0, race: [], other: [] }, lift: { ve: 0, n: 0, race: [], other: [] }, mixed: { ve: 0, n: 0, race: [], other: [] } };
+    (items || []).forEach(function (it) {
+      if (!it || !it.s) return;
+      var k = by[it.kind] ? it.kind : 'push', s = it.s, x = fromRace(s, { veStart: max, reserve: res }), g = by[k];
+      rows.push({ s: s, kind: k, x: x });
+      if (x.pace) (s.type === 'Race' ? g.race : g.other).push(x.pace);
+      if (x.vePerLap > 0 && x.veFrom === 'file') { g.ve += x.vePerLap * x.veLaps; g.n += x.veLaps; laps += x.veLaps; }
+      if (x.wearPerLap > 0) { wearS += x.wearPerLap * x.wearLaps; wearN += x.wearLaps; }
+      if (s.type === 'Race') x.stops.forEach(function (p) { if (!p.early && p.loss > 0) losses.push(p.loss); });
+      if (x.vePerLap > 0) {
+        var own = [];
+        M.classify(s, 0.05).forEach(function (l) { var v = s.laps.filter(function (q) { return q[0] === l.n; })[0][7]; if (!l.why && !l.wet && v > 0 && Math.abs(v - x.vePerLap) <= x.vePerLap * 0.15) own.push([v, l.t]); });
+        if (own.length >= 3) { var ov = M.mean(own.map(function (p) { return p[0]; })), ot = M.mean(own.map(function (p) { return p[1]; })); own.forEach(function (p) { pts.push([p[0] - ov, p[1] - ot]); }); }
+      }
+    });
+    function pace(g) { return M.median(g.race.length ? g.race : g.other); }
+    var out = { rows: rows, pacePush: pace(by.push), paceLift: pace(by.lift), vePush: by.push.n ? by.push.ve / by.push.n : null, veLift: by.lift.n ? by.lift.ve / by.lift.n : null,
+      cost: null, costFrom: null, wear: wearN ? wearS / wearN : null, pitLoss: M.median(losses), laps: laps };
+    out.pace = out.pacePush || pace(by.mixed) || out.paceLift;
+    out.rate = out.vePush || (by.mixed.n ? by.mixed.ve / by.mixed.n : null) || out.veLift; out.kind = out.vePush || by.mixed.n ? 'push' : out.veLift ? 'lift' : 'push';
+    if (out.kind === 'lift') out.pace = out.paceLift || out.pace;
+    if (pts.length >= 20) {
+      var mv = M.mean(pts.map(function (p) { return p[0]; })), mt = M.mean(pts.map(function (p) { return p[1]; })), sxx = 0, sxy = 0;
+      pts.forEach(function (p) { sxx += (p[0] - mv) * (p[0] - mv); sxy += (p[0] - mv) * (p[1] - mt); });
+      if (Math.sqrt(sxx / pts.length) >= 0.15 && sxx > 0 && sxy < 0) { out.cost = Math.min(10, -sxy / sxx); out.costFrom = 'laps'; }
+    }
+    if (out.cost === null && out.vePush && out.veLift && out.vePush > out.veLift + 0.1 && out.pacePush && out.paceLift && out.paceLift >= out.pacePush) {
+      out.cost = Math.min(10, (out.paceLift - out.pacePush) / (out.vePush - out.veLift)); out.costFrom = 'pair';
+    }
+    out.costNote = out.cost === null && out.vePush && out.veLift && out.pacePush && out.paceLift && out.paceLift < out.pacePush ? 'faster' : null;   // saving was faster: other conditions
     return out;
   }
 
@@ -379,6 +438,6 @@
     return { laps: n, left: left, pitLap: finish ? null : done + left, target: left > 0 ? cur.ve / (left + (finish ? 0 : res)) : null, ve: cur.ve, finish: finish };
   }
 
-  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, livePace: livePace, liveTarget: liveTarget, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
+  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, stintOptions: stintOptions, combine: combine, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, livePace: livePace, liveTarget: liveTarget, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
   if (typeof module !== 'undefined') module.exports = P.strategyMath;
 })(typeof window !== 'undefined' ? window : globalThis);

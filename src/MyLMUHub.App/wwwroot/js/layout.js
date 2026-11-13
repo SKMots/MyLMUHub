@@ -17,6 +17,7 @@
     var full = o.design || { w: 2560, h: 1440 }, sf = o.safe || { l: 0, t: 0, r: 0, b: 0 }; this.full = full; this.safe = sf;
     this.design = { w: full.w - sf.l - sf.r, h: full.h - sf.t - sf.b }; this.grid = 10; this.edit = false; this.k = 1; this.inst = {}; this.order = []; this.sel = null;
     this.layout = { version: 1, design: this.design, widgets: [] }; this.state = null; this.timer = null; this.onEdit = o.onEdit || function () {};
+    this.onCanvas = o.onCanvas || function () {};                                                       // the canvas changed shape (the page moves its button bar)
     this.onStyle = o.onStyle || function () {};                                                          // the gear on a widget (edit mode): open its style editor
     this.editInset = o.editInset || function () { return 0; };                                           // window px kept free at the top in edit mode (the toolbar)
     this.canvas.style.width = full.w + 'px'; this.canvas.style.height = full.h + 'px'; this.canvas.style.transformOrigin = '0 0';
@@ -45,13 +46,24 @@
     var f = M.stageFit(this.win.innerWidth || this.full.w, Math.max(1, (this.win.innerHeight || this.full.h) - top), this.full.w, this.full.h);
     this.k = f.k; this.canvas.style.transform = 'translate(' + f.ox + 'px,' + (f.oy + top) + 'px) scale(' + f.k + ')';
   };
+  // the canvas size (the window's shape, views.js shapeFor): the area inside the edge strips, the guides, then fitted to the window
+  LM.setCanvas = function (c) {
+    if (!c || (c.w === this.full.w && c.h === this.full.h)) return false;
+    var sf = this.safe; this.full = { w: c.w, h: c.h }; this.design = { w: c.w - sf.l - sf.r, h: c.h - sf.t - sf.b }; this.layout.design = this.design;
+    this.canvas.style.width = c.w + 'px'; this.canvas.style.height = c.h + 'px';
+    var a = this.area.style; a.width = this.design.w + 'px'; a.height = this.design.h + 'px';
+    this.guideX.style.height = this.design.h + 'px'; this.guideY.style.width = this.design.w + 'px';
+    this.fit(); this.onCanvas(this.full); return true;
+  };
   LM.setLayout = function (layout) {
+    if (layout && layout.canvas) this.setCanvas(layout.canvas);                                         // the window's shape (app.js)
     for (var id in this.inst) this._unmount(id);
     this.layout = { version: 1, design: this.design, widgets: (layout && layout.widgets) ? layout.widgets.slice() : [] };
     this._intoArea(this.layout.widgets);
     for (var i = 0; i < this.layout.widgets.length; i++) this._mount(this.layout.widgets[i]);
   };
-  // a layout made for the whole canvas (before the edge strips, or a bigger canvas) is scaled once into the area: same arrangement, nothing in the strips
+  // a layout made for the whole canvas (before the edge strips, or a bigger canvas: a slightly other window shape) is scaled once into the area: same
+  // arrangement, nothing in the strips
   LM._intoArea = function (ws) {
     var W = this.design.w, H = this.design.h, out = ws.some(function (w) { return w.x < 0 || w.y < 0 || w.x + w.w > W + 0.5 || w.y + w.h > H + 0.5; });
     if (!out || !ws.length) return false;
@@ -260,6 +272,14 @@
   LM.flush = function () { if (this.timer && this.win.clearTimeout) this.win.clearTimeout(this.timer); this.timer = null; if (this.persist) return this.persist.save(this.layout); };
 
   P.LayoutManager = LayoutManager;
+  // widgets of one screen shape for another (a portrait screen showing a landscape layout): placed again in reading order, keeping their proportions, smaller
+  // only when they do not fit otherwise (layoutMath.reflow); floating ones only move inside. Changes the widgets in place; W x H = the area.
+  P.reflowWidgets = function (ws, W, H) {
+    var tiled = ws.filter(function (w) { return !P.isFloat || !P.isFloat(w.settings); }), to = M.reflow(tiled, W, H);
+    tiled.forEach(function (w, i) { w.x = to[i].x; w.y = to[i].y; w.w = to[i].w; w.h = to[i].h; });
+    ws.forEach(function (w) { if (tiled.indexOf(w) >= 0) return; var f = Math.min(1, W / w.w, H / w.h); w.w = Math.floor(w.w * f); w.h = Math.floor(w.h * f); var r = M.clampRect(w, W, H); w.x = r.x; w.y = r.y; });
+    return ws;
+  };
   P.defaultLayout = function () {
     return { version: 1, design: { w: 2560, h: 1440 }, widgets: [
       { id: 'leaderboard-1', type: 'leaderboard', x: 20, y: 20, w: 1523, h: 804, settings: {} },

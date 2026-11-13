@@ -42,9 +42,10 @@
     function saveSoon() { if (timer) clearTimeout(timer); timer = setTimeout(function () { timer = null; ws.save(); }, 400); }
     var toolbar = $('toolbar'), status = $('status'), hint = $('hint'), viewSel = $('viewSel');
     var SAFE = { l: 12, t: 12, r: 12, b: 46 };                                                       // edge strips no widget can go into; the bottom one = the button bar
-    var lm = new P.LayoutManager({ stage: $('stage'), canvas: $('canvas'), safe: SAFE, persist: { save: function (l) { ws.setWidgets(l.widgets); return ws.save(); } },
+    var lm = new P.LayoutManager({ stage: $('stage'), canvas: $('canvas'), safe: SAFE, persist: { save: function (l) { ws.setArrangement(kind, l.widgets); return ws.save(); } },
       onEdit: function (on) { toolbar.hidden = !on; hint.hidden = true; if (!on) editor.close(); },
       editInset: function () { return toolbar.offsetHeight ? toolbar.offsetHeight + 20 : 0; },
+      onCanvas: function (c) { if (bar) { bar.style.top = (c.h - SAFE.b) + 'px'; bar.style.width = c.w + 'px'; } fillShape(); },
       onStyle: function (inst) {
         var st = inst.item.settings.style = inst.item.settings.style || { colors: {}, font: '' }, th = ws.theme();
         var parts = inst.def.colors || [], byKey = {}; parts.forEach(function (s) { byKey[s.key] = s; });
@@ -56,7 +57,7 @@
       } });
     lm.init(); root.pitwall = lm;
     // the status line, HUB and SPECTATE live in the bottom strip of the canvas: they can never cover a widget
-    var bar = P.dom.box('pw-bar', $('canvas'), 0, lm.full.h - SAFE.b, lm.full.w, SAFE.b);
+    var bar = null; bar = P.dom.box('pw-bar', $('canvas'), 0, lm.full.h - SAFE.b, lm.full.w, SAFE.b);
     ['status', 'hint', 'netBtn', 'hubBtn', 'specBtn'].forEach(function (id) { bar.appendChild($(id)); });
     // NETWORK: this dashboard on another PC / tablet at home (the app's network access, LanAccess.cs). On this PC: shows the address and switches it;
     // opened from another PC: says so (switching and the hub window are this PC's)
@@ -126,7 +127,7 @@
         f.theme = n.theme; f.keys = n.keys; if (base) { base.theme = JSON.parse(JSON.stringify(n.theme)); base.keys = JSON.parse(JSON.stringify(n.keys)); }
         Object.keys(n.views).forEach(function (v) { if (v !== f.current) f.views[v] = n.views[v]; });
         Object.keys(f.views).forEach(function (v) { if (!(v in n.views) && v !== f.current) delete f.views[v]; });
-        if (JSON.stringify(f.theme) !== oldTh) { P.theme.applyTheme(doc.documentElement, f.theme); if ((f.theme && f.theme.textSize) !== oldSize) lm.setLayout(ws.current()); }
+        if (JSON.stringify(f.theme) !== oldTh) { P.theme.applyTheme(doc.documentElement, f.theme); if ((f.theme && f.theme.textSize) !== oldSize) lm.setLayout(onScreen()); }
         sendKeys(); if (keysPanel) openKeys();
         if (!urlView && !lm.edit && n.current !== f.current && f.views[n.current]) { lm.flush(); if (ws.select(n.current)) show(); } else fillViews();
       });
@@ -143,8 +144,32 @@
       ws.names().forEach(function (n) { var o = doc.createElement('option'); o.value = n; o.textContent = n; viewSel.appendChild(o); });
       viewSel.value = ws.file.current;
     }
+    // screen shapes: the dashboard fills its window; the view on screen in its arrangement for this kind of screen (views.js), made from the main layout the
+    // first time (reflowWidgets) and saved. kind = the arrangement being shown (and edited)
+    var kind = 'wide', made = false;
+    function onScreen() {
+      var w = root.innerWidth || 2560, h = root.innerHeight || 1440, c = P.shapeFor(w, h), k = P.shapeClass(w, h), a = ws.arrangement(k);
+      if (!a) { a = P.reflowWidgets(JSON.parse(JSON.stringify(ws.current().widgets)), c.w - SAFE.l - SAFE.r, c.h - SAFE.t - SAFE.b); ws.setArrangement(k, a); made = true; }
+      kind = k; return { widgets: a, canvas: c };
+    }
+    function fillShape() {
+      var main = kind === ws.baseKind();
+      $('shapeLbl').textContent = 'Layout for this ' + P.shapeLabel(kind) + (main ? ' (main)' : '');
+      $('shapeReset').hidden = main;
+    }
+    function showLayout() { lm.setLayout(onScreen()); fillShape(); if (made) { made = false; lm.save(); } }
+    $('shapeReset').addEventListener('click', function () {
+      if (!root.confirm('Start this ' + P.shapeLabel(kind) + ' layout again from the main layout of "' + ws.file.current + '"?')) return;
+      editor.close(); ws.resetArrangement(kind); showLayout();
+    });
+    // the window changed size: the canvas follows its shape (another kind of screen: that arrangement)
+    var resizeT = null, lastWin = (root.innerWidth || 0) + 'x' + (root.innerHeight || 0);
+    if (root.addEventListener) root.addEventListener('resize', function () {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(function () { var now = root.innerWidth + 'x' + root.innerHeight; if (now === lastWin) return; lastWin = now; lm.flush(); showLayout(); }, 300);
+    });
     function show() {
-      editor.close(); lm.setLayout(ws.current()); fillViews();
+      editor.close(); showLayout(); fillViews();
       if (urlView !== null && root.history && root.history.replaceState) { urlView = ws.file.current; try { root.history.replaceState(null, '', '?view=' + encodeURIComponent(urlView)); } catch (e) {} }   // this page keeps its own view
       ws.save();
     }
@@ -170,7 +195,7 @@
         options: P.theme.themeOptions(th),
         onShow: function (key, v) {
           P.theme.setThemeOption(th, key, v); P.theme.applyTheme(doc.documentElement, th); saveSoon();
-          if (key === 'textSize') lm.setLayout(ws.current());                                  // every widget drawn again at the new text size
+          if (key === 'textSize') lm.setLayout(onScreen());                                    // every widget drawn again at the new text size
           if (key === 'preset') openTheme();
         } });
     }
@@ -284,11 +309,15 @@
       alignGap = g; lm.align(g);
     });
     $('gridSel').addEventListener('change', function (e) { lm.setGrid(parseInt(e.target.value, 10) || 1); });
-    $('resetBtn').addEventListener('click', function () { editor.close(); lm.setLayout(P.defaultLayout()); lm.save(); });
+    $('resetBtn').addEventListener('click', function () {
+      editor.close(); var d = P.defaultLayout().widgets, c = P.shapeFor(root.innerWidth, root.innerHeight);
+      if (kind !== 'wide') P.reflowWidgets(d, c.w - SAFE.l - SAFE.r, c.h - SAFE.t - SAFE.b);
+      lm.setLayout({ widgets: d, canvas: c }); lm.save();
+    });
     $('doneBtn').addEventListener('click', function () { lm.setEdit(false); lm.flush(); });
     persist.load().then(function (l) {
       ws.load(l); if (urlView && ws.file.views[urlView]) ws.file.current = urlView;                   // ?view=: this page's own view
-      P.theme.applyTheme(doc.documentElement, ws.theme()); lm.setLayout(ws.current()); fillViews(); sendKeys();
+      P.theme.applyTheme(doc.documentElement, ws.theme()); showLayout(); fillViews(); sendKeys();
       if (demo) P.mock.start(store, (/[?&]scenario=(\w+)/.exec(root.location.search) || [])[1]); else P.connect(store);
       setTimeout(function () { hint.hidden = true; }, 7000);
     });

@@ -299,3 +299,6 @@ details.explain summary:hover { color:var(--lime); }
 .mapov-body { grid-template-columns:minmax(0, 1fr) 420px; }
 #ovSide .tbl { width:100%; table-layout:fixed; } #ovSide .tbl th, #ovSide .tbl td { white-space:normal; overflow-wrap:anywhere; font-size:12.5px; }
 #ovSide .tbl th:first-child, #ovSide .tbl td:first-child { width:26%; }
+
+/* Strategy: sessions not ticked */
+.tbl tr.off td { opacity:.5; } .tbl tr.off td:first-child { opacity:1; }
