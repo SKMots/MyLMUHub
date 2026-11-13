@@ -16,8 +16,6 @@
 <div id="toolbar" hidden>
   <strong>Edit layout</strong>
   <label>View <select id="viewSel"></select></label><button id="viewNew">New</button><button id="viewRename">Rename</button><button id="viewDelete">Delete</button>
-  <button id="exportBtn" title="Save all your views + the theme as a file (to share)">Export</button><button id="importBtn" title="Add the views from a layout file">Import</button><input type="file" id="importFile" accept=".json,application/json" hidden>
-  <button id="keysBtn">Keys</button>
   <button id="themeBtn">Theme</button>
   <button id="addBtn">+ Add widget</button>
   <button id="alignBtn" title="The same space between all widgets (and none at the edges)">Auto align</button>
@@ -25,6 +23,7 @@
   <label>Grid <select id="gridSel"><option value="1">off</option><option value="10" selected>10</option><option value="20">20</option><option value="40">40</option></select></label>
   <button id="resetBtn">Reset layout</button>
   <button id="doneBtn">Done (E)</button>
+  <span class="tip">Views, theme, hotkeys, export / import: hub, Race Control</span>
   <span class="tip">Ctrl+click = select several (Ctrl+A all) &middot; drag = move (locks to grid + other widgets, pushes others, Alt = free) &middot; handles = resize (Shift = free shape) &middot; &#9881; = colours / font &middot; Del = remove &middot; arrows = nudge &middot; hold Space = preview full screen</span>
 </div>
 <script src="js/brands-data.js"></script>
@@ -55,6 +54,10 @@
 <script src="js/widgets/relative.js"></script>
 <script src="js/widgets/twitch.js"></script>
 <script src="js/widgets/prediction.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/alerts-math.js"></script>
+<script src="js/widgets/alert.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/mock-data.js"></script>
 <script src="js/mock.js"></script>

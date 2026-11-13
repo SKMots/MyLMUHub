@@ -102,12 +102,17 @@
   };
 
   // ---------- hotkeys (layout.json keys; the dashboard window registers them with Windows) ----------
-  var webview = root.chrome && root.chrome.webview, capture = null;
+  var webview = root.chrome && root.chrome.webview, capture = null, refused = [];
+  function keyStatus() { H.json('api/hotkey-status').then(function (o) { var f = (o && o.failed) || []; if (JSON.stringify(f) !== JSON.stringify(refused)) { refused = f; renderKeys(); } }, function () {}); }
+  keyStatus(); setInterval(function () { if (!document.hidden) keyStatus(); }, 10000);
   function renderKeys() {
     if (!ws) return;
-    var k = ws.file.keys, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }));
+    var k = ws.file.keys, al = k.alert || {}, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }))
+      .concat([['!accept', 'Race alert: accept', al.accept || ''], ['!ignore', 'Race alert: ignore', al.ignore || ''], ['!later', 'Race alert: later', al.later || '']]);
     $('keyList').innerHTML = '<table class="tbl"><tbody>' + rows.map(function (r, i) {
-      return '<tr><td>' + esc(r[1]) + '</td><td class="num mono">' + (capture === r[0] ? '<span style="color:var(--lime)">press a key or button…</span>' : esc(ws.keyLabel(r[2]) || '-')) + '</td>' +
+      var bad = r[2] && refused.indexOf(r[2]) >= 0;                                                     // Windows refused it: another program uses it
+      return '<tr><td>' + esc(r[1]) + '</td><td class="num mono"' + (bad ? ' style="color:var(--red)" title="Windows refused it: another program uses this key. Pick another one."' : '') + '>' +
+        (capture === r[0] ? '<span style="color:var(--lime)">press a key or button…</span>' : esc(ws.keyLabel(r[2]) || '-') + (bad ? ' (in use)' : '')) + '</td>' +
         '<td style="text-align:right"><button class="btn" data-set="' + i + '">Set</button> <button class="btn" data-clear="' + i + '"' + (r[2] ? '' : ' disabled') + '>×</button></td></tr>';
     }).join('') + '</tbody></table>';
     $('keyList')._rows = rows;
@@ -130,6 +135,65 @@
   window.addEventListener('beforeunload', function () { if (capture !== null) stopCapture(); });
 
   load().then(renderLayout);
+
+  // ---------- race alerts (api/alerts: on / off, which, sound, how long; your own sound: api/alert-sound) ----------
+  var al = null, AL = { enabled: true, box: true, strategy: true, sound: 'voice', volume: 80, showSec: 20 };
+  function alSave() { fetch('api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(al) }); }
+  function alRender() {
+    var c = function (k, t) { return '<label class="coach-ok" style="margin:6px 0"><input type="checkbox" data-al="' + k + '"' + (al[k] !== false ? ' checked' : '') + '> ' + t + '</label>'; };
+    $('alertForm').className = '';
+    // everything below 'Race alerts on' is greyed out (and cannot be changed) while alerts are off
+    var on = al.enabled !== false, voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+    $('alertForm').innerHTML = c('enabled', 'Race alerts on') + '<fieldset style="border:0;padding:0;margin:0;min-width:0' + (on ? '' : ';opacity:.4') + '"' + (on ? '' : ' disabled') + '>' +
+      c('box', 'BOX THIS LAP: on the lap before a planned stop') + c('strategy', 'PUSH / LIFT: when another stint length is now best') +
+      '<div class="form" style="margin-top:10px"><label class="field">Sound<select class="sel" data-al="sound">' + [['voice', 'A voice says it'], ['chime', 'Chime'], ['file', 'My own sound file'], ['none', 'No sound']].map(function (o) {
+        return '<option value="' + o[0] + '"' + (al.sound === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field">Volume (%)<input class="input short" data-al="volume" value="' + esc(al.volume) + '"></label>' +
+      (al.sound === 'voice' ? '<label class="field">Voice<select class="sel" data-al="voice"><option value="">Windows default</option>' + voices.map(function (v) {
+          return '<option value="' + esc(v.name) + '"' + (al.voice === v.name ? ' selected' : '') + '>' + esc(v.name.replace(/^Microsoft /, '') + (v.lang ? ' (' + v.lang + ')' : '')) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field">Speed (%)<input class="input short" data-al="rate" value="' + esc(al.rate || 105) + '"></label>' +
+        '<label class="field">Pitch (%)<input class="input short" data-al="pitch" value="' + esc(al.pitch || 100) + '"></label>' : '') +
+      '<label class="field">Show PUSH / LIFT for (s)<input class="input short" data-al="showSec" value="' + esc(al.showSec) + '"></label></div>' +
+      '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="btn" id="alTest">Test the sound</button>' +
+      (al.sound === 'file' ? '<button class="btn" id="alPick">Pick a sound file</button><input type="file" id="alFile" accept="audio/*" hidden><span class="faint">' + (al.fileAt ? 'Your sound is set.' : 'No file yet (mp3 / wav, up to 5 MB).') + '</span>' : '') +
+      '<span class="faint" id="alInfo"></span></div>' +
+      (al.sound === 'voice' ? '<div class="faint" style="margin-top:8px">The voices are the ones installed on this PC. More (other languages and accents): Windows Settings, Time &amp; language, Speech, Add voices.</div>' : '') +
+      '</fieldset>';
+  }
+  $('alertForm').onchange = function (e) {
+    var k = e.target.getAttribute('data-al'); if (!k || !al) return;
+    if (e.target.type === 'checkbox') al[k] = e.target.checked;
+    else if (k === 'volume' || k === 'showSec') { var v = Number(e.target.value); if (isFinite(v)) al[k] = Math.max(0, Math.min(k === 'volume' ? 100 : 120, v)); }
+    else if (k === 'rate' || k === 'pitch') { var r = Number(e.target.value); if (isFinite(r)) al[k] = Math.max(k === 'rate' ? 50 : 0, Math.min(200, Math.round(r))); }
+    else al[k] = e.target.value;
+    alSave(); alRender();
+    if (e.target.id === 'alFile') return;
+  };
+  $('alertForm').onclick = function (e) {
+    if (e.target.id === 'alTest') testSound();
+    if (e.target.id === 'alPick') $('alFile').click();
+  };
+  $('alertForm').addEventListener('change', function (e) {
+    if (e.target.id !== 'alFile' || !e.target.files || !e.target.files[0]) return;
+    var f = e.target.files[0]; if (f.size > 5000000) { alert('That file is over 5 MB.'); return; }
+    fetch('api/alert-sound', { method: 'PUT', body: f }).then(function (r) { if (r.ok) { al.fileAt = Date.now(); alSave(); alRender(); $('alInfo').textContent = 'Saved.'; } else alert('Could not save that file.'); });
+  });
+  // the same sounds as the dashboard (widgets/alert.js)
+  function testSound() {
+    var vol = Math.max(0, Math.min(100, Number(al.volume) || 0)) / 100;
+    if (al.sound === 'none' || !vol) return;
+    if (al.sound === 'voice' && window.speechSynthesis) { var u = new SpeechSynthesisUtterance('Box this lap. Push, 4.5 percent a lap.'); voiceOf(u, al, vol); speechSynthesis.cancel(); speechSynthesis.speak(u); return; }
+    if (al.sound === 'file') { var a = new Audio('api/alert-sound?t=' + (al.fileAt || 0)); a.volume = vol; a.play().catch(function () { $('alInfo').textContent = 'No sound file yet.'; }); return; }
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; var ctx = new AC();
+    [880, 1320].forEach(function (fq, i) { var o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + i * 0.18; o.frequency.value = fq; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35 * vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16); o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.17); });
+  }
+  // the voice settings on an utterance (the same in the dashboard: widgets/alert.js)
+  function voiceOf(u, s, vol) {
+    u.volume = vol; u.rate = (Number(s.rate) || 105) / 100; u.pitch = (s.pitch === 0 ? 0 : Number(s.pitch) || 100) / 100;
+    var v = s.voice && speechSynthesis.getVoices().filter(function (x) { return x.name === s.voice; })[0]; if (v) u.voice = v;
+  }
+  if (window.speechSynthesis && speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged', function () { if (al) alRender(); });   // the list comes a moment later
+  H.json('api/alerts').catch(function () { return null; }).then(function (o) { al = Object.assign({}, AL, o || {}); alRender(); });
 
   // ---------- network ----------
   function netLoad() {

@@ -13,9 +13,14 @@
   var plans = [], opt = { plan: '', pace: 'live', natural: null }, raceLive = null, L = { status: 'off' }, lastKey = '', sentTarget = '';
 
   function plan() { return plans.filter(function (p) { return p.id === opt.plan; })[0] || null; }
+  // the file is shared with the race alerts (accepted stint length): read it, change our part, write it
   function saveOpt(target) {
-    var body = JSON.stringify({ plan: opt.plan, pace: opt.pace, natural: opt.natural, target: target || null });
-    if (H.inApp) fetch('api/strategy-live', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: body });
+    if (!H.inApp) return;
+    H.json('api/strategy-live').catch(function () { return {}; }).then(function (o) {
+      o = o || {}; o.plan = opt.plan; o.pace = opt.pace; o.natural = opt.natural; o.target = target || null;
+      if (o.accepted && o.accepted.plan !== opt.plan) delete o.accepted; opt.accepted = o.accepted || null;
+      fetch('api/strategy-live', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
+    });
   }
   function trackMatches(p) {
     if (!p || !p.track || !L.track) return true;
@@ -25,12 +30,10 @@
   function tile(k, v, n, cls) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || '') + '">' + v + '</div><div class="n">' + (n || '') + '</div></div>'; }
 
   // the plan as it stands live: drivers' pace from this race, VE per lap from your use now ('VE per lap' plans)
+  // the live plan (alerts-math livePlan): this race's pace, your VE use, the stint length you accepted from a race alert
   function livePlan(p) {
-    var q = JSON.parse(JSON.stringify(p)), pace = SM.livePace(raceLive);
-    if (opt.pace === 'live') q.drivers.forEach(function (d) { if (pace[d.name] > 0) d.lap = pace[d.name]; });
-    var use = raceLive && raceLive.car ? raceLive.car.veUse : -1;
-    if (q.ve && q.ve.mode !== 'laps' && use > 0) q.ve.perLap = use;
-    return { plan: q, pace: pace, use: use };
+    var acc = opt.accepted && opt.accepted.plan === p.id ? opt.accepted.laps : 0;
+    return { plan: P.alertsMath.livePlan(p, raceLive, { pace: opt.pace, accepted: acc }), pace: SM.livePace(raceLive), use: raceLive && raceLive.car ? raceLive.car.veUse : -1, accepted: acc };
   }
 
   function render() {
@@ -68,7 +71,8 @@
     // ---- lifting still worth it? ----
     liftCheck(on, q, r, lp);
     // ---- the race: done (green), now (lime), the rest ----
-    $('raceSub').textContent = on ? 'Live: what happened, and the rest planned again from now' + (opt.pace === 'live' && Object.keys(lp.pace).length ? ' with the lap times of this race' : '') + '.' : 'The plan (not live).';
+    $('raceSub').textContent = on ? 'Live: what happened, and the rest planned again from now' + (opt.pace === 'live' && Object.keys(lp.pace).length ? ' with the lap times of this race' : '') +
+      (lp.accepted ? ', ' + lp.accepted + ' laps a stint (accepted from a race alert)' : '') + '.' : 'The plan (not live).';
     $('raceInfo').textContent = on && r.laps !== pure.laps ? (r.laps > pure.laps ? 'Ahead of the plan by ' : 'Behind the plan by ') + Math.abs(r.laps - pure.laps) + ' laps (' + r.laps + ' expected, plan ' + pure.laps + ')' : on ? 'On plan: ' + r.laps + ' laps expected' : '';
     $('sumTiles').innerHTML = tile('Stints', r.stints.length, r.stints.filter(function (s) { return s.state === 'done'; }).length + ' done') + tile('Pit stops', r.stops, '') +
       tile('Laps', r.laps || '--', 'expected at the finish') + tile('Finish', F.clock(r.end), 'race time') +
@@ -116,6 +120,18 @@
   $('naturalIn').onchange = function () { var v = Number(String(this.value).replace(',', '.')); opt.natural = v > 0 ? v : null; saveOpt(null); sentTarget = ''; render(); };
   $('paceSel').onchange = function () { opt.pace = this.value; saveOpt(null); sentTarget = ''; render(); };
 
+  // the race alerts and what you answered (api/alert-history, newest first)
+  function history() {
+    if (!H.inApp) return;
+    H.json('api/alert-history').then(function (h) {
+      h = (Array.isArray(h) ? h : []).slice(-30).reverse();
+      $('histTbl').innerHTML = '<thead><tr><th>When</th><th>Alert</th><th>Why</th><th>Your answer</th></tr></thead><tbody>' + (h.length ? h.map(function (e) {
+        var d = new Date(e.at), t = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+        return '<tr><td>' + esc(F.day(e.at / 1000) + ' ' + t) + '</td><td><b>' + esc(e.text || '') + '</b></td><td class="faint">' + esc(e.why || '') + '</td><td>' + esc(e.answer ? { accept: 'Accepted', ignore: 'Ignored', later: 'Later' }[e.answer] || e.answer : 'no answer') + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="empty">No race alerts yet. Add the "Race alerts" widget to your dashboard (E, + Add widget).</td></tr>') + '</tbody>';
+    }, function () {});
+  }
+  history(); setInterval(function () { if (!document.hidden) history(); }, 10000);
   function poll() {
     H.json('api/race-live').then(function (x) {
       raceLive = x; var p = plan(); L = SM.fromLive(x, p ? p.length : null);
@@ -128,7 +144,7 @@
     plans = (st && st.plans) || [];
     return H.json('api/strategy-live').catch(function () { return {}; }).then(function (o) {
       opt.plan = o && plans.some(function (p) { return p.id === o.plan; }) ? o.plan : (st.current || (plans[0] && plans[0].id) || '');
-      opt.pace = o && o.pace === 'plan' ? 'plan' : 'live'; opt.natural = o && o.natural > 0 ? o.natural : null;
+      opt.pace = o && o.pace === 'plan' ? 'plan' : 'live'; opt.natural = o && o.natural > 0 ? o.natural : null; opt.accepted = o && o.accepted ? o.accepted : null;
       render(); poll(); setInterval(function () { if (!document.hidden) poll(); }, 3000);
     });
   }, function () { render(); });

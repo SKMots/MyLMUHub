@@ -43,6 +43,7 @@
       root.fetch('/api/vegoals').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.goals = j; }, function () {});
       root.fetch('/api/strategy-live').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.lv = j; }, function () {});
     }
+    var bt = P.alertBus && P.alertBus.target; if (bt && bt.perLap > 0 && bt.track === live && Date.now() - bt.at < 60000) return bt.perLap;   // race alerts: this stint, as accepted
     return P.veGoalFor(plan.goals, plan.st, live, plan.lv);
   }                                          // label y; the value sits 12.9 below
   var T = P.panelWidget('fuel', 'Fuel / energy', 520, 482.3, 245, 218.8, 'green', [

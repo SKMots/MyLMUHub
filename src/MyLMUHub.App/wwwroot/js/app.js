@@ -128,7 +128,7 @@
         Object.keys(n.views).forEach(function (v) { if (v !== f.current) f.views[v] = n.views[v]; });
         Object.keys(f.views).forEach(function (v) { if (!(v in n.views) && v !== f.current) delete f.views[v]; });
         if (JSON.stringify(f.theme) !== oldTh) { P.theme.applyTheme(doc.documentElement, f.theme); if ((f.theme && f.theme.textSize) !== oldSize) lm.setLayout(onScreen()); }
-        sendKeys(); if (keysPanel) openKeys();
+        sendKeys();
         if (!urlView && !lm.edit && n.current !== f.current && f.views[n.current]) { lm.flush(); if (ws.select(n.current)) show(); } else fillViews();
       });
     }
@@ -201,34 +201,13 @@
     }
     $('themeBtn').addEventListener('click', openTheme);
 
-    // sharing: Export = a file with all views + the theme (not your hotkeys); Import = adds the views of such a file (and its theme, when you say so)
-    $('exportBtn').addEventListener('click', function () {
-      lm.flush();
-      var blob = new root.Blob([JSON.stringify(ws.exportData(), null, 1)], { type: 'application/json' }), a = doc.createElement('a');
-      a.href = root.URL.createObjectURL(blob); a.download = 'My LMU Hub layout.json'; doc.body.appendChild(a); a.click();
-      setTimeout(function () { root.URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    });
-    $('importBtn').addEventListener('click', function () { $('importFile').value = ''; $('importFile').click(); });
-    $('importFile').addEventListener('change', function () {
-      var file = this.files && this.files[0]; if (!file) return;
-      var rd = new root.FileReader();
-      rd.onload = function () {
-        var data; try { data = JSON.parse(rd.result); } catch (e) { root.alert('That is not a layout file.'); return; }
-        if (!data || !data.views) { root.alert('That is not a layout file.'); return; }
-        var theme = data.theme && root.confirm('Also use the theme (colours, fonts) of this layout?');
-        lm.flush(); var added = ws.importData(data, theme);
-        if (!added.length) { root.alert('No views in that file.'); return; }
-        if (theme) P.theme.applyTheme(doc.documentElement, ws.theme());
-        show(); root.alert('Added: ' + added.join(', '));
-      };
-      rd.readAsText(file);
-    });
-
-    // hotkeys: a key per view + one for "next view" (views.js). In the app they are also registered with Windows (MainWindow), so they work while the
-    // game has the keyboard; the app answers { hotkey: combo }. Here: the same keys while this page has the keyboard.
-    var webview = root.chrome && root.chrome.webview, capture = null, keysPanel = null, padDevices = null;
+    // hotkeys: a key per view, one for "next view", and the race alert answers (views.js; set on the hub's Race Control page). In the app they are also
+    // registered with Windows (MainWindow), so they work while the game has the keyboard; the app answers { hotkey: combo }. Here: the same keys while
+    // this page has the keyboard.
+    var webview = root.chrome && root.chrome.webview;
     function switchTo(target) {
       if (!target) return;
+      if (target.charAt(0) === '!') { if (P.alertBus) P.alertBus.act(target.slice(1)); return; }                // a race alert: accept / ignore / later
       var name = target === '>' ? ws.nextName() : target;
       if (name === ws.file.current) return;
       lm.flush(); if (ws.select(name)) show();
@@ -236,50 +215,16 @@
     function sendKeys() {
       if (!webview || !webview.postMessage || urlView) return;                                        // global hotkeys: the main Race Control window only
       var k = ws.file.keys, list = [];
-      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]);
+      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]); for (var a in k.alert || {}) list.push(k.alert[a]);
       try { webview.postMessage({ hotkeys: list }); } catch (e) {}
     }
     if (webview && webview.addEventListener) webview.addEventListener('message', function (ev) {
       var d = ev.data || {};
       if (d.hotkey) switchTo(ws.keyTarget(d.hotkey));
-      if (d.hotkeysFailed) { failed = d.hotkeysFailed; if (keysPanel) openKeys(); }
-      if (d.padDevices) { padDevices = d.padDevices; if (keysPanel && capture !== null) openKeys(); }   // the controllers the app sees (while waiting for a button)
-      if (d.padLearned && capture !== null) { ws.setKey(capture, d.padLearned, d.padName); stopCapture(); ws.save(); sendKeys(); openKeys(); }   // a wheel / button box button
+      if (d.hotkeysFailed) root.fetch('/api/hotkey-status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ failed: d.hotkeysFailed, at: Date.now() }) }).catch(function () {});   // shown on the hub's Race Control page
     });
-    var failed = [];
-    // setting a hotkey: a key here, or (in the app) a button on any game controller: the app watches them while this waits
-    function startCapture(target) { capture = target; padDevices = null; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: true }); } catch (e) {} }
-    function stopCapture() { capture = null; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: false }); } catch (e) {} }
-    function openKeys() {
-      editor.close(); if (keysPanel) keysPanel.remove();
-      var p = keysPanel = doc.createElement('div'); p.className = 'pw-panel'; doc.body.appendChild(p);
-      var k = ws.file.keys, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }));
-      p.innerHTML = '<div class="pw-panel-head"><b>Hotkeys: switch views</b><button class="pw-panel-x">×</button></div>' +
-        '<div class="pw-panel-note">Click Set, then press a key (letters, digits, F1-F24 or numpad, with Ctrl / Alt / Shift) or a button on your wheel, button box or gamepad. ' +
-        'They work while you drive (the game has the focus): pick a key or button the game does not use, for example Ctrl+Alt+1. Esc = cancel.</div>' +
-        (capture !== null && padDevices ? '<div class="pw-panel-note">Controllers found: ' + (padDevices.length ? padDevices.join(', ').replace(/&/g, '&amp;').replace(/</g, '&lt;') : 'none') + '</div>' : '') +
-        rows.map(function (r, i) {
-          var bad = r[2] && failed.indexOf(r[2]) >= 0;
-          return '<div class="pw-panel-row' + (r[2] ? ' set' : '') + '"><span>' + r[1].replace(/</g, '&lt;') + '</span><b style="min-width:92px;text-align:right' + (bad ? ';color:#FF6A55' : '') + '"' +
-            (bad ? ' title="Windows refused it: another program uses this key"' : '') + '>' + (capture === r[0] ? 'press a key or button…' : (ws.keyLabel(r[2]) || '-')).replace(/</g, '&lt;') + (bad ? ' (in use)' : '') + '</b>' +
-            '<button data-set="' + i + '">Set</button><button data-clear="' + i + '"' + (r[2] ? '' : ' disabled') + '>×</button></div>';
-        }).join('');
-      p.onclick = function (ev) {
-        var t = ev.target;
-        if (t.classList.contains('pw-panel-x')) { stopCapture(); p.remove(); keysPanel = null; return; }
-        var s = t.getAttribute('data-set'), c = t.getAttribute('data-clear');
-        if (s !== null) { startCapture(rows[+s][0]); openKeys(); }
-        if (c !== null) { ws.setKey(rows[+c][0], ''); ws.save(); sendKeys(); openKeys(); }
-      };
-    }
-    $('keysBtn').addEventListener('click', openKeys);
     doc.addEventListener('keydown', function (ev) {
       var tag = ev.target && ev.target.tagName; if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-      if (capture !== null) {
-        if (ev.key === 'Escape') { stopCapture(); openKeys(); ev.preventDefault(); ev.stopPropagation(); return; }
-        var combo = P.comboOf(ev); if (!combo) return;
-        ws.setKey(capture, combo); stopCapture(); failed = []; ws.save(); sendKeys(); openKeys(); ev.preventDefault(); ev.stopPropagation(); return;
-      }
       var target = ws.keyTarget(P.comboOf(ev));
       if (target) { switchTo(target); ev.preventDefault(); ev.stopPropagation(); return; }
       if (ev.code === 'Space' && lm.edit && !ev.repeat) { doc.body.classList.add('preview'); lm.fit(); ev.preventDefault(); }   // hold Space: as it looks full screen

@@ -226,7 +226,7 @@
     var def = this.registry[type]; if (!def) return null;
     var n = 1; while (this.inst[type + '-' + n]) n++;
     var off = 40 * (this.layout.widgets.length % 6);
-    var item = { id: type + '-' + n, type: type, x: 40 + off, y: 40 + off, w: def.base.w, h: def.base.h, settings: {} };
+    var item = { id: type + '-' + n, type: type, x: 40 + off, y: 40 + off, w: def.base.w, h: def.base.h, settings: def.defaults ? JSON.parse(JSON.stringify(def.defaults)) : {} };
     var self = this, spot = M.freeSpot(this.layout.widgets.filter(function (w) { return w.id in self.inst && !P.isFloat(w.settings); }).map(rectOf), item.w, item.h, this.design.w, this.design.h);
     if (spot) { item.x = spot.x; item.y = spot.y; }                                                      // a free place if there is one, else on top (make room by hand)
     var r = M.clampRect(item, this.design.w, this.design.h); item.x = r.x; item.y = r.y; item.w = r.w; item.h = r.h;
