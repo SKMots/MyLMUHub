@@ -201,13 +201,12 @@
     }
     $('themeBtn').addEventListener('click', openTheme);
 
-    // hotkeys: a key per view, one for "next view", and the race alert answers (views.js; set on the hub's Race Control page). In the app they are also
+    // hotkeys: a key per view and one for "next view" (views.js; set on the hub's Race Control page). In the app they are also
     // registered with Windows (MainWindow), so they work while the game has the keyboard; the app answers { hotkey: combo }. Here: the same keys while
     // this page has the keyboard.
     var webview = root.chrome && root.chrome.webview;
     function switchTo(target) {
       if (!target) return;
-      if (target.charAt(0) === '!') { if (P.alertBus) P.alertBus.act(target.slice(1)); return; }                // a race alert: accept / ignore / later
       var name = target === '>' ? ws.nextName() : target;
       if (name === ws.file.current) return;
       lm.flush(); if (ws.select(name)) show();
@@ -215,7 +214,7 @@
     function sendKeys() {
       if (!webview || !webview.postMessage || urlView) return;                                        // global hotkeys: the main Race Control window only
       var k = ws.file.keys, list = [];
-      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]); for (var a in k.alert || {}) list.push(k.alert[a]);
+      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]);
       try { webview.postMessage({ hotkeys: list }); } catch (e) {}
     }
     if (webview && webview.addEventListener) webview.addEventListener('message', function (ev) {

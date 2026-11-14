@@ -51,9 +51,6 @@ public sealed class DashServer : IDisposable
     public string StrategyPath { get; set; }
     public string VeGoalsPath { get; set; }
     public string StrategyLivePath { get; set; }
-    public string AlertsPath { get; set; }
-    public string AlertHistoryPath { get; set; }
-    public string AlertSoundPath { get; set; }
     public string HotkeyStatusPath { get; set; }
     /// <summary>/api/stints?file= GET: your car's whole race in that results file (PaceService.CarLaps), 404 = none.</summary>
     public Func<string, object> CarLaps { get; set; }
@@ -168,9 +165,6 @@ public sealed class DashServer : IDisposable
             }
             if (path == "/api/vegoals" && VeGoalsPath != null) { await JsonFile(ctx, VeGoalsPath); return; }
             if (path == "/api/strategy-live" && StrategyLivePath != null) { await JsonFile(ctx, StrategyLivePath); return; }
-            if (path == "/api/alerts" && AlertsPath != null) { await JsonFile(ctx, AlertsPath); return; }
-            if (path == "/api/alert-history" && AlertHistoryPath != null) { await JsonFile(ctx, AlertHistoryPath); return; }
-            if (path == "/api/alert-sound" && AlertSoundPath != null) { await SoundFile(ctx); return; }
             if (path == "/api/hotkey-status" && HotkeyStatusPath != null) { await JsonFile(ctx, HotkeyStatusPath); return; }
             if (path == "/api/strategy" && StrategyPath != null) { await JsonFile(ctx, StrategyPath); return; }
             if (path == "/api/race-live" && RaceLive != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(RaceLive(), Opt)); return; }
@@ -248,18 +242,6 @@ public sealed class DashServer : IDisposable
             await Send(ctx, 200, "text/plain", Encoding.UTF8.GetBytes("ok"));
         }
         else await Send(ctx, 405, "text/plain", Encoding.UTF8.GetBytes("method not allowed"));
-    }
-
-    // your own alert sound: GET = the file (404 = none), PUT = a new one (an mp3 / wav / ogg, at most 5 MB), DELETE = none again
-    async Task SoundFile(HttpListenerContext ctx)
-    {
-        string f = AlertSoundPath, m = ctx.Request.HttpMethod;
-        if (m == "GET") { if (!File.Exists(f)) { await Send(ctx, 404, "text/plain", Encoding.UTF8.GetBytes("none")); return; } await Send(ctx, 200, "application/octet-stream", await File.ReadAllBytesAsync(f)); return; }
-        if (m == "DELETE") { try { File.Delete(f); } catch (Exception) { } await Send(ctx, 200, "text/plain", Encoding.UTF8.GetBytes("ok")); return; }
-        if (m != "PUT" && m != "POST") { await Send(ctx, 405, "text/plain", Encoding.UTF8.GetBytes("method not allowed")); return; }
-        using var ms = new MemoryStream(); await ctx.Request.InputStream.CopyToAsync(ms);
-        if (ms.Length == 0 || ms.Length > 5_000_000) { await Send(ctx, 413, "text/plain", Encoding.UTF8.GetBytes("empty or too big (5 MB)")); return; }
-        await File.WriteAllBytesAsync(f, ms.ToArray()); await Send(ctx, 200, "text/plain", Encoding.UTF8.GetBytes("ok"));
     }
 
     async Task Spectate(HttpListenerContext ctx)

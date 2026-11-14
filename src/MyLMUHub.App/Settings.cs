@@ -80,9 +80,6 @@ public static class AppPaths
     public static string Spectate => Path.Combine(Dir, "spectate.json");
     public static string Strategy => Path.Combine(Dir, "strategy.json");      // the strategy planner's plans
     public static string StrategyLive => Path.Combine(Dir, "strategy-live.json");   // the Live strategy page: which plan, its options, the VE target now
-    public static string Alerts => Path.Combine(Dir, "alerts.json");             // race alerts: on / off, sound, how long (hub Race Control page)
-    public static string AlertHistory => Path.Combine(Dir, "alert-history.json"); // the last alerts and what you answered (Live strategy tab)
-    public static string AlertSound => Path.Combine(Dir, "alert-sound.bin");      // your own alert sound (an mp3 / wav you picked)
     public static string HotkeyStatus => Path.Combine(Dir, "hotkey-status.json");  // the hotkeys Windows refused (another program has them): the dashboard writes, the hub shows
     public static string VeGoals => Path.Combine(Dir, "vegoals.json");        // your VE goal per track (hub Race Control page): { "Bahrain (wec)": 3.8 }
     public static string RaceLog => Path.Combine(Dir, "race-live.json");      // the followed car's stints in the current race (StintTracker)

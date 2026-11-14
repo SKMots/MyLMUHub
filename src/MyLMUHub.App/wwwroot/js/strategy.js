@@ -301,8 +301,7 @@
     var useCost = c.cost !== null ? c.cost : (fr.cost !== null && fr.cost !== undefined && fr.cost !== '' ? Number(fr.cost) : null);
     h += '<div class="form" style="margin-top:12px;max-width:620px"><label class="field">VE a stint starts with (%)<input class="input" id="veStartIn" data-num value="' + (fr.veStart || 100) + '"></label>' +
       (c.cost === null ? '<label class="field">Lifting 1 % VE per lap costs (s per lap, until measured)<input class="input" id="costIn" data-num value="' + (fr.cost !== null && fr.cost !== undefined ? fr.cost : '') + '" placeholder="e.g. 0.8"></label>' : '') + '</div>';
-    if (c.cost === null) h += '<div class="faint" style="margin-top:4px">To measure it: tick a session you drove normally and one where you lifted (same track, car and VE settings). Or let the dashboard guide you: ' +
-      '<button class="btn" id="measureBtn">Measure it in my next practice</button> <span class="faint" id="measureInfo"></span></div>';
+    if (c.cost === null) h += '<div class="faint" style="margin-top:4px">To measure it: tick a session you drove normally and one where you lifted (same track, car and VE settings).</div>';
     var meas = c.cost !== null ? Math.round(c.cost * 1000) / 1000 : null;                                  // kept with the plan: the race alerts use it
     if ((fr.measured || null) !== meas) { if (meas === null) delete fr.measured; else fr.measured = meas; saveSoon(); }
     // the suggestion
@@ -346,15 +345,6 @@
   // starts with, your VE per lap, tyre wear and the stint length (VE per lap allowed follows from it)
   $('fromBody').onclick = function (e) {
     if (e.target.id === 'moreBtn') { showMore = !showMore; fromRace(); return; }
-    if (e.target.id === 'measureBtn') {
-      if (!plan.track) { $('measureInfo').textContent = 'Set the track (Event) first.'; return; }
-      H.json('api/alerts').catch(function () { return {}; }).then(function (o) {
-        o = o || {}; o.measure = { track: plan.track, car: plan.car || '' };
-        fetch('api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
-        $('measureInfo').textContent = 'Set: in your next practice on ' + plan.track + ' the "Race alerts" widget says when to drive normal (3 laps) and when to lift (3 laps). Then tick that session here as Mixed.';
-      });
-      return;
-    }
     var b = e.target.closest('[data-use]'), c = $('fromBody')._c; if (!b || !c || !c.rows.length) return;
     var s = c.rows.map(function (r) { return r.s; }).sort(function (a, b2) { return b2.time - a.time; })[0], fr = plan.from, laps = Number(b.getAttribute('data-use')), pace = Number(b.getAttribute('data-pace')), done = [];
     var tr = R.trackName(s.track, s.layout); if (tr) { plan.track = tr; done.push('track'); }

@@ -24,15 +24,11 @@
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
     <section class="card">
       <h2>VE goal per track</h2>
-      <div class="sub">The fuel widget colours your VE use against it on that track: green well under, yellow cutting close, red (flashing) over. A track without a goal here uses your strategy plan for that track, if there is one.</div>
+      <div class="sub">The fuel widget colours your VE use against it: green well under, yellow cutting close, red (flashing) over. Only the goals set here are used.</div>
+      <div id="goalNow"></div>
+      <div class="sub" style="margin:14px 0 6px 0">All your goals</div>
       <div class="scroll"><table class="tbl" id="goalTbl"></table></div>
       <div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" id="goalAdd">Add a track</button><span class="faint" id="goalInfo"></span></div>
-    </section>
-
-    <section class="card">
-      <h2>Race alerts</h2>
-      <div class="sub">Short messages on the dashboard while you drive (or watch your team-mate): BOX THIS LAP, and PUSH / LIFT when another stint length is now best for the rest of the race. Add the "Race alerts" widget in the dashboard (E, + Add widget); answer with the keys under Hotkeys, a wheel button or a click.</div>
-      <div id="alertForm" class="muted">...</div>
     </section>
 
     <section class="card">

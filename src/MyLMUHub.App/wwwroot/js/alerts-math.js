@@ -1,5 +1,5 @@
 // Race alerts (owner 2026-11-13): while you drive (or watch your team-mate), what the strategy says NOW, short enough to read on a straight.
-// Pure functions (tests/js/alerts-math.test.js); the alert widget (widgets/alert.js) feeds them the live data and shows / speaks the result.
+// Pure functions (tests/js/alerts-math.test.js). The alert widget is out for now (owner 2026-11-14: to rework; BOX THIS LAP to keep); the Live tab uses livePlan.
 //   restOptions: the rest of the race from now for stint lengths around the one you follow (build(plan, live) per length)
 //   decide:      'box this lap', a better stint length (push / lift), or the measuring of what lifting costs (practice), with the rules that keep it quiet
 (function (root) {

@@ -1,51 +1,27 @@
 // Fuel + virtual energy (SimHub "FuP"): what is left with a bar, estimated laps, average of the last 5 laps (~ = estimate from the lap so far), last lap, and what to
 // add for the rest of the race. Data: state.car.fuel / state.car.ve (UsageView, counted by the app: pit laps and the first partial lap are left out).
-// VE goal per lap (option: automatic = your goal for this track from the hub's Race Control page, else the strategy plan for this track; a typed number; off): the energy title shows it and the 5-lap average / last lap turn
-// green (well under it), orange (within 'cutting close' % under it) or red (over it: the average flashes). The plan is read from /api/strategy at most every 15 s,
-// and its goal only shows on the plan's track (another track: no goal, unless one is typed in the widget's settings).
+// VE goal per lap (option: the goal for the track you are on from the hub's Race Control page, a typed number, or off): the energy title shows it and the
+// 5-lap average / last lap turn green (well under it), orange (within 'cutting close' % under it) or red (over it: the average flashes).
 (function (root) {
   'use strict';
   var P = root.MyLMUHub = root.MyLMUHub || {}, F = P.format, D = P.dom;
-  var ROWS = [552.9, 583.7, 614.5, 645.4];
-  // the VE goal per lap of the current strategy plan (strategy.json): 'VE per lap' mode = that number, 'laps I aim for' = start VE / (laps + reserve)
-  P.veGoalOfPlan = function (st) {
-    var p = st && (st.plans || []).filter(function (x) { return x.id === st.current; })[0], v = p && p.ve;
-    if (!v) return null;
-    var max = v.max > 0 ? v.max : 100;
-    if (v.mode === 'perLap') return v.perLap > 0 ? v.perLap : null;
-    return v.laps > 0 ? max / (v.laps + (v.reserve > 0 ? v.reserve : 0)) : null;
+  var ROWS = [552.9, 583.7, 614.5, 645.4];                                          // label y; the value sits 12.9 below
+  // the VE goal for the track you are on: ONLY what you set on the hub's Race Control page (vegoals.json { "Bahrain (wec)": 3.8 }; owner 2026-11-14: no goal
+  // from a strategy plan behind the scenes). No goal for this track = none.
+  P.veGoalFor = function (goals, live) {
+    if (!live || !goals) return null;
+    var R = P.paceRef, n = (R && R.trackName(live, '')) || live, g = goals[n] || goals[live];
+    return g > 0 ? g : null;
   };
-  // the plan is for one track: its goal only shows at that track (live track name read the same way as the strategy page)
-  P.planTrackMatches = function (st, live) {
-    var p = st && (st.plans || []).filter(function (x) { return x.id === st.current; })[0], R = P.paceRef;
-    if (!p || !live) return false; if (!p.track) return true;
-    var n = (R && R.trackName(live, '')) || live;
-    return n === p.track || p.track.indexOf(n) === 0 || n.indexOf(p.track) === 0;
-  };
-  // the goal for the track you are on: your VE goal for that track (hub Race Control page, vegoals.json { "Bahrain (wec)": 3.8 }), else the strategy plan's
-  // goal when the plan is for this track, else none
-  // lv = the Live strategy page's file (strategy-live.json): while a race is on there, its VE target for the stint you are in comes first (set in the last
-  // 15 minutes, for this track), and its plan is the plan used
-  P.veGoalFor = function (goals, st, live, lv, now) {
-    if (!live) return null;
-    var tg = lv && lv.target; if (tg && tg.perLap > 0 && tg.track === live && (now || Date.now()) - tg.at < 15 * 60000) return tg.perLap;
-    if (lv && lv.plan && st && (st.plans || []).some(function (x) { return x.id === lv.plan; })) st = { current: lv.plan, plans: st.plans };
-    var R = P.paceRef, n = (R && R.trackName(live, '')) || live, g = goals && (goals[n] || goals[live]);
-    if (g > 0) return g;
-    return P.planTrackMatches(st, live) ? P.veGoalOfPlan(st) : null;
-  };
-  var plan = { at: -1e9, st: null, goals: null, lv: null };
+  var plan = { at: -1e9, goals: null };
   function planGoal(live) {
     var now = Date.now();
     if (now - plan.at > 15000 && typeof root.fetch === 'function' && !(root.location && root.location.protocol === 'file:')) {
       plan.at = now;
-      root.fetch('/api/strategy').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.st = j; }, function () {});
       root.fetch('/api/vegoals').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.goals = j; }, function () {});
-      root.fetch('/api/strategy-live').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { plan.lv = j; }, function () {});
     }
-    var bt = P.alertBus && P.alertBus.target; if (bt && bt.perLap > 0 && bt.track === live && Date.now() - bt.at < 60000) return bt.perLap;   // race alerts: this stint, as accepted
-    return P.veGoalFor(plan.goals, plan.st, live, plan.lv);
-  }                                          // label y; the value sits 12.9 below
+    return P.veGoalFor(plan.goals, live);
+  }
   var T = P.panelWidget('fuel', 'Fuel / energy', 520, 482.3, 245, 218.8, 'green', [
     ['titles', 'Titles + row names', 'label'], ['values', 'Values', 'white'], ['divider', 'Middle divider', 'track'], ['barBg', 'Bar background', 'rowLine'],
     ['fuelBar', 'Fuel bar', 'green'], ['veText', 'Energy %', 've'], ['veBar', 'Energy bar', 've'],
@@ -53,7 +29,7 @@
     ['goalOk', 'VE goal: well under', 'green'], ['goalClose', 'VE goal: cutting close', 'yellow'], ['goalOver', 'VE goal: over (flashes)', 'red']],
     [['fuel', 'Fuel (left side)'], ['ve', 'Virtual energy (right side)'], ['estLaps', 'Estimated laps'], ['avg', 'Average of 5 laps'], ['lastLap', 'Last lap use'],
      ['add', 'Refuel / add energy'], ['race', 'Race laps left (bottom line)'],
-     { key: 'veGoal', label: 'VE goal per lap', type: 'select', def: 'plan', choices: [['plan', 'Automatic: your goal for the track (hub), else the strategy plan'], ['typed', 'The number below'], ['off', 'Off']] },
+     { key: 'veGoal', label: 'VE goal per lap', type: 'select', def: 'plan', choices: [['plan', 'From the hub (Race Control): this track\'s goal'], ['typed', 'The number below'], ['off', 'Off']] },
      { key: 'veGoalPct', label: 'VE goal (% per lap, when typed)', type: 'number', def: 0, min: 0, max: 30, step: 0.05 },
      { key: 'veClose', label: 'Cutting close = within this % under the goal', type: 'number', def: 2, min: 0, max: 20, step: 0.5 }],
   function (k, e, K) {

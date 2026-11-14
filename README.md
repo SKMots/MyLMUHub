@@ -31,7 +31,7 @@ A full-screen dashboard for a second monitor, built from widgets. Open it on thi
 | **Ahead / Behind** | The car in front and behind: gap, last lap, and arrows that turn green or red as you gain or lose. |
 | **Top bar** | Position, race time / laps left, last / best / current / estimated lap, a live delta and sectors. |
 | **Car** | Brake bias, TC, TC slip, TC cut, ABS and engine map. |
-| **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. **VE goal:** your average and last lap turn green (well under your goal), yellow (cutting it close) or flashing red (over it). The goal comes from the Live strategy during a race, else your goal for this track, else your strategy plan for this track. |
+| **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. **VE goal:** your average and last lap turn green (well under your goal), yellow (cutting it close) or flashing red (over it). The goal is the one you set for this track on the hub's Race Control page (nothing set = no goal). |
 | **Tyres** | Each tyre's pressure, temperature and wear, plus brakes, in the units you choose. |
 | **Damage** | A GT car seen from above with each body part and tyre coloured by its damage, plus aero, body and suspension with bars. The classic panel is still an option. |
 | **Track map** | Learns each track by itself: cars as dots in their class colours, your car highlighted, a legend. **Flags:** a green / yellow flag box, the yellow stretch glowing on the map, and full-course yellows. |
@@ -41,11 +41,8 @@ A full-screen dashboard for a second monitor, built from widgets. Open it on thi
 | **Relative** | The cars around you on the road, with the gap in seconds, from the game's own timing (as the in-game relative). |
 | **Race prediction** | Where everyone will finish, from each car's real race pace (cut laps and out-laps don't count), the stops they still need, and the time a pit stop costs in this race. |
 | **Twitch chat** | Your channel's chat, with emotes and the viewer count. |
-| **Race alerts** | One big, short message you can read on a straight: **BOX THIS LAP** (fill and next driver) on the lap before a planned stop, and **PUSH** / **LIFT** when another stint length is now best for the rest of the race, for example after an early stop for damage ("4.55% a lap (was 4.00%): same 4 stops, lifting no longer gains anything"). Answer with a key, a wheel or button-box button, or a click: Accept, Ignore or Later. A voice can say it (any Windows voice, speed and pitch), or a chime or your own sound. It floats over the other widgets and is empty when there is nothing to say. |
 
-**Spectator mode:** when you're not in the car (you're watching your team-mate), the whole dashboard follows their car, race alerts included. **SPECTATE** picks any car.
-
-![Race alert on the dashboard](docs/images/alert.png)
+**Spectator mode:** when you're not in the car (you're watching your team-mate), the whole dashboard follows their car. **SPECTATE** picks any car.
 
 ## Make it your own
 Press **E** and you're in edit mode:
@@ -61,8 +58,8 @@ Press **E** and you're in edit mode:
 
 ## Race Control settings in the hub
 The **Race Control** tab in the hub has the dashboard's settings in one place, so you don't need edit mode for them: **Open dashboard**, your
-**VE goal per track**, **race alerts** (on / off, sound, voice), the **theme** and text size, which **view** the dashboard shows (plus export / import),
-**hotkeys** (views and alert answers; a key another program already uses is marked), **network access** and **spectate**. An open dashboard follows
+**VE goal per track** (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
+**view** the dashboard shows (plus export / import), **hotkeys** for views (a key another program already uses is marked), **network access** and **spectate**. An open dashboard follows
 your changes right away. Edit mode (E) in the dashboard keeps only what is done on the dashboard itself: placing widgets, their colours, views.
 
 ![Race Control settings](docs/images/racecontrol.png)
@@ -123,8 +120,7 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
   your pace, VE use and tyre wear per lap from them together, leaving out pit, out and incident laps and early stops for damage, and works out **what
   lifting costs you** from a normal and a saving session. The **suggested strategy** shows every stint length with the VE per lap it allows, how much
   more you'd have to save, the lap time, the stops and the laps in the race, and marks the best: until it knows what lifting costs, the best without
-  extra lifting, and for each lifting option how cheap lifting must be to be worth it. **Plan this** fills the plan in one click. Or let the
-  dashboard measure it: in your next practice the race alerts tell you when to drive normal and when to lift.
+  extra lifting, and for each lifting option how cheap lifting must be to be worth it. **Plan this** fills the plan in one click.
 - **Stints:** from laps or virtual energy per lap, start energy, spare laps, and the time lost to a pit stop, a tyre change and a driver swap.
   **Fill from my result files** takes your real numbers. A last stint that doesn't need a full refill can **save** (fill only what it needs) or **push**.
 - **Tyres:** change every N stints or by wear, with the sets available and the compound.
@@ -134,7 +130,7 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 **Live:** pick the plan for the race you're in; your plan itself is never changed. A status bar shows **ON TARGET**, **CUTTING IT CLOSE** or
 **OVER TARGET** (the VE per lap you may still use to reach the planned stop against your use), when to pit and who is next. Stints done turn green,
 the rest is planned again from now with the real lap times, so an early stop for damage changes the future at once. **Lifting: still worth it?**
-compares the rest of the race with and without lifting. Below it, every race alert and what you answered.
+compares the rest of the race with and without lifting.
 
 ![Live strategy](docs/images/live.png)
 

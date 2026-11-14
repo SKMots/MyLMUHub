@@ -14,10 +14,11 @@
 
   function plan() { return plans.filter(function (p) { return p.id === opt.plan; })[0] || null; }
   // the file is shared with the race alerts (accepted stint length): read it, change our part, write it
-  function saveOpt(target) {
+  // setPlan: only when you pick the plan here (else the choice made on the hub's Race Control page stays)
+  function saveOpt(target, setPlan) {
     if (!H.inApp) return;
     H.json('api/strategy-live').catch(function () { return {}; }).then(function (o) {
-      o = o || {}; o.plan = opt.plan; o.pace = opt.pace; o.natural = opt.natural; o.target = target || null;
+      o = o || {}; if (setPlan) o.plan = opt.plan; else opt.plan = o.plan || ''; o.pace = opt.pace; o.natural = opt.natural; o.target = target || null;
       if (o.accepted && o.accepted.plan !== opt.plan) delete o.accepted; opt.accepted = o.accepted || null;
       fetch('api/strategy-live', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
     });
@@ -38,8 +39,8 @@
 
   function render() {
     var p = plan();
-    $('planSel').innerHTML = plans.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x === p ? ' selected' : '') + '>' + esc(x.name || 'Unnamed') + '</option>'; }).join('');
-    if (!p) { status('idle', 'NO PLAN', 'Make a plan first (Endurance plan).', ''); return; }
+    $('planSel').innerHTML = '<option value="">Pick the plan for this race</option>' + plans.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x === p ? ' selected' : '') + '>' + esc(x.name || 'Unnamed') + '</option>'; }).join('');
+    if (!p) { status('idle', 'NO PLAN', plans.length ? 'Pick the plan for this race (top right).' : 'Make a plan first (Endurance plan).', ''); return; }
     var on = (L.status === 'live' || L.status === 'over') && trackMatches(p), lp = livePlan(p), q = on ? lp.plan : p;
     var r = on ? SM.build(q, L) : SM.build(p), pure = SM.build(p);
     // ---- status bar ----
@@ -116,23 +117,16 @@
   }
   function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
 
-  $('planSel').onchange = function () { opt.plan = this.value; saveOpt(null); sentTarget = ''; render(); };
+  $('planSel').onchange = function () { opt.plan = this.value; saveOpt(null, true); sentTarget = ''; render(); };
   $('naturalIn').onchange = function () { var v = Number(String(this.value).replace(',', '.')); opt.natural = v > 0 ? v : null; saveOpt(null); sentTarget = ''; render(); };
   $('paceSel').onchange = function () { opt.pace = this.value; saveOpt(null); sentTarget = ''; render(); };
 
-  // the race alerts and what you answered (api/alert-history, newest first)
-  function history() {
-    if (!H.inApp) return;
-    H.json('api/alert-history').then(function (h) {
-      h = (Array.isArray(h) ? h : []).slice(-30).reverse();
-      $('histTbl').innerHTML = '<thead><tr><th>When</th><th>Alert</th><th>Why</th><th>Your answer</th></tr></thead><tbody>' + (h.length ? h.map(function (e) {
-        var d = new Date(e.at), t = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
-        return '<tr><td>' + esc(F.day(e.at / 1000) + ' ' + t) + '</td><td><b>' + esc(e.text || '') + '</b></td><td class="faint">' + esc(e.why || '') + '</td><td>' + esc(e.answer ? { accept: 'Accepted', ignore: 'Ignored', later: 'Later' }[e.answer] || e.answer : 'no answer') + '</td></tr>';
-      }).join('') : '<tr><td colspan="4" class="empty">No race alerts yet. Add the "Race alerts" widget to your dashboard (E, + Add widget).</td></tr>') + '</tbody>';
-    }, function () {});
-  }
-  history(); setInterval(function () { if (!document.hidden) history(); }, 10000);
+  var polls = 0;
   function poll() {
+    if (++polls % 5 === 0) H.json('api/strategy-live').then(function (o) {                              // the plan may be picked on the hub page meanwhile
+      o = o || {}; var acc = o.accepted || null;
+      if ((o.plan || '') !== opt.plan || JSON.stringify(acc) !== JSON.stringify(opt.accepted)) { opt.plan = o.plan || ''; opt.accepted = acc; sentTarget = ''; lastKey = ''; render(); }
+    }, function () {});
     H.json('api/race-live').then(function (x) {
       raceLive = x; var p = plan(); L = SM.fromLive(x, p ? p.length : null);
       var key = JSON.stringify([L.status, L.track, x.log && x.log.stints, x.car && [x.car.laps, x.car.inPits, x.car.driver, Math.round((x.car.ve || 0) * 10), Math.round((x.car.veUse || 0) * 100)], Math.floor((L.time || 0) / 30)]);
@@ -143,7 +137,7 @@
   plansP.then(function (st) {
     plans = (st && st.plans) || [];
     return H.json('api/strategy-live').catch(function () { return {}; }).then(function (o) {
-      opt.plan = o && plans.some(function (p) { return p.id === o.plan; }) ? o.plan : (st.current || (plans[0] && plans[0].id) || '');
+      opt.plan = o && plans.some(function (p) { return p.id === o.plan; }) ? o.plan : '';                // only a plan you picked (hub Race Control or here)
       opt.pace = o && o.pace === 'plan' ? 'plan' : 'live'; opt.natural = o && o.natural > 0 ? o.natural : null; opt.accepted = o && o.accepted ? o.accepted : null;
       render(); poll(); setInterval(function () { if (!document.hidden) poll(); }, 3000);
     });
