@@ -49,6 +49,14 @@ public static class Server
         b.Services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = 429;
+            // a request turned away for coming too fast: one log line (at most every 10 s, the path only: no key, no address) so "sometimes it does not load" can be told apart
+            long lastRejectLog = 0;
+            o.OnRejected = (ctx, _) =>
+            {
+                long now = Environment.TickCount64;
+                if (now - Interlocked.Read(ref lastRejectLog) > 10_000) { Interlocked.Exchange(ref lastRejectLog, now); ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("MyLMUHub.Server")?.LogWarning("rate limit: {path} turned away ({who})", ctx.HttpContext.Request.Path.Value, Auth.KeyOf(ctx.HttpContext.Request) != null ? "member key" : "browser"); }
+                return ValueTask.CompletedTask;
+            };
             // everyone: 240 requests a minute (live: one every 2 s) per member key (else per address)
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx => RateLimitPartition.GetFixedWindowLimiter(Auth.KeyOf(ctx.Request) is string k ? "k" + Auth.Hash(k) : "a" + Address(ctx),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 240, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));

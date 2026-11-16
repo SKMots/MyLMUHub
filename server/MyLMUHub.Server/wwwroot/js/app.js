@@ -102,13 +102,17 @@
   function login() {
     me = null; clearInterval(liveTimer); $('livebar').hidden = true; $('tabbar').hidden = true; $('topnav').hidden = true; $('who').hidden = true; $('tpick').hidden = true;
     get('/api/v1/web/config').catch(function () { return {}; }).then(function (cfg) {
-      view.innerHTML = '<div class="login">' + card('Log in',
+      // on a computer: what you get, next to the login card (a phone shows the card only)
+      var intro = '<div class="lg-intro only-desk"><span class="lp-eyebrow">My LMU Hub on the web</span><h1>Your team, wherever you are</h1>' +
+        '<ul><li>Every team race with its full review: stints, laps, stops, what if</li><li>Everyone&#39;s race pace per track and car</li><li>Your own level against the alien times</li><li>Your team-mates&#39; races, live: lap times, energy, tyres, damage</li></ul>' +
+        '<p class="faint">Read-only: changes are made in the desktop app. <a href="/">About My LMU Hub</a></p></div>';
+      view.innerHTML = '<div class="login-wrap">' + intro + '<div class="login">' + card('Log in',
         (cfg.discord ? '<div class="sub">With the Discord account you linked in the desktop app (Settings, Your phone).</div><a class="btn discord wide" href="/auth/discord/login">Log in with Discord</a>' +
           '<div class="or">or</div>' : '') +
         '<div class="sub">With a pairing code: in the desktop app, Settings, Your phone: <b>Log in on my phone</b>. The code works once, for 2 minutes.</div>' +
         '<input class="input" id="code" placeholder="ABCD-EFGH" autocomplete="one-time-code" autocapitalize="characters" maxlength="12">' +
         '<button class="btn acc wide mt10" id="go">Log in</button><div class="err" id="err"></div>') +
-        '<div class="sub center">Not in a team yet? The desktop app is where you join one. <a href="/">About My LMU Hub</a></div></div>';
+        '<div class="sub center">Not in a team yet? The desktop app is where you join one. <a href="/">About My LMU Hub</a></div></div></div>';
       $('go').onclick = function () {
         $('err').textContent = '';
         post('/api/v1/web/pair/redeem', { code: $('code').value }).then(start, function (e) { $('err').textContent = e.message === 'unknown or expired code' ? 'Unknown or expired code: make a new one in the desktop app.' : String(e.message); });

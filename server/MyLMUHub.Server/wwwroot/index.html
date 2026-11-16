@@ -3,31 +3,159 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>My LMU Hub</title>
-<meta name="description" content="A free pitwall dashboard and personal stats hub for Le Mans Ultimate. One Windows app, no SimHub. Made for endurance racers and their teams.">
+<title>My LMU Hub: the pitwall for Le Mans Ultimate</title>
+<meta name="description" content="A free pitwall dashboard, race pace and endurance strategy hub for Le Mans Ultimate. One Windows app, no SimHub. Made for endurance racers and their teams.">
 <meta name="theme-color" content="#030405">
+<meta property="og:title" content="My LMU Hub: the pitwall for Le Mans Ultimate">
+<meta property="og:description" content="A full-screen race dashboard, your race pace against the aliens, endurance strategy and your team. Free, one Windows app, no SimHub.">
+<meta property="og:image" content="/img/site/race-control.jpg">
 <link rel="icon" href="/img/icon-192.png">
 <link rel="apple-touch-icon" href="/img/icon-180.png">
 <link rel="stylesheet" href="/css/site.css">
 </head>
-<body>
-<div class="wrap">
-  <section class="hero">
-    <img src="/img/icon-512.png" alt="My LMU Hub">
-    <h1>my<i>lmu</i>hub</h1>
-    <p>A free pitwall dashboard and personal stats hub for Le Mans Ultimate. One Windows app, no SimHub. Made for endurance racers, and for watching your team-mate drive.</p>
-    <div class="btns">
-      <a class="btn acc" href="/app/">Log in</a>
-      <a class="btn" href="https://github.com/SKMots/MyLMUHub/releases/latest" rel="noopener">Download for Windows</a>
+<body class="lp">
+<header class="lp-top">
+  <div class="lp-in">
+    <a class="brand" href="/"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b></a>
+    <nav class="lp-nav"><a href="#features">Features</a><a href="#teams">Teams</a><a href="#phone">Phone</a><a href="#start">Get started</a></nav>
+    <span class="lp-acts"><a class="btn" href="/app/">Log in</a><a class="btn acc" href="https://github.com/SKMots/MyLMUHub/releases/latest" rel="noopener">Download</a></span>
+  </div>
+</header>
+
+<main>
+  <section class="lp-hero">
+    <div class="lp-in">
+      <div class="lp-hero-txt">
+        <span class="lp-eyebrow">Free · open source · Windows</span>
+        <h1>The pitwall for <em>Le Mans Ultimate</em></h1>
+        <p>A full-screen race dashboard for your second monitor, your race pace against the alien times, endurance strategy that follows the race live, and your team. One app, no SimHub.</p>
+        <div class="lp-btns">
+          <a class="btn acc lg" href="https://github.com/SKMots/MyLMUHub/releases/latest" rel="noopener">Download for Windows</a>
+          <a class="btn lg" href="/app/">Log in to your team</a>
+        </div>
+        <ul class="lp-ticks"><li>Reads the game directly: no plugins</li><li>Light on your PC</li><li>Updates itself</li></ul>
+      </div>
+      <figure class="lp-shot lp-hero-shot"><img src="/img/site/race-control.jpg" alt="Race Control: the dashboard with standings, relative, fuel and virtual energy, tyres, damage, track map and weather" width="1600" height="900" data-zoom></figure>
     </div>
   </section>
-  <div class="feat">
-    <div class="card"><b>Race Control</b><span>A full-screen dashboard for your second monitor, built from widgets: leaderboard, relative, fuel and virtual energy, tyres, damage, track map, weather, race prediction.</span></div>
-    <div class="card"><b>Race pace</b><span>Your pace on every track from the game's own result files, your level against the alien times, what to work on next, turn by turn.</span></div>
-    <div class="card"><b>Strategy</b><span>Plan an endurance race from the sessions you drove, follow it live with your real lap times and VE, and review it afterwards.</span></div>
-    <div class="card"><b>Your team</b><span>Team races found and shared by themselves, a review of every race, everyone's race pace per track and car. On your phone too.</span></div>
+
+  <section class="lp-strip">
+    <div class="lp-in">
+      <div><b>One exe</b><span>No installer, no SimHub</span></div>
+      <div><b>Any screen</b><span>16:9, ultrawide, portrait, a tablet</span></div>
+      <div><b>Spectator mode</b><span>Follows your team-mate's car</span></div>
+      <div><b>Endurance first</b><span>Stints, VE, fuel, driver swaps</span></div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="features">
+    <div class="lp-in">
+      <div class="lp-head"><span class="lp-eyebrow">Features</span><h2>Everything between the green flag and the chequered one</h2></div>
+
+      <div class="lp-row">
+        <div class="lp-txt">
+          <h3>Race Control</h3>
+          <p>Your dashboard, built from widgets: standings, relative, gaps, fuel and virtual energy, tyres, damage, track map, weather, the race prediction. Move and resize them, keep several views, put one on a tablet.</p>
+          <ul><li>Follows your team-mate's car when you're not driving</li><li>Fits any screen shape, full screen in one click</li><li>Hotkeys and wheel buttons that work while you drive</li></ul>
+        </div>
+        <figure class="lp-shot"><img src="/img/site/racecontrol.jpg" alt="Race Control setup: views, theme, laps a stint per track, spectate" loading="lazy" data-zoom></figure>
+      </div>
+
+      <div class="lp-row rev">
+        <div class="lp-txt">
+          <h3>Race pace and your level</h3>
+          <p>Every lap you drove, from the game's own result files: your race pace and best lap on every track and car, against the alien times. Alien, Competitive, Good, Midpack: you see where you stand and how it moves.</p>
+          <ul><li>Per track, class and car, every layout on its own</li><li>Improve: what to work on next, turn by turn</li><li>Guest mode when a friend drives on your rig</li></ul>
+        </div>
+        <figure class="lp-shot"><img src="/img/site/race-pace.jpg" alt="Race Pace" loading="lazy" data-zoom></figure>
+      </div>
+
+      <div class="lp-row">
+        <div class="lp-txt">
+          <h3>Endurance strategy, live</h3>
+          <p>Plan the race from the sessions you drove: stint lengths, virtual energy and fuel per lap, who drives when. During the race the plan follows the real laps: pit times on your own clock, a VE target, and whether repairing damage is worth the stop.</p>
+          <ul><li>Driver line-up with lap times from your team</li><li>Top speed watch for aero damage</li><li>Tyre age in the predictions</li></ul>
+        </div>
+        <figure class="lp-shot"><img src="/img/site/strategy.jpg" alt="Strategy" loading="lazy" data-zoom></figure>
+      </div>
+
+      <div class="lp-row rev">
+        <div class="lp-txt">
+          <h3>Review every race</h3>
+          <p>After the flag: every stint and every lap, the stops and what they cost, who was faster and with how much energy, and the race again with other stint lengths. Plain findings, not just numbers.</p>
+          <ul><li>Stints, laps, stops, tyre changes</li><li>What if: the best stint length for that race</li><li>The same review for your team's races</li></ul>
+        </div>
+        <figure class="lp-shot"><img src="/img/site/review.jpg" alt="Race review" loading="lazy" data-zoom></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec alt" id="teams">
+    <div class="lp-in">
+      <div class="lp-row">
+        <div class="lp-txt">
+          <span class="lp-eyebrow">Teams</span>
+          <h3>Race as a team</h3>
+          <p>Join your team with an invite code. Team races find their way in by themselves, everyone's race pace is shared per track and car, and when a team-mate is racing you see their car live: position, laps, virtual energy, tyres and exactly what is damaged.</p>
+          <ul><li>Roles: driver, engineer, owner</li><li>Exact data while spectating a team-mate</li><li>Only plain, checked data on the server</li></ul>
+        </div>
+        <figure class="lp-shot"><img src="/img/site/team-live.jpg" alt="A team-mate racing, live" loading="lazy" data-zoom></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="phone">
+    <div class="lp-in lp-phone">
+      <div class="lp-txt">
+        <span class="lp-eyebrow">On your phone</span>
+        <h3>Your team in your pocket</h3>
+        <p>The website works like an app on your phone: your team's races with their full review, everyone's race pace, your own stats, and your team-mates' live races. Log in with Discord or a code from the desktop app, and install it on your home screen.</p>
+        <a class="btn acc" href="/app/">Open the web app</a>
+      </div>
+      <div class="lp-phones">
+        <img src="/img/site/phone.jpg" alt="Home on a phone" loading="lazy" data-zoom>
+        <img src="/img/site/phone-race.jpg" alt="A race review on a phone" loading="lazy" data-zoom>
+        <img src="/img/site/phone-live.jpg" alt="A team-mate racing, on a phone" loading="lazy" data-zoom>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec alt">
+    <div class="lp-in">
+      <div class="lp-head"><span class="lp-eyebrow">And more</span><h2>Small things that matter at 3 a.m. in a 24‑hour race</h2></div>
+      <div class="lp-grid">
+        <div class="card"><b>AI Coach</b><span>Ask about your laps, with your own API key. Only when you click.</span></div>
+        <div class="card"><b>Track study</b><span>Your fastest lap turn by turn, against your own best segments.</span></div>
+        <div class="card"><b>Pit times on your clock</b><span>When the next stop is, in your local time: be back at the PC in time.</span></div>
+        <div class="card"><b>Close to the tray</b><span>Keeps reading the game and sharing live data with no window open.</span></div>
+        <div class="card"><b>Network access</b><span>The dashboard on a tablet or a second PC at home.</span></div>
+        <div class="card"><b>Themes</b><span>Lime, Teal, Daylight and Navy for the hub; the dashboard has its own.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="start">
+    <div class="lp-in">
+      <div class="lp-head"><span class="lp-eyebrow">Get started</span><h2>Racing in three steps</h2></div>
+      <ol class="lp-steps">
+        <li><b>Download</b><span>Get <code>MyLMUHub.exe</code> from the latest release and put it in a folder of your own, such as Documents\MyLMUHub. It updates itself.</span></li>
+        <li><b>Your name</b><span>Start it, click your name in the top right and enter your driver name exactly as the game shows it.</span></li>
+        <li><b>Race</b><span>Start Le Mans Ultimate and join a session. Race Control → Open dashboard, drag it to your second monitor, Full screen.</span></li>
+      </ol>
+      <div class="lp-btns center"><a class="btn acc lg" href="https://github.com/SKMots/MyLMUHub/releases/latest" rel="noopener">Download for Windows</a></div>
+      <p class="lp-note">Windows 10 or 11 with the Microsoft Edge WebView2 Runtime (already on Windows 11 and most Windows 10 PCs).</p>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-foot">
+  <div class="lp-in">
+    <span class="brand"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b></span>
+    <span>Open source (MIT) on <a href="https://github.com/SKMots/MyLMUHub" rel="noopener">GitHub</a> · Not affiliated with Studio 397 or Le Mans Ultimate</span>
+    <a href="/app/">Log in</a>
   </div>
-  <div class="foot">My LMU Hub is open source (MIT). Not affiliated with Studio 397 or Le Mans Ultimate.</div>
-</div>
+</footer>
+<div class="lp-zoom" id="zoom" hidden><img alt=""></div>
+<script src="/js/site.js"></script>
 </body>
 </html>
