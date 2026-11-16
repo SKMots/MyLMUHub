@@ -27,7 +27,8 @@
     if (inApp && here) update();                                                          // the update button: only on the PC the app runs on
   }
   // the app version and, when a newer one is out, the Update button (UpdateService.cs: download, swap, restart). A dev build says "dev" and never updates.
-  var updTimer = null;
+  // a click on the version: look for a new version now ("checking...", then the Update button or "up to date" for a few seconds)
+  var updTimer = null, updAsked = 0;
   function update(post) {
     var u = document.getElementById('upd'); if (!u) return;
     json('api/update' + (post ? '?do=' + post : ''), post ? { method: 'POST' } : undefined).then(function (s) {
@@ -36,11 +37,14 @@
       else if (s.state === 'downloading') { html = '<span class="muted">Downloading update ' + Math.round(s.progress * 100) + '%</span>'; soon = 1000; }
       else if (s.state === 'ready') html = '<span class="muted">Restarting...</span>';
       else if (s.state === 'error') html = '<span class="upd-err" title="' + esc(s.error) + '">Update failed</span> <button class="btn" id="updRetry">Try again</button>';
-      else html = '<span class="faint" title="' + (s.enabled ? 'You have the newest version' : 'Dev build: does not update itself') + '">' + esc(v) + (s.enabled ? '' : ' dev') + '</span>';
+      else if (s.enabled && updAsked && Date.now() - updAsked < 4000) { html = '<span class="faint">' + esc(v) + ' · checking...</span>'; soon = 1000; }
+      else if (s.enabled && updAsked && Date.now() - updAsked < 9000) { html = '<span class="faint">' + esc(v) + ' · up to date</span>'; soon = 1000; }
+      else html = s.enabled ? '<button class="upd-v" id="updCheck" title="Check for updates now">' + esc(v) + '</button>' : '<span class="faint" title="Dev build: does not update itself">' + esc(v) + ' dev</span>';
       if (u._h !== html) { u.innerHTML = html; u._h = html; }
       var go = document.getElementById('updGo'), re = document.getElementById('updRetry');
       if (go) go.onclick = function () { if (confirm('Update My LMU Hub to v' + s.latest + '?\n\n' + (s.notes ? 'What is new since your version (v' + s.current + '):\n\n' + s.notes + '\n\n' : '') + 'The app downloads it and restarts (your settings and layouts stay).')) update('install'); };
       if (re) re.onclick = function () { update('check'); setTimeout(function () { update(); }, 3000); };
+      var ck = document.getElementById('updCheck'); if (ck) ck.onclick = function () { updAsked = Date.now(); update('check'); };
       clearTimeout(updTimer); updTimer = setTimeout(function () { update(); }, soon);
     }, function () { clearTimeout(updTimer); updTimer = setTimeout(function () { update(); }, 60000); });
   }

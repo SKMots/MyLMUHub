@@ -55,9 +55,8 @@ Press **E** and you're in edit mode:
 - **Per-widget settings:** colours, font, text size, opacity, what it shows, and **Float on top** (lies over the others).
 - **Themes:** Lime, Teal, Daylight and Navy, and car logos in one colour or full colour.
 - **Views:** several named views ("Race", "Qualifying", ...). Switch between them with keyboard shortcuts that work while the game has focus, or with buttons on your wheel or button box.
-- **Any screen shape:** the dashboard always fills its window, on 16:9, 4:3, ultrawide, super ultrawide or a portrait monitor. Each view keeps its own
-  arrangement per kind of screen: the first time it shows on a new one it lays itself out from your main layout, and what you change there stays for
-  that screen only.
+- **Any screen shape:** on 16:9, 4:3, ultrawide or super ultrawide your dashboard shows as you made it, scaled to fit the window. A portrait monitor gets
+  its own arrangement, laid out from your main layout the first time; what you change there stays for that screen only.
 - **More screens:** another window per view, or a view on another device.
 - **Sharing:** export and import layouts, e.g. to pass one to a friend.
 
@@ -172,7 +171,9 @@ and strictly checked numbers and short text, never files. Your login stays in th
 ![Team](docs/images/team.png)
 
 ## On your phone
-The team server is also a website (e.g. **mylmuhub.com**), made for phones and computers: log in on your phone and add it to your home screen, and it opens like an app.
+The team server is also a website (e.g. **mylmuhub.com**), made for phones and computers. On a phone it feels like an app: install it (Me page: **Install the app**,
+or Share → Add to Home Screen on an iPhone) and it opens full screen with its own icon. Cards instead of wide tables, pull down to refresh, back returns to
+where you were, and it opens without a connection too (it then says it's offline).
 - **Log in with Discord** (link your Discord account once, in Settings) or with a **pairing code** from the desktop app (works once, for 2 minutes).
 - **Home:** your team at a glance: the latest race, your race pace against the team's best on your last tracks. More than one team: pick it in the top bar.
 - **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members.
@@ -182,7 +183,7 @@ The team server is also a website (e.g. **mylmuhub.com**), made for phones and c
   Only you see them. The desktop app keeps them up to date by itself (Settings: *Keep my stats on the website*; off = deleted from the server).
 - **The website can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
 
-<p align="center"><img src="docs/images/phone.png" width="300" alt="My LMU Hub on a phone"> &nbsp; <img src="docs/images/phone-live.png" width="300" alt="A team-mate racing, on a phone"></p>
+<p align="center"><img src="docs/images/phone.png" width="260" alt="My LMU Hub on a phone"> &nbsp; <img src="docs/images/phone-race.png" width="260" alt="A race review on a phone"> &nbsp; <img src="docs/images/phone-live.png" width="260" alt="A team-mate racing, on a phone"></p>
 
 ![Your own stats on the website](docs/images/web-stats.png)
 
@@ -204,7 +205,7 @@ your hotkeys; click its icon to open it again, right-click to quit).
 - **Your names:** several driver names for yourself (the game shows them slightly differently sometimes), and your team-mates' names for spectator mode.
 - **Network access:** the dashboard on other devices at home, on private networks only, after one Windows permission. Each view has its own address.
 - **Hub themes:** Lime, Teal, Daylight and Navy (Settings).
-- **Updates itself:** when a new version is out, the hub shows an update button with everything new since your version. It downloads, checks and restarts; your settings and layouts stay.
+- **Updates itself:** when a new version is out, the hub shows an update button with everything new since your version. Click the version number (top right) to look now. It downloads, checks and restarts; your settings and layouts stay.
 
 ## Getting started
 1. Download **`MyLMUHub.exe`** from the [latest release](https://github.com/SKMots/MyLMUHub/releases/latest). Put it in a folder of your own, such as Documents\MyLMUHub (not Program Files: it updates itself there).

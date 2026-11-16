@@ -12,18 +12,28 @@
 <link rel="manifest" href="/app/manifest.webmanifest">
 <link rel="icon" href="/img/icon-192.png">
 <link rel="apple-touch-icon" href="/img/icon-180.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/img/splash/750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/img/splash/828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/splash/1290x2796.png">
 <link rel="stylesheet" href="/css/site.css">
 </head>
 <body class="app">
 <header class="top">
   <a class="brand" href="#/"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b></a>
   <nav class="topnav" id="topnav" hidden></nav>
-  <span class="tpick" id="tpick" hidden><select id="tsel" aria-label="Team"></select></span>
+  <button class="tpick" id="tpick" hidden aria-haspopup="dialog"><span id="tname"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
   <a class="who" id="who" href="#/me" hidden></a>
 </header>
+<div class="ptr" id="ptr" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></div>
 <a class="livebar" id="livebar" hidden></a>
-<main class="wrap" id="view"><div class="faint mt20">Loading...</div></main>
+<main class="wrap" id="view"><div class="skel"><div class="sk sk-h"></div><div class="sk sk-card"></div><div class="sk sk-card"></div></div></main>
 <nav class="tabbar" id="tabbar" hidden></nav>
+<div class="sheet" id="sheet" hidden><div class="sheet-bg" id="sheetBg"></div><div class="sheet-box" role="dialog" aria-label="Pick a team"><div class="sheet-grip"></div><h3>Your teams</h3><div id="sheetList"></div></div></div>
 <script src="/js/shared/format.js"></script>
 <script src="/js/shared/pace-math.js"></script>
 <script src="/js/shared/pace-ref.js"></script>

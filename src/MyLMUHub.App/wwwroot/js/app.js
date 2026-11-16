@@ -164,9 +164,13 @@
     }
     // screen shapes: the dashboard fills its window; the view on screen in its arrangement for this kind of screen (views.js), made from the main layout the
     // first time (reflowWidgets) and saved. kind = the arrangement being shown (and edited)
-    var kind = 'wide', made = false;
+    var kind = 'wide', made = false, BASE_CANVAS = { square: { w: 1920, h: 1440 }, wide: { w: 2560, h: 1440 }, ultrawide: { w: 3440, h: 1440 }, superwide: { w: 5120, h: 1440 }, portrait: { w: 1440, h: 2560 } };
     function onScreen() {
       var w = root.innerWidth || 2560, h = root.innerHeight || 1440, c = P.shapeFor(w, h), k = P.shapeClass(w, h), a = ws.arrangement(k);
+      // no arrangement of its own for this kind of screen (owner 2026-11-16: a 4:3 window got a re-flowed, saved layout that looked wrong): a landscape window
+      // shows the main layout as it is, scaled to fit (bars at the sides / top); a portrait screen gets one made from the main layout (re-flowed), as before.
+      // Edits then go to the main layout; a layout of its own for that shape stays possible (made in edit mode on a portrait screen, or kept from before).
+      if (!a && k !== 'portrait') { var b = ws.baseKind(); kind = b; return { widgets: ws.current().widgets, canvas: BASE_CANVAS[b] || BASE_CANVAS.wide }; }
       if (!a) { a = P.reflowWidgets(JSON.parse(JSON.stringify(ws.current().widgets)), c.w - SAFE.l - SAFE.r, c.h - SAFE.t - SAFE.b); ws.setArrangement(k, a); made = true; }
       kind = k; return { widgets: a, canvas: c };
     }

@@ -33,6 +33,7 @@ button, select, input { font:inherit; color:inherit; }
 .rule.live { color:var(--lime); } .rule.live::before, .rule.live::after { background:var(--lime); }
 .nav { display:flex; gap:6px; }
 .upd { display:flex; align-items:center; gap:8px; font-size:13px; white-space:nowrap; } .upd .btn { padding:7px 14px; } .upd-err { color:#FF6A55; font-weight:700; cursor:help; }
+.upd-v { background:none; border:0; padding:4px 6px; border-radius:6px; font:inherit; font-size:13px; color:var(--faint); cursor:pointer; } .upd-v:hover { color:var(--text); background:var(--tile); }
 .nav a { padding:8px 18px; font-weight:600; color:var(--muted); clip-path:polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%); }
 .nav a:hover { color:var(--text); background:var(--tile); }
 .nav a.on { color:var(--lime-ink); background:var(--lime); }

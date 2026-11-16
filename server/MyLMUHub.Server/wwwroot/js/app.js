@@ -1,6 +1,9 @@
 // My LMU Hub on the web (phone and desktop browser, 2026-11-16): log in (pairing code from the desktop app, or Discord), then your teams:
 // Home (the latest race, your pace against the team), Races (tap one for its review: the same maths as the desktop app's Review, review-math.js),
 // Race pace (the same as the Team tab), Team (members, your teams), Me (your account). Pages are links (#/races/12): the back button works.
+// Phones first (2026-11-16): big touch targets with a press effect, cards instead of wide tables on a phone (tables from 900 px), every page remembers where you
+// were (back = the same place; tap the tab you are on = to the top), pull down to refresh, the team picked in a bottom sheet, grey placeholders while loading;
+// installable (manifest + sw.js: the app's files kept for offline starts; the data always comes fresh).
 // Read-only: a web login can only look. Everything the server sends is shown as text (esc), never as HTML. No style="" anywhere: the site's
 // Content-Security-Policy (style-src 'self') ignores inline styles, so all looks come from site.css classes.
 (function () {
@@ -34,11 +37,28 @@
   };
   function icon(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>'; }
   var TABS = [['home', 'Home', '#/'], ['races', 'Races', '#/races'], ['pace', 'Race pace', '#/pace'], ['team', 'Team', '#/team'], ['me', 'Me', '#/me']];
-  $('tabbar').innerHTML = TABS.map(function (t) { return '<a data-tab="' + t[0] + '" href="' + t[2] + '">' + icon(t[0]) + '<span>' + t[1] + '</span></a>'; }).join('');
+  $('tabbar').innerHTML = TABS.map(function (t) { return '<a data-tab="' + t[0] + '" href="' + t[2] + '"><i class="ti">' + icon(t[0]) + '</i><span>' + t[1] + '</span></a>'; }).join('');
+  // the tab you are on, tapped again: back to the top of it
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('[data-tab]'); if (!a || !a.classList.contains('on')) return;
+    var href = a.getAttribute('href'); if ((location.hash || '#/') === href || (href === '#/' && !location.hash)) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+  // grey placeholders while a page loads (no animation: nothing keeps running)
+  function skel(kind) {
+    var t = '<div class="sk-tiles"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>';
+    return '<div class="skel"><div class="sk sk-h"></div>' + (kind === 'list' ? '' : t) + '<div class="sk sk-card"></div><div class="sk sk-card"></div></div>';
+  }
+  // a phone gets cards, a computer the table (both are in the page; site.css shows one: .only-mob / .only-desk)
+  function both(table, cards) { return '<div class="only-desk">' + table + '</div><div class="only-mob">' + cards + '</div>'; }
+  function mcell(k, v, cls) { return '<span><small>' + k + '</small><b' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</b></span>'; }
   $('topnav').innerHTML = TABS.slice(0, 4).map(function (t) { return '<a data-tab="' + t[0] + '" href="' + t[2] + '">' + t[1] + '</a>'; }).join('');
 
   // ---------- state ----------
   var me = null, team = null, cache = {}, cls = '', car = '', rvOpen = {}, lastRace = null;
+  // where you were on every page (by its link): back returns there. Not written while a page is being drawn (it gets shorter then)
+  var scrollMem = {}, drawing = false;
+  window.addEventListener('scroll', function () { if (!drawing) scrollMem[location.hash || '#/'] = window.scrollY; }, { passive: true });
+  function drawn() { var y = scrollMem[location.hash || '#/'] || 0; window.scrollTo(0, y); drawing = false; }
   function teamData(t) {                                                                  // a team's races, race pace and members: loaded once a visit
     if (!cache[t.id]) cache[t.id] = Promise.all([get('/api/v1/teams/' + t.id + '/results'), get('/api/v1/teams/' + t.id + '/pace').catch(function () { return []; }), get('/api/v1/teams/' + t.id + '/members')])
       .then(function (a) { return { results: a[0] || [], pace: a[1] || [], members: a[2] || [] }; }, function (e) { delete cache[t.id]; throw e; });
@@ -52,15 +72,31 @@
       team = ts.filter(function (t) { return t.id === keep; })[0] || ts[0] || null;
       $('who').innerHTML = '<i>' + initial(me.name) + '</i><span>' + esc(me.name) + '</span>'; $('who').hidden = false;
       $('tabbar').hidden = false; $('topnav').hidden = false; liveLoad(); livePoll();
-      $('tpick').hidden = ts.length < 2;
-      $('tsel').innerHTML = ts.map(function (t) { return '<option value="' + t.id + '"' + (team && t.id === team.id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('');
+      $('tpick').hidden = ts.length < 2; $('tname').textContent = team ? team.name : '';
       route();
-    }, function (e) { if (e.status === 401) login(); else view.innerHTML = card('', 'The server cannot be reached right now.'); });
+    }, function (e) { if (e.status === 401) login(); else offline(); });
   }
-  $('tsel').onchange = function () {
-    var id = +this.value; team = (me.teams || []).filter(function (t) { return t.id === id; })[0] || team; localStorage.setItem('mlh-team', String(team.id)); cls = ''; car = '';
+  // no connection (or the server is away): say so, try again by hand or when the phone is back online
+  function offline() {
+    view.innerHTML = '<div class="login">' + card('No connection', '<div class="sub">' + (navigator.onLine === false ? 'This phone is offline.' : 'The server cannot be reached right now.') + ' Your teams show again as soon as it is back.</div><button class="btn acc wide" id="retry">Try again</button>') + '</div>';
+    $('retry').onclick = function () { view.innerHTML = skel(); start(); };
+  }
+  window.addEventListener('online', function () { if (!me) start(); });
+  // the team: a bottom sheet on a phone (a small panel on a computer)
+  function pickTeam(id) {
+    team = (me.teams || []).filter(function (t) { return t.id === id; })[0] || team; localStorage.setItem('mlh-team', String(team.id)); cls = ''; car = ''; $('tname').textContent = team.name;
     var h = location.hash; if (/^#\/(races|pace)\/./.test(h)) location.hash = h.replace(/^(#\/(races|pace)).*$/, '$1'); else route();
-  };
+  }
+  function sheet(open) {
+    $('sheet').hidden = !open; document.body.classList.toggle('sheet-open', open);
+    if (open) $('sheetList').innerHTML = (me.teams || []).map(function (t) {
+      return '<button class="person pick' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '"><i>' + initial(t.name) + '</i><span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span>' + (team && t.id === team.id ? '<em>✓</em>' : '') + '</button>';
+    }).join('');
+  }
+  $('tpick').onclick = function () { sheet(true); };
+  $('sheetBg').onclick = function () { sheet(false); };
+  $('sheetList').onclick = function (e) { var b = e.target.closest('[data-team]'); if (!b) return; sheet(false); pickTeam(+b.getAttribute('data-team')); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) sheet(false); });
 
   // ---------- log in ----------
   function login() {
@@ -84,23 +120,46 @@
   // ---------- pages (#/..., the back button works) ----------
   window.addEventListener('hashchange', function () { if (me) route(); });
   function route() {
+    drawing = true; if (!$('sheet').hidden) sheet(false);
     var parts = (location.hash.replace(/^#\/?/, '') || '').split('/'), page = parts[0] || 'home', arg = parts.slice(1).join('/');
     var wasLive = livePage !== null; livePage = page === 'live' && arg ? +arg : null; if (wasLive !== (livePage !== null)) { lvOpenStint = {}; livePoll(); } liveBanner();
-    if (livePage !== null) { [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === 'home'); }); window.scrollTo(0, 0); view.onclick = null; return liveView(); }
+    if (livePage !== null) { [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === 'home'); }); view.onclick = null; liveView(); drawn(); return Promise.resolve(); }
     if (!TABS.some(function (t) { return t[0] === page; })) page = 'home';
     [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === page); });
-    window.scrollTo(0, 0); view.onclick = null;
+    view.onclick = null;
     if (page === 'me') { mine = null; return account(); }
-    if (!team) { view.innerHTML = card('No team yet', '<div class="sub">You are in no team yet. Join one in the desktop app: Settings, Team server, with the invite code your team owner gives you.</div>'); return; }
-    var t = team; view.innerHTML = '<div class="faint mt20">Loading...</div>';
-    teamData(t).then(function (d) {
+    if (!team) { view.innerHTML = card('No team yet', '<div class="sub">You are in no team yet. Join one in the desktop app: Settings, Team server, with the invite code your team owner gives you.</div>'); drawn(); return Promise.resolve(); }
+    var t = team; if (!cache[t.id]) { view.innerHTML = skel(page === 'races' || page === 'team' ? 'list' : ''); window.scrollTo(0, 0); }
+    return teamData(t).then(function (d) {
       if (team !== t) return;
-      if (page === 'races') return arg ? openRace(+arg) : racesView(d);
-      if (page === 'pace') return paceView(d, arg ? decodeURIComponent(arg) : null);
-      if (page === 'team') return teamView(d);
-      homeView(d);
-    }, function (e) { if (e.status === 401) login(); else view.innerHTML = card('', 'Could not load the team.'); });
+      if (page === 'races' && arg) return openRace(+arg);
+      if (page === 'races') racesView(d);
+      else if (page === 'pace') paceView(d, arg ? decodeURIComponent(arg) : null);
+      else if (page === 'team') teamView(d);
+      else homeView(d);
+      drawn();
+    }, function (e) { drawing = false; if (e.status === 401) login(); else if (!e.status) offline(); else view.innerHTML = card('', 'Could not load the team. Pull down to try again.'); });
   }
+
+  // pull down to refresh (at the top of a page): the team, your stats and the live races fresh from the server
+  (function () {
+    var ind = $('ptr'), y0 = null, pull = 0, busy = false;
+    function setPull(p) { pull = p; ind.style.transform = 'translate(-50%,' + Math.round(p - 50) + 'px) rotate(' + Math.round(p * 4) + 'deg)'; ind.style.opacity = Math.min(1, p / 60); ind.classList.toggle('ready', p >= 64); }
+    document.addEventListener('touchstart', function (e) { if (!me || busy || window.scrollY > 0 || !$('sheet').hidden || e.touches.length !== 1) { y0 = null; return; } y0 = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (y0 === null) return; var dy = e.touches[0].clientY - y0;
+      if (dy <= 0 || window.scrollY > 0) { if (pull) setPull(0); return; }
+      setPull(Math.min(90, dy * 0.5)); if (dy > 8 && e.cancelable) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', function () {
+      if (y0 === null) return; y0 = null;
+      if (pull < 64) { ind.classList.add('back'); setPull(0); setTimeout(function () { ind.classList.remove('back'); }, 250); return; }
+      busy = true; ind.classList.add('spin'); setPull(64);
+      cache = {}; mine = null; lastRace = null; liveLoad();
+      var done = function () { busy = false; ind.classList.remove('spin'); ind.classList.add('back'); setPull(0); setTimeout(function () { ind.classList.remove('back'); }, 250); };
+      Promise.resolve(route()).then(done, done);
+    });
+  })()
 
   // ---------- home ----------
   function perTrack(d) {                                                                  // every track: the team's best pace + yours (all classes)
@@ -144,10 +203,10 @@
     view.innerHTML = '<div class="pagehead"><h1>Races</h1><span class="faint">' + d.results.length + ' team races</span></div><div class="rgrid">' + d.results.map(raceCard).join('') + '</div>';
   }
   function openRace(id) {
-    if (lastRace && lastRace.id === id && lastRace.team === team.id) return raceView(lastRace);
-    view.innerHTML = '<div class="faint mt20">Loading...</div>'; rvOpen = {};
+    if (lastRace && lastRace.id === id && lastRace.team === team.id) { raceView(lastRace); drawn(); return; }
+    view.innerHTML = skel(); rvOpen = {}; window.scrollTo(0, 0);
     var t = team;
-    get('/api/v1/teams/' + t.id + '/results/' + id).then(function (x) {
+    return get('/api/v1/teams/' + t.id + '/results/' + id).then(function (x) {
       if (team !== t) return;
       var r = x.result || {}, names = (r.drivers || []).map(function (d) { return d.name; });
       var laps = (x.lapRows || []).map(function (l) {
@@ -155,8 +214,8 @@
         return [l[0], v(1), l[2] ? 1 : 0, v(6), l[3] >= 0 ? names[l[3]] || '' : '', v(4), v(5), l.length >= 12 ? [l[8], l[9], l[10], l[11]] : null, v(7)];
       });
       lastRace = { id: id, team: t.id, sum: r, race: { track: r.track, time: r.date, laps: laps, car: { team: r.teamName, vehicle: r.entry, carType: r.car, cls: r.cls, pos: r.pos, classPos: r.classPos, finishTime: r.finishTime || 0, best: r.best, finish: r.finish } } };
-      raceView(lastRace);
-    }, function () { location.hash = '#/races'; });
+      raceView(lastRace); drawn();
+    }, function () { drawing = false; location.hash = '#/races'; });
   }
   function raceView(L) {
     var r = L.sum, race = L.race, len = r.lengthKind === 'time' ? F.hm(r.length) : r.length + ' laps';
@@ -172,13 +231,20 @@
     h += '<div class="tiles">' + tile('Result', c.classPos ? 'P' + c.classPos : '--', c.pos ? 'P' + c.pos + ' overall' : '', 'acc') + tile('Laps', rv.laps, '') +
       tile('Stops', stops, rv.pitLoss ? Math.round(rv.pitLoss) + ' s each' : '') + tile('Best lap', lap(c.best), '', 'purple') +
       rv.drivers.map(function (d) { return tile(d.name || '?', lap(d.avg), d.stints + ' stints · best ' + lap(d.best)); }).join('') + '</div>';
-    var left = card('Stints', '<div class="sub">Tap a stint for its laps.</div><div class="scroll"><table class="tbl" id="st"><thead><tr><th class="num">#</th><th>Driver</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE/lap</th><th>Stop after</th></tr></thead><tbody>' +
+    var stCards = rv.stints.map(function (s, i) {
+      var nx = rv.stints[i + 1];
+      var stop = s.pitted ? (s.stopLoss > 0 ? Math.round(s.stopLoss) + ' s stop' : 'stop') + (nx ? (nx.tyres ? ' · ' + RM.tyreWord(nx.tyres) : '') + (nx.driver && nx.driver !== s.driver ? ' · then ' + esc(nx.driver) : '') : '') : 'to the finish';
+      return '<div class="mrow click' + (rvOpen[i] ? ' open' : '') + '" data-i="' + i + '"><div class="mr-top"><b>Stint ' + s.n + ' · ' + esc(s.driver || '?') + '</b><span class="mono">' + lap(s.avg) + '</span></div>' +
+        '<div class="mr-grid">' + mcell('Laps', s.laps) + mcell('Fastest', lap(s.best), 'purple') + mcell('VE/lap', s.ve ? F.pct(s.ve, 2) : '--') + '</div><div class="mr-sub">' + stop + '<em>' + (rvOpen[i] ? 'Hide laps' : 'Laps') + '</em></div>' +
+        (rvOpen[i] ? mLaps(s) : '') + '</div>';
+    }).join('');
+    var left = card('Stints', '<div class="sub">Tap a stint for its laps.</div>' + both('<div class="scroll"><table class="tbl" id="st"><thead><tr><th class="num">#</th><th>Driver</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE/lap</th><th>Stop after</th></tr></thead><tbody>' +
       rv.stints.map(function (s, i) {
         var nx = rv.stints[i + 1];
         var stop = s.pitted ? (s.stopLoss > 0 ? Math.round(s.stopLoss) + ' s' : 'stop') + (nx ? (nx.tyres ? ' · ' + RM.tyreWord(nx.tyres) : '') + (nx.driver && nx.driver !== s.driver ? ' · ' + esc(nx.driver) : '') : '') : '<span class="faint">finish</span>';
         return '<tr class="click' + (rvOpen[i] ? ' open' : '') + '" data-i="' + i + '"><td class="num">' + s.n + '</td><td>' + esc(s.driver || '?') + '</td><td class="num">' + s.laps + '</td><td class="num">' + lap(s.avg) + '</td><td class="num purple">' + lap(s.best) + '</td>' +
           '<td class="num">' + (s.ve ? F.pct(s.ve, 2) : '--') + '</td><td>' + stop + '</td></tr>' + (rvOpen[i] ? lapsRow(s) : '');
-      }).join('') + '</tbody></table></div>', 'wide');
+      }).join('') + '</tbody></table></div>', '<div class="mlist">' + stCards + '</div>'), 'wide');
     var right = card('What we see', rv.findings.map(function (f) { return '<div class="finding ' + f.kind + '"><b>' + esc(f.title) + '</b><span class="muted">' + esc(f.text) + '</span></div>'; }).join('') || '<div class="faint">Nothing to point out.</div>');
     var w = rv.whatIf;
     if (w && w.options.length) right += card('What if', '<div class="sub">The race again with its own numbers: ' + F.lap(w.pace) + ' a lap, ' + Math.round(rv.pitLoss) + ' s a stop.</div><div class="scroll"><table class="tbl"><thead><tr><th class="num">Laps a stint</th><th class="num">VE/lap</th><th class="num">Stops</th><th class="num">Laps</th><th></th></tr></thead><tbody>' +
@@ -186,7 +252,15 @@
     var y = window.scrollY;
     view.innerHTML = h + '<div class="split"><div>' + left + '</div><div>' + right + '</div></div>';
     window.scrollTo(0, y);
-    $('st').onclick = function (e) { var tr = e.target.closest('tr[data-i]'); if (!tr) return; var i = +tr.getAttribute('data-i'); rvOpen[i] = !rvOpen[i]; raceView(L); };
+    view.onclick = function (e) { var tr = e.target.closest('[data-i]'); if (!tr) return; var i = +tr.getAttribute('data-i'); rvOpen[i] = !rvOpen[i]; raceView(L); };
+  }
+  // a stint's laps on a phone: lap, time, against the stint's average, in / out
+  function mLaps(s) {
+    return '<div class="mlaps">' + s.lapList.map(function (l) {
+      var d = l.t && s.avg ? l.t - s.avg : null, note = l.pit ? 'in' : (s.n > 1 && l === s.lapList[0]) ? 'out' : '';
+      return '<div><span class="faint">' + l.n + '</span><span class="mono' + (l.t && l.t === s.best ? ' purple' : '') + '">' + (l.t ? F.lap(l.t) : '--') + '</span>' +
+        '<span class="mono ' + (d !== null && !note ? (d <= 0 ? 'green' : 'red') : 'faint') + '">' + (d !== null && !note ? gap(d) : note) + '</span></div>';
+    }).join('') + '</div>';
   }
   function lapsRow(s) {
     return '<tr class="laps"><td colspan="7"><table class="tbl"><tbody>' + s.lapList.map(function (l) {
@@ -232,17 +306,29 @@
       h += '<a class="back" href="#/pace">&larr; All tracks</a>' + card(esc(track), '<div class="tiles">' +
         tile('Best pace', lap(top && top.pace), top ? esc(top.name) : '', 'acc') + tile('Average team pace', lap(avg), wp.length + ' drivers') + tile('Best quali', lap(tl && tl.best), tl ? esc(tl.name) : '', 'purple') +
         tile('Your pace', lap(mine && mine.pace), mine && top ? (mine === top ? 'the best' : gap(mine.pace - top.pace)) : '') + '</div>' +
-        '<div class="scroll mt10"><table class="tbl"><thead><tr><th>Driver</th><th class="num">Pace</th><th class="num">Gap</th><th class="num">Best</th><th>Cars</th></tr></thead><tbody>' +
+        both('<div class="scroll mt10"><table class="tbl"><thead><tr><th>Driver</th><th class="num">Pace</th><th class="num">Gap</th><th class="num">Best</th><th>Cars</th></tr></thead><tbody>' +
         ds.map(function (x) { return '<tr' + (x.me ? ' class="me"' : '') + '><td>' + esc(x.name) + '</td><td class="num">' + lap(x.pace) + '</td><td class="num">' + (top && x.pace > 0 ? (x === top ? 'best' : gap(x.pace - top.pace)) : '--') + '</td><td class="num purple">' + lap(x.best) + '</td>' +
-          '<td>' + esc(x.paceCar || x.bestCar) + (x.cars > 1 ? '<span class="two">' + x.cars + ' cars · fastest lap ' + esc(x.bestCar) + (x.consCar ? ' · steadiest ' + esc(x.consCar) : '') + '</span>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>');
+          '<td>' + esc(x.paceCar || x.bestCar) + (x.cars > 1 ? '<span class="two">' + x.cars + ' cars · fastest lap ' + esc(x.bestCar) + (x.consCar ? ' · steadiest ' + esc(x.consCar) : '') + '</span>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>',
+        '<div class="mlist mt10">' + ds.map(function (x, i) {
+          return '<div class="mrow' + (x.me ? ' me' : '') + '"><div class="mr-top"><b><span class="faint">' + (i + 1) + '</span> ' + esc(x.name) + (x.me ? ' <small class="acc">you</small>' : '') + '</b><span class="mono">' + lap(x.pace) + '</span></div>' +
+            '<div class="mr-grid">' + mcell('Gap', top && x.pace > 0 ? (x === top ? 'best' : gap(x.pace - top.pace)) : '--', x === top ? 'green' : '') + mcell('Best lap', lap(x.best), 'purple') + mcell('Cars', x.cars) + '</div>' +
+            '<div class="mr-sub">' + esc(x.paceCar || x.bestCar) + (x.cars > 1 && x.consCar ? ' · steadiest ' + esc(x.consCar) : '') + '</div></div>';
+        }).join('') + '</div>'));
     } else {
       var list = Object.keys(by).map(function (k3) { return by[k3]; }).sort(function (a, b) { return b.last - a.last; });
-      h += card('Tracks', '<div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Best pace</th><th class="num">Team avg</th><th class="num">Yours</th></tr></thead><tbody>' + list.map(function (g) {
+      var mob = list.map(function (g) {
+        var ds2 = perDriver(g.rows), wp2 = ds2.filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; }), top2 = wp2[0], mine2 = wp2.filter(function (x) { return x.me; })[0];
+        var avg2 = wp2.length ? wp2.reduce(function (t, x) { return t + x.pace; }, 0) / wp2.length : 0;
+        return '<a class="mrow click" href="#/pace/' + encodeURIComponent(g.name) + '"><div class="mr-top"><b>' + esc(g.name) + '</b><span class="mono">' + lap(top2 && top2.pace) + '</span></div>' +
+          '<div class="mr-grid">' + mcell('Fastest', top2 ? esc(top2.name) : '--') + mcell('Team avg', lap(avg2)) + mcell('Yours', lap(mine2 && mine2.pace), mine2 && mine2 === top2 ? 'green' : '') + '</div>' +
+          '<div class="mr-sub">' + ds2.length + ' drivers<em>&rsaquo;</em></div></a>';
+      }).join('');
+      h += card('Tracks', both('<div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Best pace</th><th class="num">Team avg</th><th class="num">Yours</th></tr></thead><tbody>' + list.map(function (g) {
         var ds2 = perDriver(g.rows), wp2 = ds2.filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; }), top2 = wp2[0], mine2 = wp2.filter(function (x) { return x.me; })[0];
         var avg2 = wp2.length ? wp2.reduce(function (t, x) { return t + x.pace; }, 0) / wp2.length : 0;
         return '<tr class="click" data-k="' + esc(g.name) + '"><td><b>' + esc(g.name) + '</b><span class="two">' + ds2.length + ' drivers</span></td><td class="num">' + lap(top2 && top2.pace) + '<span class="two">' + (top2 ? esc(top2.name) : '') + '</span></td>' +
           '<td class="num">' + lap(avg2) + '</td><td class="num' + (mine2 && mine2 === top2 ? ' green' : '') + '">' + lap(mine2 && mine2.pace) + '</td></tr>';
-      }).join('') + '</tbody></table></div>');
+      }).join('') + '</tbody></table></div>', '<div class="mlist">' + mob + '</div>'));
     }
     view.innerHTML = h;
     view.onclick = function (e) {
@@ -263,7 +349,7 @@
       card('Your teams', '<div class="people">' + ts.map(function (t) {
         return '<button class="person pick' + (t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '"><i>' + initial(t.name) + '</i><span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span></button>';
       }).join('') + '</div><div class="sub mt10">Invites, roles and leaving a team: in the desktop app.</div>') + '</div>';
-    view.onclick = function (e) { var b = e.target.closest('[data-team]'); if (!b) return; $('tsel').value = b.getAttribute('data-team'); $('tsel').onchange.call($('tsel')); };
+    view.onclick = function (e) { var b = e.target.closest('[data-team]'); if (!b) return; pickTeam(+b.getAttribute('data-team')); };
   }
 
   // ---------- me ----------
@@ -271,7 +357,7 @@
   var mine = null, myCls = '';
   function account() {
     view.onclick = null;
-    if (!mine) { view.innerHTML = '<div class="faint mt20">Loading...</div>'; get('/api/v1/me/pace').then(function (l) { mine = l || []; account(); }, function (e) { if (e.status === 401) login(); else { mine = []; account(); } }); return; }
+    if (!mine) { view.innerHTML = skel(); window.scrollTo(0, 0); return get('/api/v1/me/pace').then(function (l) { mine = l || []; account(); drawn(); }, function (e) { drawing = false; if (e.status === 401) login(); else if (!e.status) offline(); else { mine = []; account(); } }); }
     var ratio = function (t, b) { return t > 0 && b > 0 ? t / b : 0; };
     var catChip = function (r) { var k = R.category(r); return k ? '<span class="cat" data-bgc="' + k.color + '">' + esc(k.name) + '</span>' : ''; };
     // as the desktop app's Race Pace page: one class at a time (the one you drove most first), a row per track; your level = the average % over its tracks
@@ -291,21 +377,27 @@
         tile('Tracks', rows.length, F.count(laps) + ' laps · ' + ses + ' sessions') +
         tile('Last driven', rows.length ? ago(rows[0].last) : '--', rows.length ? esc(rows[0].track) : '') + '</div>';
       h += card('Tracks', '<div class="sub">' + esc(clsLabel(myCls)) + ': race pace compared with the alien times of the LMU laptimes sheet (race sessions; sessions on an older game version are left out).</div>' +
-        '<div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Cars</th><th class="num">Sessions</th><th class="num">Laps</th><th class="num">Best lap</th><th class="num">Fastest lap %</th><th class="num">Race pace</th><th class="num">Race pace %</th><th>Category</th><th class="num">Last driven</th></tr></thead><tbody>' +
+        both('<div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Cars</th><th class="num">Sessions</th><th class="num">Laps</th><th class="num">Best lap</th><th class="num">Fastest lap %</th><th class="num">Race pace</th><th class="num">Race pace %</th><th>Category</th><th class="num">Last driven</th></tr></thead><tbody>' +
         rows.map(function (p) {
           var r1 = p.clean >= 5 ? ratio(p.pace, p.refPace) : 0, r2 = ratio(p.best, p.refHot);
           return '<tr><td><b>' + esc(p.track) + '</b>' + (p.refPace || p.refHot ? '' : '<span class="two">not in the sheet</span>') + '</td><td class="num">' + (p.cars || 1) + '</td><td class="num">' + (p.sessions || '--') + '</td><td class="num">' + F.count(p.laps) + '</td>' +
             '<td class="num purple">' + lap(p.best) + '<span class="two">' + esc(p.car) + '</span></td><td class="num">' + (r2 ? F.pctOver(r2) : '--') + '</td>' +
             '<td class="num">' + lap(p.pace) + '<span class="two">' + (p.clean ? p.clean + ' laps' : '') + '</span></td><td class="num"><b>' + (r1 ? F.pctOver(r1) : '--') + '</b></td>' +
             '<td>' + catChip(r1) + '</td><td class="num muted">' + esc(F.day(p.last)) + '</td></tr>';
-        }).join('') + '</tbody></table></div>');
+        }).join('') + '</tbody></table></div>', '<div class="mlist">' + rows.map(function (p) {
+          var r1 = p.clean >= 5 ? ratio(p.pace, p.refPace) : 0, r2 = ratio(p.best, p.refHot);
+          return '<div class="mrow"><div class="mr-top"><b>' + esc(p.track) + '</b>' + (catChip(r1) || '<span class="faint">' + (p.refPace ? 'no pace yet' : 'not in the sheet') + '</span>') + '</div>' +
+            '<div class="mr-grid">' + mcell('Race pace', lap(p.pace) + (r1 ? ' <small>' + F.pctOver(r1) + '</small>' : '')) + mcell('Best lap', lap(p.best) + (r2 ? ' <small>' + F.pctOver(r2) + '</small>' : ''), 'purple') + mcell('Laps', F.count(p.laps)) + '</div>' +
+            '<div class="mr-sub">' + esc(p.car) + ' · ' + (p.sessions || 0) + ' sessions · ' + esc(ago(p.last)) + '</div></div>';
+        }).join('') + '</div>'));
     }
     h += '<div class="cols">' + card('Account', '<div class="tiles">' + tile('Name', esc(me.name), 'in your teams') + tile('Discord', me.discord ? esc(me.discord) : '--', me.discord ? 'linked' : 'link it in the desktop app') +
         tile('Teams', (me.teams || []).length, esc((me.teams || []).map(function (t) { return t.name; }).join(', '))) + '</div>' +
         '<div class="sub mt14">The web can only look; changes are made in the desktop app.</div>' +
-        '<button class="btn wide" id="out">Log out here</button>') + '</div>';
+        '<button class="btn wide" id="out">Log out here</button>') + installCard() + '</div>';
     view.innerHTML = h; paint(view);
     $('out').onclick = function () { mine = null; post('/api/v1/web/logout').then(login, login); };
+    var ib = $('installBtn'); if (ib) ib.onclick = function () { if (!installEv) return; installEv.prompt(); installEv.userChoice.then(function () { installEv = null; account(); }, function () {}); };
     view.onclick = function (e) { var b = e.target.closest('[data-mc]'); if (b) { myCls = b.getAttribute('data-mc'); account(); } };
   }
 
@@ -364,7 +456,7 @@
     view.innerHTML = h; paint(view); P.liveCar.paint(view);
     view.onclick = function (e) {
       var b = e.target.closest('[data-lv]'); if (b) { lvTab = b.getAttribute('data-lv'); return liveView(); }
-      var tr = e.target.closest('tr[data-lst]'); if (tr) { var i = +tr.getAttribute('data-lst'); lvOpenStint[i] = !lvOpenStint[i]; liveView(); }
+      var tr = e.target.closest('[data-lst]'); if (tr) { var i = +tr.getAttribute('data-lst'); lvOpenStint[i] = !lvOpenStint[i]; liveView(); }
     };
   }
   // the car: live-car.js (shared with the desktop app's Team tab)
@@ -374,12 +466,30 @@
     var laps = (x.laps || []).map(function (l) { return [l[0], l[1] > 0 ? l[1] : null, l[2] ? 1 : 0, null, (x.car && x.car.driver) || x.name, l[3] > 0 ? l[3] : null, l[4] >= 0 ? l[4] : null, null, -1]; });
     if (!laps.length) return '<div class="sub mt14">No laps yet in this session.</div>';
     var st = RM.stints({ laps: laps });
-    return '<div class="sub mt14">Stints of this session: tap one for its laps.</div><div class="scroll"><table class="tbl"><thead><tr><th class="num">#</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE/lap</th><th class="num">VE left</th><th></th></tr></thead><tbody>' +
+    var mob = st.map(function (s, i) {
+      return '<div class="mrow click' + (lvOpenStint[i] ? ' open' : '') + '" data-lst="' + i + '"><div class="mr-top"><b>Stint ' + s.n + ' <span class="faint">laps ' + s.from + '-' + s.to + '</span></b><span class="mono">' + lap(s.avg) + '</span></div>' +
+        '<div class="mr-grid">' + mcell('Fastest', lap(s.best), 'purple') + mcell('VE/lap', s.ve ? F.pct(s.ve, 2) : '--') + mcell('VE left', s.veLeft >= 0 && s.veLeft !== null ? F.pct(s.veLeft, 1) : '--') + '</div>' +
+        '<div class="mr-sub">' + s.laps + ' laps · ' + s.clean + ' clean' + (i === st.length - 1 && !s.pitted ? ' · now' : s.pitted ? ' · stop' : '') + '<em>' + (lvOpenStint[i] ? 'Hide laps' : 'Laps') + '</em></div>' + (lvOpenStint[i] ? mLaps(s) : '') + '</div>';
+    }).join('');
+    return '<div class="sub mt14">Stints of this session: tap one for its laps.</div>' + both('<div class="scroll"><table class="tbl"><thead><tr><th class="num">#</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE/lap</th><th class="num">VE left</th><th></th></tr></thead><tbody>' +
       st.map(function (s, i) {
         return '<tr class="click' + (lvOpenStint[i] ? ' open' : '') + '" data-lst="' + i + '"><td class="num">' + s.n + '</td><td class="num">' + s.laps + '<span class="two">' + s.from + '-' + s.to + '</span></td><td class="num">' + lap(s.avg) + '<span class="two">' + s.clean + ' clean</span></td>' +
           '<td class="num purple">' + lap(s.best) + '</td><td class="num">' + (s.ve ? F.pct(s.ve, 2) : '--') + '</td><td class="num">' + (s.veLeft >= 0 && s.veLeft !== null ? F.pct(s.veLeft, 1) : '--') + '</td>' +
           '<td class="faint">' + (i === st.length - 1 && !s.pitted ? 'now' : s.pitted ? 'stop' : '') + '</td></tr>' + (lvOpenStint[i] ? lapsRow(s) : '');
-      }).join('') + '</tbody></table></div>';
+      }).join('') + '</tbody></table></div>', '<div class="mlist">' + mob + '</div>');
+  }
+
+  // ---------- an app on the phone: the service worker (sw.js: the app's files for offline starts) and "Install" ----------
+  var installEv = null, standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' }).catch(function () {});
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEv = e; if (/^#\/me/.test(location.hash) && me) account(); });
+  window.addEventListener('appinstalled', function () { installEv = null; standalone = true; });
+  function installCard() {
+    if (standalone) return '';
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (installEv) return card('The app on your phone', '<div class="sub">Install My LMU Hub: its own icon on your home screen, full screen, no browser bars.</div><button class="btn acc wide" id="installBtn">Install the app</button>');
+    if (ios) return card('The app on your phone', '<div class="sub">In Safari: tap <b>Share</b> (the square with the arrow), then <b>Add to Home Screen</b>. It opens full screen with its own icon.</div>');
+    return card('The app on your phone', '<div class="sub">In your browser\'s menu: <b>Install app</b> or <b>Add to Home screen</b>. It opens full screen with its own icon.</div>');
   }
 
   start();
