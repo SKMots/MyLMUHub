@@ -9,7 +9,7 @@
             dim: '#364260', sector: '#BCCBE2', int: '#8DEBFF', accent: '#FF9F43', ve: '#26BCFF', label: '#7A8BA8',
             blue: '#4AA3FF', tyreH: '#F2F2F2', bright: '#FFFFFF', marker: '#FF8A1F', track: '#1B2640',
             bg: '#050914', panel: '#0F1626', panelDark: '#070C18', border: '#1F2B47', focusRow: '#152A4F', focusMark: '#FFD400', rowLine: '#151E34',
-            redAccent: '#FF5252', limeAccent: '#02FF39', subtext: '#A2B3CF', faint: '#46557A', warnLabel: '#FF6B6B', dmgOk: '#14502F', dmgLight: '#FFB300',
+            redAccent: '#FF5252', limeAccent: '#02FF39', subtext: '#A2B3CF', faint: '#46557A', warnLabel: '#FF6B6B', dmgOk: '#1E262B', dmgLight: '#FFD21F',
             carBody: '#080D1A', noData: '#1F2A44' };
   var C = {}; for (var k in DEFAULTS) C[k] = 'var(--pw-' + k + ',' + DEFAULTS[k] + ')';
 

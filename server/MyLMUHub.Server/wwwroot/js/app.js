@@ -24,6 +24,11 @@
   function gap(d) { return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d).toFixed(3); }
   function roleWords(r) { return (r || []).map(function (x) { return x === 'owner' ? 'Owner' : x === 'engineer' ? 'Engineer' : 'Driver'; }).join(' + '); }
   function initial(n) { return esc((String(n || '?').trim()[0] || '?').toUpperCase()); }
+  // a team's logo (the team server keeps a PNG rebuilt from its pixels; members only), else its first letter
+  function tlogo(t, size) {
+    var at = t && t.logo, first = esc(String((t && t.name) || '?').trim().charAt(0).toUpperCase() || '?');
+    return '<span class="tlogo ' + (size || '') + '">' + (at ? '<img src="/api/v1/teams/' + (+t.id) + '/logo?v=' + (+at) + '" alt="">' : first) + '</span>';
+  }
   function card(title, body, extra) { return '<section class="card' + (extra ? ' ' + extra : '') + '">' + (title ? '<h2>' + title + '</h2>' : '') + body + '</section>'; }
   var view = $('view');
 
@@ -72,7 +77,7 @@
       team = ts.filter(function (t) { return t.id === keep; })[0] || ts[0] || null;
       $('who').innerHTML = '<i>' + initial(me.name) + '</i><span>' + esc(me.name) + '</span>'; $('who').hidden = false;
       $('tabbar').hidden = false; $('topnav').hidden = false; liveLoad(); livePoll();
-      $('tpick').hidden = ts.length < 2; $('tname').textContent = team ? team.name : '';
+      $('tpick').hidden = !team; $('tname').textContent = team ? team.name : ''; $('tlg').outerHTML = team ? tlogo(team, 'xs').replace('class="tlogo xs"', 'class="tlogo xs" id="tlg"') : '<span class="tlogo xs" id="tlg"></span>';
       route();
     }, function (e) { if (e.status === 401) login(); else offline(); });
   }
@@ -85,12 +90,13 @@
   // the team: a bottom sheet on a phone (a small panel on a computer)
   function pickTeam(id) {
     team = (me.teams || []).filter(function (t) { return t.id === id; })[0] || team; localStorage.setItem('mlh-team', String(team.id)); cls = ''; car = ''; $('tname').textContent = team.name;
+    $('tlg').outerHTML = tlogo(team, 'xs').replace('class="tlogo xs"', 'class="tlogo xs" id="tlg"');
     var h = location.hash; if (/^#\/(races|pace)\/./.test(h)) location.hash = h.replace(/^(#\/(races|pace)).*$/, '$1'); else route();
   }
   function sheet(open) {
     $('sheet').hidden = !open; document.body.classList.toggle('sheet-open', open);
     if (open) $('sheetList').innerHTML = (me.teams || []).map(function (t) {
-      return '<button class="person pick' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '"><i>' + initial(t.name) + '</i><span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span>' + (team && t.id === team.id ? '<em>✓</em>' : '') + '</button>';
+      return '<button class="person pick' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + tlogo(t, 'sm') + '<span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span>' + (team && t.id === team.id ? '<em>✓</em>' : '') + '</button>';
     }).join('');
   }
   $('tpick').onclick = function () { sheet(true); };
@@ -176,7 +182,7 @@
   function homeView(d) {
     var rs = d.results, best = rs.filter(function (x) { return x.result.classPos > 0; }).sort(function (a, b) { return a.result.classPos - b.result.classPos; })[0];
     var tr = perTrack(d), mineT = tr.filter(function (x) { return x.mine; }), fastest = mineT.filter(function (x) { return x.mine === x.top; });
-    var h = '<div class="hello"><span class="faint">' + esc(greet()) + ', ' + esc(me.name) + '</span><h1>' + esc(team.name) + '</h1></div>';
+    var h = '<div class="hello">' + tlogo(team, 'lg') + '<div><span class="faint">' + esc(greet()) + ', ' + esc(me.name) + '</span><h1>' + esc(team.name) + '</h1></div></div>';
     h += '<div class="tiles tiles4">' + tile('Team races', rs.length, rs.length ? 'last ' + ago(rs[0].result.date) : '') +
       tile('Best result', best ? 'P' + best.result.classPos : '--', best ? esc(trackName(best.result.track)) : '', 'acc') +
       tile('Members', d.members.length, esc(roleWords(team.roles)) ? 'you: ' + esc(roleWords(team.roles)) : '') +
@@ -346,12 +352,12 @@
   function teamView(d) {
     view.onclick = null;
     var ts = me.teams || [];
-    view.innerHTML = '<div class="pagehead"><h1>' + esc(team.name) + '</h1><span class="faint">' + d.members.length + ' members</span></div><div class="cols">' +
+    view.innerHTML = '<div class="pagehead teamhead">' + tlogo(team, 'lg') + '<h1>' + esc(team.name) + '</h1><span class="faint">' + d.members.length + ' members</span></div><div class="cols">' +
       card('Members', '<div class="people">' + d.members.map(function (m) {
         return '<div class="person' + (m.me ? ' me' : '') + '"><i>' + initial(m.name) + '</i><span><b>' + esc(m.name) + (m.me ? ' <small>you</small>' : '') + '</b><small>' + esc(roleWords(m.roles)) + '</small></span></div>';
       }).join('') + '</div>') +
       card('Your teams', '<div class="people">' + ts.map(function (t) {
-        return '<button class="person pick' + (t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '"><i>' + initial(t.name) + '</i><span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span></button>';
+        return '<button class="person pick' + (t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + tlogo(t, 'sm') + '<span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span></button>';
       }).join('') + '</div><div class="sub mt10">Invites, roles and leaving a team: in the desktop app.</div>') + '</div>';
     view.onclick = function (e) { var b = e.target.closest('[data-team]'); if (!b) return; pickTeam(+b.getAttribute('data-team')); };
   }

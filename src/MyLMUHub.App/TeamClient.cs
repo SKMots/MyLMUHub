@@ -129,6 +129,24 @@ public sealed class TeamClient
             }
             case "rename": return await Call(HttpMethod.Post, "/api/v1/me/name", new { name = S(b, "name") });
             case "createTeam": { var r = await Call(HttpMethod.Post, "/api/v1/teams", new { name = S(b, "name") }); if (r.Item1 == 200) Sync(); return r; }
+            // the team logo (owner: set / remove; the server keeps a PNG rebuilt from its pixels only); "logo" = the picture for the page (base64, PNG only)
+            case "setLogo": return team > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/logo", new { png = S(b, "png") }) : (400, "{}");
+            case "removeLogo": return team > 0 ? await Call(HttpMethod.Delete, $"/api/v1/teams/{team}/logo") : (400, "{}");
+            case "logo":
+            {
+                if (team <= 0 || url.Length == 0) return (400, "{}");
+                try
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, url + $"/api/v1/teams/{team}/logo");
+                    if (key.Length > 0) req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+                    using var res = await http.SendAsync(req);
+                    if (!res.IsSuccessStatusCode) return ((int)res.StatusCode, "{}");
+                    var bytes = await res.Content.ReadAsByteArrayAsync();
+                    bool png = bytes.Length > 8 && bytes.Length < 300_000 && bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71;   // a PNG, nothing else goes to the page
+                    return png ? (200, JsonSerializer.Serialize(new { png = Convert.ToBase64String(bytes) })) : (502, "{}");
+                }
+                catch (Exception) { return (502, "{}"); }
+            }
             case "renameTeam": return team > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/name", new { name = S(b, "name") }) : (400, "{}");
             case "renameMember": return team > 0 && user > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/members/{user}/name", new { name = S(b, "name") }) : (400, "{}");
             case "members": return team > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/members") : (400, "{}");

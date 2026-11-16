@@ -163,6 +163,8 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
   for team events (races of 2 h or more) by default; all sessions or off in Settings.
 - Connecting to a team server, joining a team with its invite code and your first and last name as in the game: on the **Settings** page.
 - **Team owners** rename the team (Team tab, Settings) and its members (Members: **Rename**), e.g. a first name only to the full name the game shows.
+- **Team logo:** the owner picks a picture (Team tab, Settings); it shows on the team cards, next to the team's name and on the website. The app makes it a
+  256 × 256 PNG, and the server checks it and keeps only its pixels (a new file made from them), so nothing hidden in a picture gets through.
 - **Strategy plans** find a member's race pace by the name you type: the full name from the race results finds the member even when they joined with only a first name.
 
 ![A team-mate racing, live](docs/images/team-live.png)

@@ -14,10 +14,17 @@
   .rcard .drv { font-size:12.5px; margin-top:3px; } .rcard .drv span { color:var(--faint); }
   .codebox { font-family:var(--mono); font-size:26px; letter-spacing:.08em; color:var(--lime); }
   .roles label { margin-right:10px; white-space:nowrap; font-size:13px; }
-  .tchips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .tchip { border:1px solid var(--line); background:var(--tile); border-radius:999px; padding:7px 14px; cursor:pointer; font-weight:700; font-size:13px; }
-  .tchip.on { border-color:var(--lime); color:var(--lime); }
-  .tchip small { color:var(--faint); font-weight:400; margin-left:6px; }
+  /* your teams: a card each, the team you look at stands out (owner 2026-11-16: make it obvious which team you are in, with its logo) */
+  .tchips { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  .tchip { display:flex; align-items:center; gap:12px; min-width:220px; border:1px solid var(--line); background:var(--tile); border-radius:14px; padding:10px 16px 10px 10px; cursor:pointer; color:var(--text); font:inherit; text-align:left; }
+  .tchip:hover { border-color:var(--muted); }
+  .tchip.on { border-color:var(--lime); background:var(--lime-dim); box-shadow:inset 0 0 0 1px var(--lime); }
+  .tchip b { display:block; font-size:16px; } .tchip small { display:block; color:var(--faint); font-size:12px; margin-top:2px; } .tchip.on small { color:var(--muted); }
+  .tlogo { flex:none; width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background:var(--tile2); color:var(--lime); font-weight:800; font-size:18px; overflow:hidden; }
+  .tlogo img { width:100%; height:100%; object-fit:contain; }
+  .tlogo.big { width:72px; height:72px; border-radius:16px; font-size:30px; }
+  .thead { display:flex; align-items:center; gap:16px; } .thead h2 { font-size:22px !important; letter-spacing:0 !important; text-transform:none !important; } .thead h2::before { display:none !important; }
+  .logo-edit { display:flex; align-items:center; gap:14px; margin-top:14px; flex-wrap:wrap; }
   .why { color:var(--faint); font-size:12px; }
   .tag { display:inline-block; border:1px solid var(--lime); color:var(--lime); border-radius:999px; padding:1px 8px; font-size:12px; font-weight:700; margin-right:4px; }
   .sm { padding:3px 10px; font-size:12px; }
@@ -99,10 +106,9 @@
   <div id="teamArea" hidden>
     <section class="card" style="margin-top:14px">
       <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
-        <h2 id="teamName">Team</h2>
+        <div class="thead"><span class="tlogo big" id="teamLogo"></span><div><h2 id="teamName">Team</h2><div class="faint" id="teamInfo" style="margin-top:4px"></div></div></div>
         <span class="seg" id="tabs"><a class="segl on" data-tab="overview">Overview</a><a class="segl" data-tab="pace">Race pace</a><a class="segl" data-tab="members">Members</a><a class="segl" data-tab="settings">Settings</a></span>
       </div>
-      <div class="faint" id="teamInfo" style="margin-top:4px"></div>
     </section>
 
     <div data-pane="overview">
@@ -176,6 +182,11 @@
       <section class="card" style="margin-top:14px">
         <h2>Settings for this team</h2>
         <label class="switch"><input type="checkbox" id="shareChk"><div><b>Share my race pace with this team</b><span>Your best lap, optimal lap and race pace per track and car, sent when you open this page. Deleted from the team when you leave it.</span></div></label>
+        <div id="logoBox" hidden>
+          <div class="logo-edit"><span class="tlogo big" id="logoPrev"></span>
+            <div><b>Team logo</b><div class="faint" style="font-size:12.5px;margin:2px 0 8px">A picture (PNG, JPG, ...): made 256 × 256 here, and the server keeps only its pixels.</div>
+            <button class="btn" id="logoPick">Choose a picture</button> <button class="btn" id="logoDel" hidden>Remove</button><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden></div></div>
+        </div>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="renameTeamBtn" hidden>Rename the team</button><button class="btn" id="leaveBtn">Leave this team</button></div>
       </section>
     </div>

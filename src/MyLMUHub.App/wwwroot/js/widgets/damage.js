@@ -52,7 +52,14 @@
   function carSvg(id, z, w, K) {
     var s = '<svg viewBox="0 0 100 220" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block">' +
       '<defs><clipPath id="' + id + '"><path d="' + BODY + '"/></clipPath></defs>';
-    TYRES.forEach(function (t, i) { s += '<rect x="' + t[0] + '" y="' + t[1] + '" width="' + t[2] + '" height="' + t[3] + '" rx="3" style="fill:' + w[i] + '"/>'; });   // under the arches
+    // the tyres as on the live car (live-car.js, owner 2026-11-16): coloured by temperature, a flat one filled red, a missing one only outlined (dashed),
+    // suspension damage a ring round it; w[i] = { fill, dashed, ring }
+    TYRES.forEach(function (t, i) {
+      var x = w[i] || {};
+      if (x.ring) s += '<rect x="' + (t[0] - 2.5) + '" y="' + (t[1] - 2.5) + '" width="' + (t[2] + 5) + '" height="' + (t[3] + 5) + '" rx="4.5" style="fill:none;stroke:' + x.ring + ';stroke-width:1.8"/>';
+      s += x.dashed ? '<rect x="' + t[0] + '" y="' + t[1] + '" width="' + t[2] + '" height="' + t[3] + '" rx="3" style="fill:none;stroke:' + x.fill + ';stroke-width:1.4;stroke-dasharray:3 2"/>'
+                    : '<rect x="' + t[0] + '" y="' + t[1] + '" width="' + t[2] + '" height="' + t[3] + '" rx="3" style="fill:' + x.fill + '"/>';
+    });
     s += '<rect x="18" y="1" width="64" height="6" rx="2" style="fill:' + z[0] + '"/>';                                       // front splitter
     s += '<g clip-path="url(#' + id + ')">' + PARTS.map(function (p) { return '<polygon points="' + p[1] + '" style="fill:' + z[p[0]] + ';stroke:' + K.bg + ';stroke-width:2.2"/>'; }).join('') + '</g>';
     s += '<path d="' + BODY + '" style="fill:none;stroke:' + K.outline + ';stroke-width:1.5"/>';
@@ -84,9 +91,13 @@
     return function (state) {
       var c = state.car || {}, dents = c.dents || [], z = [], w = [];
       for (var i = 0; i < 8; i++) z.push(showZ ? F.dentColor(i === 4 && c.detached ? 3 : dents[i], DENT) : K.zoneOk);
-      for (i = 0; i < 4; i++) { var wc = F.wheelColor((c.wheels || [])[i], WHEEL), sd = (c.suspWheels || [])[i]; if (wc === K.wheelOk && sd >= 0.02) wc = sd >= 0.25 ? K.suspHeavy : K.suspLight; w.push(showW ? wc : K.wheelOk); }
-      e.zoneColors = z; e.wheelColors = w;
-      var key = z.join('|') + '|' + w.join('|'); if (key !== e.carKey) { e.car.innerHTML = carSvg(id, z, w, K); e.carKey = key; }   // drawn again only when a colour changes
+      for (i = 0; i < 4; i++) {
+        var wh = (c.wheels || [])[i], wc = F.wheelColor(wh, WHEEL), sd = (c.suspWheels || [])[i], t = wh && wh.temp !== null && wh.temp !== undefined ? wh.temp : null;
+        if (!showW) { w.push({ fill: K.wheelOk }); continue; }
+        w.push({ fill: wc === K.wheelOk ? (t !== null ? F.tyreTempColor(t, K.wheelOk) : K.wheelOk) : wc, dashed: wc === K.wheelOff && !!(wh && wh.detached), ring: sd >= 0.02 ? (sd >= 0.25 ? K.suspHeavy : K.suspLight) : '' });
+      }
+      e.zoneColors = z; e.wheelColors = w.map(function (x) { return x.fill; });
+      var key = z.join('|') + '|' + JSON.stringify(w); if (key !== e.carKey) { e.car.innerHTML = carSvg(id, z, w, K); e.carKey = key; }   // drawn again only when a colour changes
       var eng = c.engine === 'off' ? 'ENGINE OFF' : (c.engine === 'overheat' ? 'OVERHEATING' : ''); D.show(e.engine, !!eng); if (eng) D.text(e.engine, eng);
       ['aero', 'body', 'susp'].forEach(function (n) {
         var v = c[n], col = F.condColor(v, COND), px = Math.round(k.ux(e.barW) * (v >= 0 ? Math.max(0, Math.min(1, v)) : 0)), b = e.bar[n];

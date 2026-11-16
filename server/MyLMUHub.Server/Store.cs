@@ -4,7 +4,7 @@ namespace MyLMUHub.Server;
 
 public sealed record User(long Id, string Name, bool Admin);
 public sealed record Member(long UserId, string Name, Role Roles, long Joined);
-public sealed record TeamOf(long Id, string Name, Role Roles);
+public sealed record TeamOf(long Id, string Name, Role Roles, long LogoAt = 0);   // LogoAt: when the logo was set (unix s), 0 = none
 
 /// <summary>The server's data in one SQLite file (data/team.db). Every value goes in as a parameter (never pasted into SQL). Race results are stored as
 /// the JSON the server itself wrote from the checked fields, never the bytes a member sent.
@@ -38,6 +38,7 @@ public sealed partial class Store
         // added later (2026-11-16): every lap of a race (kept apart: the list of results stays small), consistency per pace row
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('results') WHERE name = 'laps'")) == 0) Exec(c, "ALTER TABLE results ADD COLUMN laps TEXT");
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('pace') WHERE name = 'sd'")) == 0) Exec(c, "ALTER TABLE pace ADD COLUMN sd REAL");
+        if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('teams') WHERE name = 'logo'")) == 0) { Exec(c, "ALTER TABLE teams ADD COLUMN logo BLOB"); Exec(c, "ALTER TABLE teams ADD COLUMN logo_at INTEGER NOT NULL DEFAULT 0"); }
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('my_pace') WHERE name = 'cars'")) == 0) Exec(c, "ALTER TABLE my_pace ADD COLUMN cars INTEGER NOT NULL DEFAULT 0");
         WebSchema(c);                                                                         // the website: phone logins, pairing codes, Discord (Store.Web.cs)
     }
@@ -67,6 +68,9 @@ public sealed partial class Store
         using var r = cmd.ExecuteReader(); return r.Read() ? new User(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1) : null;
     }
     public void Rename(long user, string name) { using var c = Open(); Exec(c, "UPDATE users SET name = $n WHERE id = $u", ("$n", name), ("$u", user)); }
+    // ---- the team logo: a PNG rebuilt by PngCheck (never the upload itself); null = none ----
+    public void SetLogo(long team, byte[] png) { using var c = Open(); Exec(c, "UPDATE teams SET logo = $l, logo_at = $at WHERE id = $t", ("$l", png), ("$at", png == null ? 0 : Now), ("$t", team)); }
+    public byte[] Logo(long team) { using var c = Open(); return Scalar(c, "SELECT logo FROM teams WHERE id = $t", ("$t", team)) as byte[]; }
     public void RenameTeam(long team, string name) { using var c = Open(); Exec(c, "UPDATE teams SET name = $n WHERE id = $t", ("$n", name), ("$t", team)); }
     /// <summary>A new key for this user (the old one stops working): "log out everywhere" / a lost PC.</summary>
     public string NewKeyFor(long user) { var k = Auth.NewKey(); using var c = Open(); Exec(c, "UPDATE users SET key_hash = $k WHERE id = $u", ("$k", Auth.Hash(k)), ("$u", user)); return k; }
@@ -81,8 +85,8 @@ public sealed partial class Store
     }
     public List<TeamOf> TeamsOf(long user)
     {
-        using var c = Open(); using var cmd = Cmd(c, "SELECT t.id, t.name, m.roles FROM members m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $u ORDER BY t.name", ("$u", user));
-        using var r = cmd.ExecuteReader(); var l = new List<TeamOf>(); while (r.Read()) l.Add(new TeamOf(r.GetInt64(0), r.GetString(1), (Role)r.GetInt64(2))); return l;
+        using var c = Open(); using var cmd = Cmd(c, "SELECT t.id, t.name, m.roles, t.logo_at FROM members m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $u ORDER BY t.name", ("$u", user));
+        using var r = cmd.ExecuteReader(); var l = new List<TeamOf>(); while (r.Read()) l.Add(new TeamOf(r.GetInt64(0), r.GetString(1), (Role)r.GetInt64(2), r.GetInt64(3))); return l;
     }
     public Role RolesIn(long team, long user)
     {

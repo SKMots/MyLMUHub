@@ -9,7 +9,7 @@
     rowLine: 'Divider lines', track: 'Track lines', white: 'Text', bright: 'White', muted: 'Muted text', label: 'Labels', dim: 'Dim (no value)', sector: 'Light grey-blue',
     int: 'Ice blue', accent: 'Orange', marker: 'Dark orange', purple: 'Purple (class best)', green: 'Green (faster / good)', red: 'Red (slower / warning)',
     yellow: 'Yellow', blue: 'Blue', ve: 'Cyan', tyreH: 'Off-white', redAccent: 'Light red', limeAccent: 'Lime', subtext: 'Soft text', faint: 'Faint text',
-    warnLabel: 'Soft red', dmgOk: 'Dark green', dmgLight: 'Amber', carBody: 'Near black', noData: 'Slate (no data)' };
+    warnLabel: 'Soft red', dmgOk: 'Dark grey', dmgLight: 'Yellow', carBody: 'Near black', noData: 'Slate (no data)' };
   // fonts that come with Windows 10 / 11 (no download): the race-display ones first
   var FONTS = ['Bahnschrift', 'Bahnschrift SemiCondensed', 'Bahnschrift Condensed', 'Bahnschrift SemiBold', 'Bahnschrift Light', 'Segoe UI', 'Segoe UI Semibold', 'Segoe UI Black',
     'Segoe UI Variable', 'Segoe UI Variable Display', 'Arial', 'Arial Black', 'Arial Narrow', 'Calibri', 'Candara', 'Corbel', 'Franklin Gothic Medium', 'Gadugi', 'Leelawadee UI',
@@ -65,20 +65,20 @@
       bg: '#0B0B0C', panel: '#151618', panelDark: '#1D1E21', border: '#26272B', white: '#F2F3F0', bright: '#FFFFFF', muted: '#A3A59F', label: '#8A8C87',
       dim: '#4A4C49', sector: '#DCDDD8', int: '#C8F24A', accent: '#C8F24A', marker: '#C8F24A', purple: '#B47CFF', green: '#3DDC84', red: '#FF5A5F',
       yellow: '#FFD21F', blue: '#5AA9FF', ve: '#35D0E3', tyreH: '#FFFFFF', track: '#2E3033', focusRow: '#2A3210', focusMark: '#C8F24A', rowLine: '#1E1F22',
-      redAccent: '#C8F24A', limeAccent: '#C8F24A', subtext: '#B5B7B1', faint: '#5E605C', warnLabel: '#FF8085', dmgOk: '#1E3A26', dmgLight: '#F5A524',
+      redAccent: '#C8F24A', limeAccent: '#C8F24A', subtext: '#B5B7B1', faint: '#5E605C', warnLabel: '#FF8085', dmgOk: '#1E262B', dmgLight: '#FFD21F',
       carBody: '#08080A', noData: '#2A2B2F' } },
     teal: { name: 'Teal (black, teal: race control screen)', font: 'Segoe UI', radius: 10, strips: false, look: 'classic', texture: 'none', backdrop: 'plain', icons: 'line', colors: {
       bg: '#030405', panel: '#0A0C0E', panelDark: '#07090A', border: '#1D2328', white: '#E9EEEF', bright: '#FFFFFF', muted: '#A3AEB2', label: '#7D8A90',
       dim: '#3A4448', sector: '#D3DADC', int: '#FFFFFF', accent: '#35C8C0', marker: '#FF8A3D', purple: '#C08CFF', green: '#3DDC84', red: '#FF4D5A',
       yellow: '#FFD21F', blue: '#3FA9F5', ve: '#35C8C0', tyreH: '#FFFFFF', track: '#2E9DAA', focusRow: '#0E2E2D', focusMark: '#35C8C0', rowLine: '#14191C',
-      redAccent: '#E0434F', limeAccent: '#35C8C0', subtext: '#B3BEC2', faint: '#4A565B', warnLabel: '#FF7A85', dmgOk: '#123A2C', dmgLight: '#F5A524',
+      redAccent: '#E0434F', limeAccent: '#35C8C0', subtext: '#B3BEC2', faint: '#4A565B', warnLabel: '#FF7A85', dmgOk: '#1E262B', dmgLight: '#FFD21F',
       carBody: '#000000', noData: '#1C2428' } },
     // light: white panels on light grey, dark text; timing / warning colours darker so they read on white
     daylight: { name: 'Daylight (light)', font: 'Segoe UI', radius: 10, strips: true, look: 'classic', texture: 'none', backdrop: 'plain', icons: 'line', colors: {
       bg: '#E9ECEF', panel: '#FFFFFF', panelDark: '#F3F5F7', border: '#D2D7DD', white: '#16181C', bright: '#000000', muted: '#4D545C', label: '#5F6770',
       dim: '#A6ADB5', sector: '#2E353D', int: '#0A6E8C', accent: '#E06A00', marker: '#E06A00', purple: '#7A3FE0', green: '#14894B', red: '#D7263D',
       yellow: '#C99300', blue: '#1F6FD1', ve: '#0E8FA8', tyreH: '#6B7280', track: '#C3C9D0', focusRow: '#FFF1BF', focusMark: '#E0A800', rowLine: '#E6E9EC',
-      redAccent: '#D7263D', limeAccent: '#5E8C00', subtext: '#4D545C', faint: '#A0A7AF', warnLabel: '#C2410C', dmgOk: '#CFE8D7', dmgLight: '#E8981A',
+      redAccent: '#D7263D', limeAccent: '#5E8C00', subtext: '#4D545C', faint: '#A0A7AF', warnLabel: '#C2410C', dmgOk: '#D3D8DE', dmgLight: '#E0A800',
       carBody: '#C7CCD2', noData: '#DCE0E4' } },
     // navy: the original SimHub dashboard's colours (format.js defaults; key 'original' kept so saved layouts still find it)
     original: { name: 'Navy (the original SimHub look)', font: '', radius: 8, strips: true, look: 'classic', texture: 'none', backdrop: 'plain', icons: 'classic', colors: {} }

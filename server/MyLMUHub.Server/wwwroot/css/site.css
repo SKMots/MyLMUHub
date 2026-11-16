@@ -157,6 +157,14 @@ h1, h2, h3 { margin:0; }
 @keyframes sheetup { from { transform:translateY(30%); opacity:.4; } to { transform:none; opacity:1; } }
 @media (min-width: 900px) { .sheet-bg { background:transparent; } .sheet-box { left:auto; right:24px; bottom:auto; top:62px; width:340px; border:1px solid var(--line); border-radius:12px; padding:12px; animation:none; } .sheet-grip { display:none; } }
 
+/* team logos (or the first letter): xs in the top bar, sm in lists, lg next to the team's name */
+.tlogo { flex:none; display:inline-grid; place-items:center; overflow:hidden; background:var(--tile2); color:var(--acc); font-weight:800; border-radius:8px; width:30px; height:30px; font-size:14px; }
+.tlogo img { width:100%; height:100%; object-fit:contain; display:block; }
+.tlogo.xs { width:22px; height:22px; border-radius:6px; font-size:11px; } .tlogo.sm { width:34px; height:34px; border-radius:9px; font-size:15px; }
+.tlogo.lg { width:58px; height:58px; border-radius:14px; font-size:24px; border:1px solid var(--line); }
+.hello { display:flex; align-items:center; gap:14px; } .pagehead.teamhead { align-items:center; }
+@media (min-width: 900px) { .tlogo.lg { width:72px; height:72px; border-radius:16px; font-size:30px; } }
+
 /* pages */
 .pagehead { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-top:8px; }
 .pagehead h1 { font-size:24px; font-weight:800; letter-spacing:-.01em; }

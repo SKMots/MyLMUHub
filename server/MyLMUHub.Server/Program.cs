@@ -126,7 +126,7 @@ public static class Server
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key");
             return Results.Json(new { id = me.Id, name = me.Name, admin = me.Admin, discord = store.DiscordName(me.Id), phones = store.Sessions(me.Id),
-                teams = store.TeamsOf(me.Id).Select(t => new { id = t.Id, name = t.Name, roles = Check.Words(t.Roles) }) });
+                teams = store.TeamsOf(me.Id).Select(t => new { id = t.Id, name = t.Name, roles = Check.Words(t.Roles), logo = t.LogoAt }) });
         });
         app.MapPost("/api/v1/me/name", (HttpContext ctx, NameReq r) =>
         {
@@ -167,6 +167,29 @@ public static class Server
             var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
             var name = Check.Text(r?.Name, 40); if (name == null) return Err(400, "name");
             store.RenameTeam(team, name); return Results.Json(new { ok = true });
+        });
+        // the team logo: the owner sets / removes it (PngCheck: only a plain PNG, rebuilt from its pixels); the members (and their phones) see it
+        app.MapPost("/api/v1/teams/{team:long}/logo", (HttpContext ctx, long team, LogoReq r) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key");
+            var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
+            byte[] raw; try { raw = Convert.FromBase64String(r?.Png ?? ""); } catch (FormatException) { return Err(400, "logo: not base64"); }
+            var (png, why) = PngCheck.Clean(raw); if (png == null) return Err(400, "logo: " + why);
+            store.SetLogo(team, png); log.LogInformation("team {team}: new logo ({bytes} bytes)", team, png.Length);
+            return Results.Json(new { ok = true, bytes = png.Length });
+        }).RequireRateLimiting("upload");
+        app.MapDelete("/api/v1/teams/{team:long}/logo", (HttpContext ctx, long team) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key");
+            var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
+            store.SetLogo(team, null); return Results.Json(new { ok = true });
+        });
+        app.MapGet("/api/v1/teams/{team:long}/logo", (HttpContext ctx, long team) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
+            var png = store.Logo(team); if (png == null) return Err(404, "no logo");
+            ctx.Response.Headers.ContentDisposition = "inline; filename=logo.png";
+            return Results.File(png, "image/png");
         });
         app.MapPost("/api/v1/teams/{team:long}/members/{user:long}/name", (HttpContext ctx, long team, long user, NameReq r) =>
         {

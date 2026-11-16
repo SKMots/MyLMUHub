@@ -40,6 +40,7 @@ public sealed class ResultReq
     public double FinishTime { get; set; }           // race time at the finish (s), 0 = not known; optional
 }
 /// <summary>A member's race pace for the team: one row per track + car (the hub's Race Pace numbers, dry): best lap, optimal lap, race pace, clean laps, laps, last driven.</summary>
+public sealed class LogoReq { public string Png { get; set; } }      // base64 of a PNG (the app made it: 256 x 256 at most)
 public sealed class PaceReq { public PaceRow[] Rows { get; set; } }
 public sealed class PaceRow
 {

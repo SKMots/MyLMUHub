@@ -56,7 +56,7 @@
   }
   function loadTeam() {
     show('teamArea', !!team); if (!team) return;
-    $('teamName').textContent = team.name; $('teamInfo').textContent = 'You: ' + roleWords(team.roles);
+    $('teamName').textContent = team.name; $('teamInfo').textContent = 'You: ' + roleWords(team.roles) + ' · ' + teams().length + (teams().length === 1 ? ' team' : ' teams'); loadLogos(); paintLogo();
     show('inviteBox', isOwner()); setTab(tab);
     var id = team.id;
     Promise.all([api('members', { team: id }), api('results', { team: id }), api('pace', { team: id }).catch(function () { return []; })]).then(function (a) {
@@ -67,13 +67,51 @@
   }
 
   // ---------- team chips + tabs ----------
+  // ---------- team logos (the team server: a PNG rebuilt from its pixels; fetched once per version of it) ----------
+  var logos = {};                                                                      // team id -> { at, src } (src '' = none / loading)
+  function logoHtml(t, big) {
+    var l = t && logos[t.id], first = esc(String((t && t.name) || '?').trim().charAt(0).toUpperCase() || '?');
+    return l && l.src ? '<img src="' + l.src + '" alt="">' : first;
+  }
+  function loadLogos() {
+    teams().forEach(function (t) {
+      var at = t.logo || 0, l = logos[t.id];
+      if (l && l.at === at) return;
+      logos[t.id] = { at: at, src: '' };
+      if (!at) { renderChips(); paintLogo(); return; }
+      api('logo', { team: t.id }).then(function (r) {
+        if (!r || !r.png || !/^[A-Za-z0-9+/=]+$/.test(r.png)) return;
+        logos[t.id] = { at: at, src: 'data:image/png;base64,' + r.png }; renderChips(); paintLogo();
+      }, function () {});
+    });
+  }
+  function paintLogo() { if (!team) return; $('teamLogo').innerHTML = logoHtml(team, true); $('logoPrev').innerHTML = logoHtml(team, true); show('logoDel', !!(team.logo)); }
   function renderChips() {
-    var waiting = function () { return 0; };
     $('chips').innerHTML = teams().map(function (t) {
-      var w = waiting(t.id);
-      return '<span class="tchip' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + esc(t.name) + (w ? '<small>' + w + ' new</small>' : '') + '</span>';
+      return '<button class="tchip' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '"><span class="tlogo">' + logoHtml(t) + '</span><span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span></button>';
     }).join('');
   }
+  // the owner: a picture -> 256 x 256 PNG here (canvas: only its pixels leave this PC) -> the server (which checks and rebuilds it)
+  $('logoPick').onclick = function () { $('logoFile').value = ''; $('logoFile').click(); };
+  $('logoFile').onchange = function () {
+    var f = this.files && this.files[0]; if (!f || !team) return;
+    if (f.size > 15 * 1024 * 1024) { info('That picture is too big (15 MB at most).', true); return; }
+    var url = URL.createObjectURL(f), img = new Image(), id = team.id;
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var send = function (side) {
+        var c = document.createElement('canvas'); c.width = c.height = side; var g = c.getContext('2d'), k = Math.min(side / img.width, side / img.height);
+        var w = Math.round(img.width * k), h = Math.round(img.height * k); g.drawImage(img, Math.round((side - w) / 2), Math.round((side - h) / 2), w, h);
+        var png = c.toDataURL('image/png').split(',')[1];
+        if (png.length > 230000 && side > 96) return send(Math.round(side * 0.75));                     // a busy photo: a little smaller
+        api('setLogo', { team: id, png: png }).then(function () { info('Logo saved.'); load(); }, function (e) { info('The logo was not saved: ' + e.message, true); });
+      };
+      send(256);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); info('That file is not a picture this app can read.', true); };
+    img.src = url;
+  };
+  $('logoDel').onclick = function () { if (team && confirm('Remove the logo of ' + team.name + '?')) api('removeLogo', { team: team.id }).then(function () { info('Logo removed.'); load(); }, function (e) { info(e.message, true); }); };
   $('chips').onclick = function (e) { var c = e.target.closest('[data-team]'); if (!c) return; team = teamById(+c.getAttribute('data-team')); paceTrack = null; show('rvArea', false); show('resCard', true); renderChips(); loadTeam(); };
   function setTab(t) {
     tab = t; try { localStorage.setItem('pw-team-tab', t); } catch (e) {}
@@ -346,7 +384,7 @@
   // ---------- settings ----------
   function renderSettings() {
     if (!team) return;
-    show('renameTeamBtn', isOwner());
+    show('renameTeamBtn', isOwner()); show('logoBox', isOwner()); paintLogo();
     var t = (sug.teams || []).filter(function (x) { return x.id === team.id; })[0];
     $('shareChk').checked = !t || t.share !== false;
   }
