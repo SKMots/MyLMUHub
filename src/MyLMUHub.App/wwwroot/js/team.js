@@ -84,6 +84,11 @@
   // ---------- team races from your files (sent by themselves, TeamClient.Suggest) ----------
   var STATUS = { 'sent': ['sent', 'var(--green)'], 'sent now': ['sent just now', 'var(--green)'], 'incomplete': ['not sent: incomplete (no finish or laps missing in your files)', 'var(--yellow)'],
     'unclear': ['not sent: fits more than one team', 'var(--yellow)'], 'unknown': ['not sent: no team recognised', 'var(--faint)'] };
+  // folded by default; the choice is kept
+  var newOpen = false; try { newOpen = localStorage.getItem('pw-team-races-open') === '1'; } catch (e) {}
+  function foldNew() { $('newBody').hidden = !newOpen; $('newArrow').innerHTML = newOpen ? '&#9662;' : '&#9656;'; }
+  $('newHead').onclick = function () { newOpen = !newOpen; try { localStorage.setItem('pw-team-races-open', newOpen ? '1' : '0'); } catch (e) {} foldNew(); };
+  foldNew();
   function renderNew() {
     var list = sug.races || [];
     show('newCard', !!teams().length);

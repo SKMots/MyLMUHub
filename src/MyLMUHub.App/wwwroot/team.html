@@ -69,15 +69,6 @@
     </div>
   </section>
 
-  <!-- the team races found in your files: sent by themselves -->
-  <section class="card" style="margin-top:14px" id="newCard" hidden>
-    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>Team races from your files</h2><span class="faint" id="syncInfo"></span></div>
-    <div class="sub">Your special events of the last 60 days (the game's scheduled endurance events, solo or with team-mates; daily races are not team races). Each is matched to a
-      team by the car's team name, the team's earlier races and team-mates in the car, and sent to it by itself: when the app starts, every 10 minutes, and when you
-      join a team. A race the team already has (sent by a team-mate) is not added twice.</div>
-    <div class="scroll" style="max-height:420px"><table class="tbl" id="newTbl"></table></div>
-  </section>
-
   <!-- one team -->
   <div id="teamArea" hidden>
     <section class="card" style="margin-top:14px">
@@ -179,6 +170,18 @@
         <label class="field">New team<input class="input" id="newTeamIn" placeholder="team name"></label>
         <button class="btn" id="newTeamBtn">Make the team</button>
       </div>
+    </div>
+  </section>
+  <!-- the team races found in your files: sent by themselves (owner 2026-11-16: at the bottom, folded) -->
+  <section class="card" style="margin-top:14px" id="newCard" hidden>
+    <div id="newHead" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;cursor:pointer">
+      <h2 style="margin:0"><span id="newArrow">&#9656;</span> Team races from your files</h2><span class="faint" id="syncInfo"></span>
+    </div>
+    <div id="newBody" hidden style="margin-top:10px">
+      <div class="sub">Your special events of the last 60 days (the game's scheduled endurance events, solo or with team-mates; daily races are not team races). Each is matched to a
+        team by the car's team name, the team's earlier races and team-mates in the car, and sent to it by itself: when the app starts, every 10 minutes, and when you
+        join a team. A race the team already has (sent by a team-mate) is not added twice.</div>
+      <div class="scroll" style="max-height:420px"><table class="tbl" id="newTbl"></table></div>
     </div>
   </section>
 </div>
