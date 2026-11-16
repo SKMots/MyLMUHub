@@ -13,10 +13,16 @@
   // 'VE per lap' plans. o = { pace: 'live' | 'plan', accepted: laps }
   function livePlan(plan, raceLive, o) {
     o = o || {}; var q = copy(plan), pace = SM().livePace(raceLive);
-    if (o.pace !== 'plan') q.drivers.forEach(function (d) { if (pace[d.name] > 0) d.lap = pace[d.name]; });
+    if (o.pace !== 'plan') q.drivers.forEach(function (d) { var v = SM().paceOf(pace, d.name); if (v > 0) d.lap = v; });
+    // tyre age from this race's laps (strategy-math tyreDeg; the laps before the app started have no lap log, but their tyre age counts)
+    var lv = raceLive ? SM().fromLive(raceLive, plan.length) : null;
+    if (lv && (lv.status === 'live' || lv.status === 'over')) { var deg = SM().tyreDeg((lv.stints || []).concat(lv.current ? [lv.current] : [])); if (deg) q.tyreDeg = deg; }
     var use = raceLive && raceLive.car ? raceLive.car.veUse : -1;
     if (q.ve && q.ve.mode !== 'laps' && use > 0) q.ve.perLap = use;
-    if (o.accepted > 0) { q.ve = { mode: 'laps', laps: Math.round(o.accepted), max: num(q.ve && q.ve.max, 100), reserve: num(q.ve && q.ve.reserve, 0), perLap: q.ve && q.ve.perLap, push: q.ve && q.ve.push }; q.stints = []; }
+    if (o.accepted > 0) { q.ve = { mode: 'laps', laps: Math.round(o.accepted), max: num(q.ve && q.ve.max, 100), reserve: num(q.ve && q.ve.reserve, 0), perLap: q.ve && q.ve.perLap, push: q.ve && q.ve.push };
+      // only the stint lengths go; who drives which stint and the tyres stay as planned (owner 2026-11-15: all the rest went to one driver)
+      q.stints = (q.stints || []).map(function (s) { var c = copy(s || {}); delete c.laps; return c; });
+    }
     return q;
   }
 

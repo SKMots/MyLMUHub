@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Race review</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+<style>
+  .finding { border-left:3px solid var(--line); padding:8px 12px; margin:8px 0; background:var(--tile); border-radius:6px; }
+  .finding b { display:block; margin-bottom:3px; }
+  .finding.ok { border-left-color:var(--green); } .finding.tip { border-left-color:var(--yellow); } .finding.info { border-left-color:var(--lime); }
+  #stintTbl tr.click td { cursor:pointer; }
+  #stintTbl tr.laps td { background:var(--tile); padding:6px 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div>
+        <h2>Race review</h2>
+        <div class="sub" style="margin-bottom:0">A race you drove, from the game's results file: every stint, the pit stops, the tyres, what worked and what could have been better.</div>
+      </div>
+      <div class="bar">
+        <span class="seg"><a class="segl" href="strategy.html">Endurance plan</a><a class="segl" href="quick.html">Quick race</a><a class="segl" href="live.html">Live</a><a class="segl on" href="review.html">Review</a></span>
+      </div>
+    </div>
+    <div class="form" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:12px">
+      <label class="field" style="min-width:420px">Race<select class="sel" id="raceSel"><option value="">Reading your result files...</option></select></label>
+      <label class="field">Compare with plan<select class="sel" id="planSel"></select></label>
+    </div>
+    <div class="faint" id="info" style="margin-top:8px"></div>
+  </section>
+
+  <div id="body" hidden>
+    <section class="card" style="margin-top:14px">
+      <h2>The race</h2>
+      <div class="sub" id="raceSub"></div>
+      <div class="tiles" id="sumTiles"></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2>What we see</h2>
+      <div id="findings"></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2>Stints</h2>
+      <div class="sub">Average = clean laps only (no in / out lap, nothing over 107 % of the stint's median). Stop = in-lap + out-lap against two normal laps. Click a stint for its laps.</div>
+      <div class="scroll"><table class="tbl" id="stintTbl"></table></div>
+    </section>
+
+    <section class="card" style="margin-top:14px" id="drvCard">
+      <h2>Drivers</h2>
+      <div class="scroll"><table class="tbl" id="drvTbl"></table></div>
+    </section>
+
+    <section class="card" style="margin-top:14px" id="whatCard">
+      <h2>What if</h2>
+      <div class="sub" id="whatSub"></div>
+      <div class="scroll"><table class="tbl" id="whatTbl"></table></div>
+    </section>
+  </div>
+</div>
+<script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/review-math.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/review.js"></script>
+</body>
+</html>

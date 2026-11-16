@@ -207,6 +207,7 @@
     var webview = root.chrome && root.chrome.webview;
     function switchTo(target) {
       if (!target) return;
+      if (target.charAt(0) === '!') { if (P.stintLapsKey) P.stintLapsKey(target === '!lapsUp' ? 1 : target === '!lapsDown' ? -1 : 0); return; }   // fuel widget: stint laps + / -
       var name = target === '>' ? ws.nextName() : target;
       if (name === ws.file.current) return;
       lm.flush(); if (ws.select(name)) show();
@@ -214,7 +215,7 @@
     function sendKeys() {
       if (!webview || !webview.postMessage || urlView) return;                                        // global hotkeys: the main Race Control window only
       var k = ws.file.keys, list = [];
-      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]);
+      if (k.next) list.push(k.next); for (var v in k.views) list.push(k.views[v]); for (var a in k.act || {}) list.push(k.act[a]);
       try { webview.postMessage({ hotkeys: list }); } catch (e) {}
     }
     if (webview && webview.addEventListener) webview.addEventListener('message', function (ev) {
@@ -225,7 +226,9 @@
     doc.addEventListener('keydown', function (ev) {
       var tag = ev.target && ev.target.tagName; if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       var target = ws.keyTarget(P.comboOf(ev));
-      if (target) { switchTo(target); ev.preventDefault(); ev.stopPropagation(); return; }
+      // the main window in the app: the app's key watcher already sends this press ({ hotkey }; the key is no longer taken from other programs, so the page
+      // sees it too): not twice
+      if (target) { if (!(webview && webview.postMessage && !urlView)) switchTo(target); ev.preventDefault(); ev.stopPropagation(); return; }
       if (ev.code === 'Space' && lm.edit && !ev.repeat) { doc.body.classList.add('preview'); lm.fit(); ev.preventDefault(); }   // hold Space: as it looks full screen
     }, true);
     doc.addEventListener('keyup', function (ev) { if (ev.code === 'Space' && doc.body.classList.contains('preview')) { doc.body.classList.remove('preview'); lm.fit(); } });

@@ -173,10 +173,45 @@ public sealed class PaceService
         }
     }
 
-    /// <summary>Your car's whole race, every driver's laps (the strategy planner copies its stint pattern): { track, layout, laps: [[n, time, pit 0/1, tyre left %
-    /// (null = not in the file), driver]] }; null = no race with your car in that file. A race you left and rejoined is in several files: all of them are used
+    /// <summary>Your car's whole race, every driver's laps (the strategy planner copies its stint pattern; the race review): { track, layout, laps: [[n, time,
+    /// pit 0/1, tyre left % (null = not in the file), driver, VE used %, VE left %, tyre left per wheel [FL FR RL RR] 0..1 (null = not in the file: a team-mate's
+    /// laps), race clock at the lap start]], car: { team, vehicle, carType, cls, pos, classPos, pitstops, finishTime, best, finish }, time, length (s, 0 = laps) }; null = no race with your car in that file. A race you left and rejoined is in several files: all of them are used
     /// (the laps from the file with the most, each lap's driver from whichever file's event log saw it).</summary>
     public object CarLaps(string file)
+    {
+        var f = FindRace(file); if (f == null) return null;
+        var (s, car, Who) = f.Value;
+        return new { track = s.Track, layout = s.Layout, time = s.Time,
+            laps = car.Laps.Select(l => new object[] { l.N, l.T, l.Pit ? 1 : 0, l.Wear, Who(l), l.Ve, l.VeLeft, l.Wheels, l.Et }),
+            car = new { team = car.Team, vehicle = car.VehName, carType = car.CarType, cls = car.CarClass, pos = car.Pos, classPos = car.ClassPos, pitstops = car.Pitstops,
+                finishTime = car.FinishTime, best = car.BestLap, finish = car.Finish } };
+    }
+
+    /// <summary>A race of your car for the team server (TeamClient): its result, every lap's time, pit and driver.</summary>
+    public RaceSum RaceSummary(string file)
+    {
+        var f = FindRace(file); if (f == null) return null;
+        var (s, car, Who) = f.Value;
+        return Summary(s, car, Who);
+    }
+    public static RaceSum Summary(ResultSession s, ResultCar car, Func<ResultLap, string> Who)
+    {
+        return new RaceSum
+        {
+            Track = s.Track, Time = s.Time, RaceKey = s.RaceKey.Length > 0 ? s.RaceKey : s.Track + "|" + s.Layout + "|" + s.Time, Length = s.RaceMinutes > 0 ? s.RaceMinutes * 60 : 0,
+            CarType = car.CarType, Cls = car.CarClass, Vehicle = car.VehName, Pos = car.Pos, ClassPos = car.ClassPos, Cars = s.Cars.Count,
+            ClassCars = s.Cars.Count(c => c.CarClass == car.CarClass), Best = car.BestLap, Finish = car.Finish,
+            Laps = car.Laps.Select(l => new RaceLap(l.N, l.T ?? -1, l.Pit, Who(l) ?? "")).ToList()
+        };
+    }
+    public sealed record RaceLap(int N, double T, bool Pit, string Driver);
+    public sealed class RaceSum
+    {
+        public string Track, RaceKey, CarType, Cls, Vehicle, Finish; public long Time; public double Length, Best; public int Pos, ClassPos, Cars, ClassCars; public List<RaceLap> Laps;
+    }
+
+    // your car's race in a results file (several files of one race: the most laps, every driver the event logs saw) and who drove each lap
+    (ResultSession, ResultCar, Func<ResultLap, string>)? FindRace(string file)
     {
         string dir = folder ?? FindFolder();
         if (dir == null || string.IsNullOrEmpty(file) || file != Path.GetFileName(file) || !file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) return null;
@@ -211,7 +246,7 @@ public sealed class PaceService
                 int before = known.LastOrDefault(n => n < l.N), after = known.FirstOrDefault(n => n > l.N);
                 return before > 0 && after > 0 && drivers[before] == drivers[after] ? drivers[before] : l.Driver;
             }
-            return new { track = s.Track, layout = s.Layout, laps = car.Laps.Select(l => new object[] { l.N, l.T, l.Pit ? 1 : 0, l.Wear, Who(l) }) };
+            return (s, car, (Func<ResultLap, string>)Who);
         }
         return null;
     }

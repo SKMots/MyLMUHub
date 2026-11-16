@@ -42,7 +42,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         }
         catch (Exception ex) { MessageBox.Show("Cannot open the replay file:\n" + ex.Message, "My LMU Hub"); return 1; }
 
-        var server = new DashServer(usePort, www ?? System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot"), AppPaths.Layout) { StrategyPath = AppPaths.Strategy, VeGoalsPath = AppPaths.VeGoals, StrategyLivePath = AppPaths.StrategyLive, HotkeyStatusPath = AppPaths.HotkeyStatus };
+        var server = new DashServer(usePort, www ?? System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot"), AppPaths.Layout) { StrategyPath = AppPaths.Strategy, StintLapsPath = AppPaths.StintLaps, StrategyLivePath = AppPaths.StrategyLive, HotkeyStatusPath = AppPaths.HotkeyStatus };
         try { server.Start(); }
         catch (Exception ex) { MessageBox.Show($"Cannot start the local web server on port {usePort}.\nIs another copy already running?\n\n{ex.Message}", "My LMU Hub"); return 1; }
         if (settings.LanAccess && port == 0) server.SetLan(true);                                // network access (no prompt here: a refused one shows in the page)
@@ -74,6 +74,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         server.GuestInfo = () => guests.Info(pace.GuestFiles);
         server.GuestDo = (what, name) => { if (what == "start") guests.Start(name); else if (what == "stop") guests.Stop(); else if (what == "delete") guests.Delete(name, pace.Folder, pace.HandGiven(name)); };
         server.SessionsInfo = pace.Files; server.SessionsDo = pace.Manage;                   // My sessions page: hide / give to a guest / delete result files
+        var team = new TeamClient(pace); server.Team = team.Do;                                    // the team server (Team page; your key stays in this app)
         server.Coach = new CoachService();                                                       // AI Coach: the user's own API key, asked only on a click
         var twitch = new TwitchViewers(); server.Twitch = twitch.Get;                            // viewer count for the Twitch chat widget
         var updates = new UpdateService();

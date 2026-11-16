@@ -4,6 +4,7 @@
 // A version-1 file ({ widgets: [...] }) becomes the view "Default".
 (function (root) {
   'use strict';
+  var ACTS = ['lapsUp', 'lapsDown'];                                         // hotkey actions: the fuel widget's stint laps + 1 / - 1 (owner 2026-11-15)
   var P = root.MyLMUHub = root.MyLMUHub || {};
   function copy(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -31,7 +32,8 @@
       if (raw.keys && typeof raw.keys === 'object') {
         f.keys.next = typeof raw.keys.next === 'string' ? raw.keys.next : '';
         for (var v in raw.keys.views || {}) if (f.views[v] && typeof raw.keys.views[v] === 'string' && raw.keys.views[v]) f.keys.views[v] = raw.keys.views[v];
-        var used = [f.keys.next].concat(Object.keys(f.keys.views).map(function (n) { return f.keys.views[n]; }));
+        ACTS.forEach(function (a) { var c = raw.keys.act && raw.keys.act[a]; if (typeof c === 'string' && c) (f.keys.act = f.keys.act || {})[a] = c; });   // fuel widget: stint laps + / -
+        var used = [f.keys.next].concat(Object.keys(f.keys.views).map(function (n) { return f.keys.views[n]; })).concat(Object.keys(f.keys.act || {}).map(function (a) { return f.keys.act[a]; }));
         for (var c in raw.keys.labels || {}) if (used.indexOf(c) >= 0 && typeof raw.keys.labels[c] === 'string') f.keys.labels[c] = raw.keys.labels[c];   // controller button names
       }
     } else if (raw && Array.isArray(raw.widgets) && raw.widgets.length) f.views.Default = { widgets: raw.widgets };
@@ -81,11 +83,14 @@
   W.setKey = function (target, combo, label) {
     var k = this.file.keys; combo = String(combo || ''); k.labels = k.labels || {};
     if (combo && label) k.labels[combo] = label;
-    if (combo) { if (k.next === combo) k.next = ''; for (var v in k.views) if (k.views[v] === combo) delete k.views[v]; }
-    if (target === '>') k.next = combo; else if (this.file.views[target]) { if (combo) k.views[target] = combo; else delete k.views[target]; }
+    if (combo) { if (k.next === combo) k.next = ''; for (var v in k.views) if (k.views[v] === combo) delete k.views[v]; for (var a0 in k.act || {}) if (k.act[a0] === combo) delete k.act[a0]; }
+    if (target === '>') k.next = combo;
+    else if (target.charAt(0) === '!') { var a = target.slice(1); k.act = k.act || {}; if (combo) k.act[a] = combo; else delete k.act[a]; if (!Object.keys(k.act).length) delete k.act; }   // actions (stint laps + / -)
+    else if (this.file.views[target]) { if (combo) k.views[target] = combo; else delete k.views[target]; }
   };
   W.keyTarget = function (combo) {
     if (!combo) return null; var k = this.file.keys; if (k.next === combo) return '>';
+    for (var a in k.act || {}) if (k.act[a] === combo) return '!' + a;
     for (var v in k.views) if (k.views[v] === combo) return v; return null;
   };
   // how a hotkey is shown: a controller button by its device name ('Fanatec ... · button 12'), a key as itself

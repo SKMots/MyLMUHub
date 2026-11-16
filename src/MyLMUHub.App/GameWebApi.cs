@@ -20,14 +20,15 @@ public sealed class GameWebApi : IDisposable
     /// <summary>The game's map: for which track, and its paths (null = not (yet) available).</summary>
     public volatile string MapTrack;
     public volatile List<double[][]> MapPaths;
-    /// <summary>Aero / suspension condition 0..1 of YOUR car (repair screen, DamageParse), -1 = not known.</summary>
-    public double Aero = -1, Susp = -1; public double[] SuspWheels;
+    /// <summary>The repair screen: your team's car (also while a team-mate drives it), its damage and tyres (DamageParse.ParseCar); null = not known.
+    /// The data pump uses it only when the car you watch IS that car (RepairCar.Is).</summary>
+    public volatile RepairCar Repair;
     /// <summary>The event (race length, fuel / VE limits, the game's laps-per-tank estimate) for the quick race planner; null = not read (yet). Every 60 s in a session.</summary>
     public volatile EventInfo Event;
 
     public GameWebApi(string appDir) { dumpDir = Path.Combine(appDir, "webapi"); }
 
-    /// <summary>Called by the data pump: the current session (-1 = none, nothing is polled), track, and whether you drive (the repair screen is only read then).</summary>
+    /// <summary>Called by the data pump: the current session (-1 = none, nothing is polled), track, and whether you drive.</summary>
     public void SetSession(int id, string trackName = "", bool playerDriving = false) { sessionId = id; track = trackName ?? ""; driving = playerDriving; }
 
     public void Start() => _ = Task.Run(Loop);
@@ -38,7 +39,7 @@ public sealed class GameWebApi : IDisposable
         while (!cts.IsCancellationRequested)
         {
             int ses = sessionId; string tr = track;
-            if (ses < 0) { Nodes = null; Status = "waiting for a session"; Aero = -1; Susp = -1; Event = null; }
+            if (ses < 0) { Nodes = null; Status = "waiting for a session"; Repair = null; Event = null; }
             else
             {
                 if (DateTime.UtcNow >= nextWeather) try                                            // the forecast: every 10 s
@@ -52,15 +53,14 @@ public sealed class GameWebApi : IDisposable
                 catch (OperationCanceledException) when (cts.IsCancellationRequested) { break; }
                 catch (Exception ex) { Nodes = null; Status = "game API not reachable: " + ex.GetType().Name; }
 
-                if (!driving) { Aero = -1; Susp = -1; SuspWheels = null; }                       // watching: the repair screen is not your car's
-                else try                                                                            // aero / suspension damage (repair screen), every 2 s while you drive
+                try                                                                                 // the repair screen (your team's car), every 2 s in a session
                 {
                     string raw = await http.GetStringAsync("rest/garage/UIScreen/RepairAndRefuel", cts.Token);
                     if (raw != lastRepair) { lastRepair = raw; await Dump("repair.json", raw); }
-                    var d = DamageParse.ParseAll(raw); Aero = d.Aero; Susp = d.Susp; SuspWheels = d.SuspWheels;
+                    Repair = DamageParse.ParseCar(raw);
                 }
                 catch (OperationCanceledException) when (cts.IsCancellationRequested) { break; }
-                catch (Exception) { Aero = -1; Susp = -1; SuspWheels = null; }
+                catch (Exception) { Repair = null; }
 
                 if (ses != eventSes || DateTime.UtcNow >= nextEvent)                                // the event: at a new session, then every 60 s
                 {

@@ -1,0 +1,26 @@
+# My LMU Hub team server for a host that already runs cloudflared on the host network (e.g. ZimaOS / CasaOS "cloudflared" app).
+# The server listens on 127.0.0.1 only: nothing on your network can reach it, only programs on this machine (your cloudflared).
+#
+# 1. mkdir -p data                                    (owned by the user that runs it, see MLH_UID below)
+# 2. docker compose -f compose.existing-tunnel.yml up -d --build
+# 3. docker compose -f compose.existing-tunnel.yml logs mlh-server   -> the setup key (once)
+# 4. in your tunnel (Cloudflare Zero Trust > Networks > Tunnels > yours > Public Hostname): e.g. team.yourdomain.com -> HTTP -> localhost:18780
+name: mylmuhub-server
+
+services:
+  mlh-server:
+    build: .
+    image: mylmuhub-server:local
+    container_name: mlh-server
+    restart: unless-stopped
+    user: "${MLH_UID:-1654}:${MLH_GID:-1654}"    # a normal user, never root; the owner of ./data
+    read_only: true                               # nothing in the container can be changed; only /data (the database) is written
+    tmpfs: [ /tmp ]
+    volumes: [ ./data:/data ]
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    mem_limit: 256m
+    pids_limit: 100
+    ports: [ "127.0.0.1:${MLH_PORT:-18780}:8080" ]
+    environment:
+      - MLH_SETUP_KEY=${MLH_SETUP_KEY:-}

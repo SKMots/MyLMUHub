@@ -81,7 +81,7 @@ public static class AppPaths
     public static string Strategy => Path.Combine(Dir, "strategy.json");      // the strategy planner's plans
     public static string StrategyLive => Path.Combine(Dir, "strategy-live.json");   // the Live strategy page: which plan, its options, the VE target now
     public static string HotkeyStatus => Path.Combine(Dir, "hotkey-status.json");  // the hotkeys Windows refused (another program has them): the dashboard writes, the hub shows
-    public static string VeGoals => Path.Combine(Dir, "vegoals.json");        // your VE goal per track (hub Race Control page): { "Bahrain (wec)": 3.8 }
+    public static string StintLaps => Path.Combine(Dir, "stintlaps.json");    // laps a stint per track (hub Race Control page; the fuel widget's live VE goal): { "Bahrain (wec)": 26 }
     public static string RaceLog => Path.Combine(Dir, "race-live.json");      // the followed car's stints in the current race (StintTracker)
 }
 

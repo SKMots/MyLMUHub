@@ -1,5 +1,5 @@
-// Hub page "Race Control": the dashboard's settings in one place (owner 2026-11-11: quicker than the dashboard's edit mode). Open the dashboard; VE goal per
-// track (vegoals.json, the fuel widget reads it); theme + text size, which view the dashboard shows, export / import, hotkeys (all in layout.json: saving it
+// Hub page "Race Control": the dashboard's settings in one place (owner 2026-11-11: quicker than the dashboard's edit mode). Open the dashboard; laps a stint
+// per track (stintlaps.json, the fuel widget's live VE goal reads it; was the VE goal per track until 2026-11-15); theme + text size, which view the dashboard shows, export / import, hotkeys (all in layout.json: saving it
 // tells an open dashboard, which takes them over: DashServer 'layout' message, app.js fromFile); network access (api/net); whose car to follow (api/spectate).
 (function (root) {
   'use strict';
@@ -15,13 +15,13 @@
     return;
   }
 
-  // ---------- VE goal per track ----------
+  // ---------- laps a stint per track ----------
   var goals = {}, tracks = [], goalTimer = null;
   function saveGoals() {
     clearTimeout(goalTimer);
     goalTimer = setTimeout(function () {
       var out = {}; Object.keys(goals).forEach(function (k) { if (k && goals[k] > 0) out[k] = goals[k]; });
-      fetch('api/vegoals', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) }).then(function () { $('goalInfo').textContent = 'Saved.'; setTimeout(function () { $('goalInfo').textContent = ''; }, 1500); });
+      fetch('api/stintlaps', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) }).then(function () { $('goalInfo').textContent = 'Saved.'; setTimeout(function () { $('goalInfo').textContent = ''; }, 1500); });
     }, 400);
   }
   function trackOptions(sel) {
@@ -30,10 +30,10 @@
   }
   function renderGoals() {
     var keys = Object.keys(goals);
-    $('goalTbl').innerHTML = '<thead><tr><th>Track</th><th class="num">VE per lap (%)</th><th></th></tr></thead><tbody>' + (keys.length ? keys.map(function (k, i) {
-      return '<tr data-i="' + i + '"><td><select class="sel cell" data-f="track">' + trackOptions(k) + '</select></td><td class="num"><input class="input cell mono" data-f="goal" value="' + (goals[k] > 0 ? goals[k] : '') + '" placeholder="e.g. 3.8" style="width:90px"></td>' +
+    $('goalTbl').innerHTML = '<thead><tr><th>Track</th><th class="num">Laps a stint</th><th></th></tr></thead><tbody>' + (keys.length ? keys.map(function (k, i) {
+      return '<tr data-i="' + i + '"><td><select class="sel cell" data-f="track">' + trackOptions(k) + '</select></td><td class="num"><input class="input cell mono" data-f="goal" value="' + (goals[k] > 0 ? goals[k] : '') + '" placeholder="e.g. 26" style="width:90px"></td>' +
         '<td><button class="xbtn" data-del="' + i + '" title="Remove">×</button></td></tr>';
-    }).join('') : '<tr><td colspan="3" class="empty">No goals yet.</td></tr>') + '</tbody>';
+    }).join('') : '<tr><td colspan="3" class="empty">No tracks yet.</td></tr>') + '</tbody>';
     if ($('goalNowIn') && document.activeElement !== $('goalNowIn')) renderNow();
   }
   $('goalTbl').onchange = function (e) {
@@ -42,7 +42,7 @@
     if (f === 'track') {
       var v = e.target.value, n = {}; keys.forEach(function (x) { if (x === k) { if (v && !(v in goals && v !== k)) n[v] = goals[k]; else n[x] = goals[x]; } else n[x] = goals[x]; });
       goals = n; renderGoals();
-    } else if (f === 'goal') { var g = Number(String(e.target.value).replace(',', '.')); goals[k] = g > 0 ? Math.round(g * 100) / 100 : 0; }
+    } else if (f === 'goal') { var g = Math.round(Number(String(e.target.value).replace(',', '.'))); goals[k] = g > 0 ? g : 0; }
     saveGoals();
   };
   $('goalTbl').onclick = function (e) { var d = e.target.getAttribute('data-del'); if (d === null) return; delete goals[Object.keys(goals)[Number(d)]]; renderGoals(); saveGoals(); };
@@ -53,13 +53,13 @@
     var t = gameTrack || pickTrack, g = t && goals[t] > 0 ? goals[t] : '';
     $('goalNow').innerHTML = '<div class="form" style="max-width:520px"><label class="field">' + (gameTrack ? 'Current track (from the game)' : 'Track (not in the game: pick one)') +
       (gameTrack ? '<div class="input" style="min-width:0">' + esc(gameTrack) + '</div>' : '<select class="sel" id="goalPick">' + trackOptions(pickTrack) + '</select>') + '</label>' +
-      '<label class="field">VE goal per lap (%)<input class="input" id="goalNowIn" value="' + g + '" placeholder="' + (t ? 'none: e.g. 3.8' : 'pick a track first') + '"' + (t ? '' : ' disabled') + '></label></div>';
+      '<label class="field">Laps a stint<input class="input" id="goalNowIn" value="' + g + '" placeholder="' + (t ? 'none: e.g. 26' : 'pick a track first') + '"' + (t ? '' : ' disabled') + '></label></div>';
   }
   $('goalNow').onchange = function (e) {
     if (e.target.id === 'goalPick') { pickTrack = e.target.value; try { localStorage.setItem('pw-goal-track', pickTrack); } catch (er) {} renderNow(); return; }
     if (e.target.id === 'goalNowIn') {
       var t = gameTrack || pickTrack, v = Number(String(e.target.value).replace(',', '.')); if (!t) return;
-      if (v > 0) goals[t] = Math.round(v * 100) / 100; else delete goals[t];
+      if (v > 0) goals[t] = Math.round(v); else delete goals[t];
       renderGoals(); saveGoals();
     }
   };
@@ -70,7 +70,7 @@
     }, function () {});
   }
   gameNow(); setInterval(function () { if (!document.hidden) gameNow(); }, 10000);
-  H.json('api/vegoals').then(function (j) { goals = j && typeof j === 'object' ? j : {}; renderGoals(); renderNow(); }, function () { goals = {}; renderGoals(); renderNow(); });
+  H.json('api/stintlaps').then(function (j) { goals = j && typeof j === 'object' ? j : {}; renderGoals(); renderNow(); }, function () { goals = {}; renderGoals(); renderNow(); });
   H.json('api/reference').then(function (r) { tracks = Object.keys(R.parse(r.csv)).sort(); renderGoals(); renderNow(); }, function () {});
 
   // ---------- the layout file: theme, views, hotkeys ----------
@@ -131,11 +131,12 @@
   keyStatus(); setInterval(function () { if (!document.hidden) keyStatus(); }, 10000);
   function renderKeys() {
     if (!ws) return;
-    var k = ws.file.keys, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }));
+    var k = ws.file.keys, act = k.act || {}, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }))
+      .concat([['!lapsUp', 'Fuel widget: stint laps + 1', act.lapsUp || ''], ['!lapsDown', 'Fuel widget: stint laps − 1', act.lapsDown || '']]);
     $('keyList').innerHTML = '<table class="tbl"><tbody>' + rows.map(function (r, i) {
       var bad = r[2] && refused.indexOf(r[2]) >= 0;                                                     // Windows refused it: another program uses it
-      return '<tr><td>' + esc(r[1]) + '</td><td class="num mono"' + (bad ? ' style="color:var(--red)" title="Windows refused it: another program uses this key. Pick another one."' : '') + '>' +
-        (capture === r[0] ? '<span style="color:var(--lime)">press a key or button…</span>' : esc(ws.keyLabel(r[2]) || '-') + (bad ? ' (in use)' : '')) + '</td>' +
+      return '<tr><td>' + esc(r[1]) + '</td><td class="num mono"' + (bad ? ' style="color:var(--red)" title="This key cannot be used as a hotkey. Pick another one."' : '') + '>' +
+        (capture === r[0] ? '<span style="color:var(--lime)">press a key or button…</span>' : esc(ws.keyLabel(r[2]) || '-') + (bad ? ' (not usable)' : '')) + '</td>' +
         '<td style="text-align:right"><button class="btn" data-set="' + i + '">Set</button> <button class="btn" data-clear="' + i + '"' + (r[2] ? '' : ' disabled') + '>×</button></td></tr>';
     }).join('') + '</tbody></table>';
     $('keyList')._rows = rows;

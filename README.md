@@ -18,6 +18,7 @@ One Windows app, no SimHub, no install. Made for endurance racers, and for watch
 - [The Hub](#the-hub)
 - [AI Coach](#ai-coach)
 - [Strategy](#strategy)
+- [Team](#team)
 - [Guest mode and My sessions](#guest-mode-and-my-sessions)
 - [Everything else](#everything-else)
 - [Getting started](#getting-started)
@@ -31,7 +32,7 @@ A full-screen dashboard for a second monitor, built from widgets. Open it on thi
 | **Ahead / Behind** | The car in front and behind: gap, last lap, and arrows that turn green or red as you gain or lose. |
 | **Top bar** | Position, race time / laps left, last / best / current / estimated lap, a live delta and sectors. |
 | **Car** | Brake bias, TC, TC slip, TC cut, ABS and engine map. |
-| **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. **VE goal:** your average and last lap turn green (well under your goal), yellow (cutting it close) or flashing red (over it). The goal is the one you set for this track on the hub's Race Control page (nothing set = no goal). |
+| **Fuel & virtual energy** | What's left, estimated laps, 5-lap average and last lap, and how much fuel / energy to add at the stop. **Live VE goal:** like the in-game MFD, it works out whether the VE you have left lasts the laps you aim for this stint at your average, and says **PUSH +x%**, **ON TARGET** or **LIFT x%**, with laps done / laps aimed for. The laps a stint come from the hub's Race Control page for this track, the plan you picked, or a number you type; change them by a lap while you drive with a key or wheel button. |
 | **Tyres** | Each tyre's pressure, temperature and wear, plus brakes, in the units you choose. |
 | **Damage** | A GT car seen from above with each body part and tyre coloured by its damage, plus aero, body and suspension with bars. The classic panel is still an option. |
 | **Track map** | Learns each track by itself: cars as dots in their class colours, your car highlighted, a legend. **Flags:** a green / yellow flag box, the yellow stretch glowing on the map, and full-course yellows. |
@@ -58,8 +59,8 @@ Press **E** and you're in edit mode:
 
 ## Race Control settings in the hub
 The **Race Control** tab in the hub has the dashboard's settings in one place, so you don't need edit mode for them: **Open dashboard**, your
-**VE goal per track** (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
-**view** the dashboard shows (plus export / import), **hotkeys** for views (a key another program already uses is marked), **network access** and **spectate**. An open dashboard follows
+**laps a stint per track** for the fuel widget's live VE goal (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
+**view** the dashboard shows (plus export / import), **hotkeys** for views and for the stint laps + / − (keys or wheel buttons; they keep working in the game too), **network access** and **spectate**. An open dashboard follows
 your changes right away. Edit mode (E) in the dashboard keeps only what is done on the dashboard itself: placing widgets, their colours, views.
 
 ![Race Control settings](docs/images/racecontrol.png)
@@ -127,14 +128,31 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 - **Drivers:** driving order, lap time, most stints in a row, and most / least drive time each.
 - **Your own data per lap:** while you drive, each lap keeps the VE it used and the tyre wear left (the game's online result files have neither).
 
-**Live:** pick the plan for the race you're in; your plan itself is never changed. A status bar shows **ON TARGET**, **CUTTING IT CLOSE** or
-**OVER TARGET** (the VE per lap you may still use to reach the planned stop against your use), when to pit and who is next. Stints done turn green,
-the rest is planned again from now with the real lap times, so an early stop for damage changes the future at once. **Lifting: still worth it?**
-compares the rest of the race with and without lifting.
+**Live:** a live race-pace screen for the race you're in, with the plan you pick; your plan itself is never changed.
+- **Status bar:** **YOU CAN PUSH**, **ON TARGET** or **LIFT** (the VE you have left against the laps to the planned stop at this stint's average, so one lap a bit over doesn't turn it red), when to pit, and the pit stop in **your local time**, so you know when to be at the computer.
+- **This stint:** last lap, stint average and fastest lap, VE per lap and left, top speed, and every lap.
+- **Damage: repair?** The top speed on the longest straight, taken every lap at a point where you're still flat out. When it drops, it shows how much, since which lap, the lap time it costs (the same driver before and after) and whether a repair at the next stop earns its time back. It works while spectating too, when the game doesn't show a team-mate's damage.
+- **Drivers in this race:** stints, laps, drive time, average and fastest lap, VE per lap.
+- **Changes to the plan:** the rest of the race for other stint lengths (VE per lap allowed, push or lift, stops, laps at the finish), the best marked. **Use this** follows one of them live.
+- **The race:** stints done turn green; the rest is planned again from now with each driver's real lap times, slower on used tyres (how much is measured from the race), up to the real end: the leader's line after the time, then yours.
 
 ![Live strategy](docs/images/live.png)
 
+**Review:** a race you drove, afterwards: every stint (average, fastest lap, VE per lap, VE left, the stop and which tyres were changed), against the plan you had, what worked and what didn't, and what other stint lengths would have given.
+
+![Race review](docs/images/review.png)
+
 **Quick race:** paste the event text (e.g. from Discord). It reads the race length and the VE / fuel limits, takes the rest from the game, and gives the fewest stops with pit windows.
+
+## Team
+Your team on a **team server**: invite codes, members with roles (driver, engineer, owner), and the team's **race results** as a little showcase. Send
+any race you drove for the team; a team-mate sending the same race counts once. When someone leaves, their personal data goes; the races they drove
+with the team stay. Team race pace and live race sharing come next.
+
+The team server is optional and you host it yourself (Docker behind a Cloudflare tunnel: [server/](server/README.md)). It only accepts invited members
+and strictly checked numbers and short text, never files. Your login stays in the app, encrypted on your PC.
+
+![Team](docs/images/team.png)
 
 ## Guest mode and My sessions
 - **Guest mode:** a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Afterwards, delete all of it in one click (files go to the Recycle Bin).
@@ -177,6 +195,7 @@ A self-built exe doesn't update itself. **No .NET at all?** Open `src/MyLMUHub.A
 - **`MyLMUHub.Core`** (C#, no UI): reads the game's shared memory and turns it into numbers: standings, gaps, stints, pace and flags.
 - **`MyLMUHub.App`** (WPF + WebView2): the windows, a small local web server with a WebSocket, auto-update and settings.
 - **`wwwroot`** (plain JavaScript, no build step, no npm): every page and widget. All text formatting lives in `js/format.js`.
+- **`server/`** (C#, .NET 10, optional): the team server.
 
 "MyLMUHub" is the internal code name from the first version.
 

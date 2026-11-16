@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- My LMU Hub team server: teams, invites, roles, team race results (later: team race pace, live race sharing). Runs in Docker behind a Cloudflare tunnel. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>MyLMUHub.Server</AssemblyName>
+    <RootNamespace>MyLMUHub.Server</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.*" />
+  </ItemGroup>
+</Project>
+

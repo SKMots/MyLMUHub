@@ -18,7 +18,7 @@
         <div class="sub" style="margin-bottom:0">Follows the race you are in with the plan you pick here. Your plan itself is not changed: what happened and what is left is worked out live from it.</div>
       </div>
       <div class="bar">
-        <span class="seg"><a class="segl" href="strategy.html">Endurance plan</a><a class="segl" href="quick.html">Quick race</a><a class="segl on" href="live.html">Live</a></span>
+        <span class="seg"><a class="segl" href="strategy.html">Endurance plan</a><a class="segl" href="quick.html">Quick race</a><a class="segl on" href="live.html">Live</a><a class="segl" href="review.html">Review</a></span>
         <label class="field inline">Plan<select class="sel" id="planSel"></select></label>
       </div>
     </div>
@@ -30,12 +30,30 @@
     <div class="lstat-nums" id="statNums"></div>
   </section>
 
-  <section class="card" style="margin-top:14px" id="liftCard" hidden>
-    <h2>Lifting: still worth it?</h2>
-    <div class="sub" id="liftSub"></div>
-    <div class="tiles" id="liftTiles"></div>
+  <section class="card" style="margin-top:14px" id="stintCard" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>This stint</h2><span class="faint" id="stintInfo"></span></div>
+    <div class="tiles" id="stintTiles"></div>
+    <div class="scroll" style="margin-top:12px;max-height:420px"><table class="tbl" id="lapTbl"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:14px" id="dmgCard" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>Damage: repair?</h2><span class="faint" id="dmgInfo"></span></div>
+    <div id="dmgVerdict" style="margin:4px 0 10px 0"></div>
+    <div class="tiles" id="dmgTiles"></div>
+    <div class="sub" id="dmgSub" style="margin-top:10px"></div>
+  </section>
+
+  <section class="card" style="margin-top:14px" id="drvCard" hidden>
+    <h2>Drivers in this race</h2>
+    <div class="scroll"><table class="tbl" id="drvTbl"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:14px" id="optCard" hidden>
+    <h2>Changes to the plan</h2>
+    <div class="sub" id="optSub"></div>
+    <div class="scroll"><table class="tbl" id="optTbl"></table></div>
     <div class="form" style="margin-top:12px;max-width:620px">
-      <label class="field">Your VE per lap when you do not lift (%)<input class="input short" id="naturalIn" placeholder="e.g. 5.3"></label>
+      <label class="field" id="natField">Your VE per lap when you do not lift (%)<input class="input short" id="naturalIn" placeholder="from this race"></label>
       <label class="field">Lap times<select class="sel" id="paceSel"><option value="live">From this race (live)</option><option value="plan">From the plan</option></select></label>
     </div>
   </section>

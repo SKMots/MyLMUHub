@@ -16,3 +16,6 @@ node_modules/
 *token*.txt
 *.pfx
 *.snk
+
+# team server: its database and secrets never go to the repo
+server/data/

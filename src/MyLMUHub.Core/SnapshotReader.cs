@@ -117,6 +117,10 @@ public sealed class SnapshotReader
                 : (T(w[4]) > 0 && T(w[5]) > 0 && T(w[6]) > 0 ? new[] { T(w[4]) - 273.15, T(w[5]) - 273.15, T(w[6]) - 273.15 } : null);
             d.Wheels[i] = new WheelSnap { Wear = T(w[7]), Temp = temp, Temps = temps, Pressure = T(w[8]), Brake = bk > 0 ? bk - 273.15 : null, Flat = T(w[10]) != 0, Detached = T(w[11]) != 0 };
         }
+        // a car you watch (not yours): the game sends no tyre data (pressure 0, no temperatures, wear 1, the same brake value on all four, seen live 2026-11-14).
+        // Pressure 0 read as FLAT on every wheel in the damage and tyres widgets, so: no data = -1 / null.
+        if (d.Wheels.All(x => !(x.Pressure > 0) && x.Temp == null))
+            foreach (var x in d.Wheels) { x.Pressure = -1; x.Wear = -1; x.Brake = null; }
         return d;
     }
 

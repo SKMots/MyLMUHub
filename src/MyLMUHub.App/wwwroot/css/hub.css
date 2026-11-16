@@ -302,3 +302,5 @@ details.explain summary:hover { color:var(--lime); }
 
 /* Strategy: sessions not ticked */
 .tbl tr.off td { opacity:.5; } .tbl tr.off td:first-child { opacity:1; }
+/* Race Control hotkeys: long controller names (e.g. a wheel's full name + button) wrap instead of being cut off (owner 2026-11-16) */
+#keyList .tbl td { white-space:normal; overflow-wrap:anywhere; } #keyList .tbl td:last-child { white-space:nowrap; width:1%; }

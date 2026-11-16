@@ -49,9 +49,11 @@ public sealed class DashServer : IDisposable
     public Action<string, string> Open { get; set; }
     /// <summary>/api/strategy GET / PUT: the strategy planner's plans (one JSON file).</summary>
     public string StrategyPath { get; set; }
-    public string VeGoalsPath { get; set; }
+    public string StintLapsPath { get; set; }
     public string StrategyLivePath { get; set; }
     public string HotkeyStatusPath { get; set; }
+    /// <summary>The Team page's actions (TeamClient.Do: op, JSON body -> code, JSON).</summary>
+    public Func<string, string, Task<(int, string)>> Team { get; set; }
     /// <summary>/api/stints?file= GET: your car's whole race in that results file (PaceService.CarLaps), 404 = none.</summary>
     public Func<string, object> CarLaps { get; set; }
     /// <summary>/api/race-live GET: the session now, the followed car and its race so far (DataPump.RaceLive).</summary>
@@ -163,7 +165,7 @@ public sealed class DashServer : IDisposable
                 if (put) { string by = ctx.Request.Headers["X-Page"] ?? ""; var msg = JsonSerializer.Serialize(new { type = "layout", by }); foreach (var c in clients.Values) _ = SendTo(c, msg, true); }
                 return;
             }
-            if (path == "/api/vegoals" && VeGoalsPath != null) { await JsonFile(ctx, VeGoalsPath); return; }
+            if (path == "/api/stintlaps" && StintLapsPath != null) { await JsonFile(ctx, StintLapsPath); return; }
             if (path == "/api/strategy-live" && StrategyLivePath != null) { await JsonFile(ctx, StrategyLivePath); return; }
             if (path == "/api/hotkey-status" && HotkeyStatusPath != null) { await JsonFile(ctx, HotkeyStatusPath); return; }
             if (path == "/api/strategy" && StrategyPath != null) { await JsonFile(ctx, StrategyPath); return; }
@@ -206,6 +208,16 @@ public sealed class DashServer : IDisposable
                 await Send(ctx, j == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(j ?? "{}")); return;
             }
             if (path == "/api/coach" && Coach != null) { await CoachApi(ctx, here); return; }
+            if (path == "/api/team" && Team != null)
+            {
+                // only this PC, only POST with the page's own header (a web page elsewhere cannot send it without the app's say-so), a small body
+                if (!here || ctx.Request.HttpMethod != "POST" || ctx.Request.Headers["X-MLH"] != "1") { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("no")); return; }
+                if (ctx.Request.ContentLength64 > 64 * 1024) { await Send(ctx, 413, "text/plain", Encoding.UTF8.GetBytes("too big")); return; }
+                string body; using (var rd = new StreamReader(ctx.Request.InputStream, Encoding.UTF8)) body = await rd.ReadToEndAsync();
+                if (body.Length > 64 * 1024) { await Send(ctx, 413, "text/plain", Encoding.UTF8.GetBytes("too big")); return; }
+                var (code, json) = await Team(ctx.Request.QueryString["op"] ?? "", body);
+                await Send(ctx, code, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(json)); return;
+            }
             if (path == "/api/segments" && SegmentLine != null && ctx.Request.QueryString["line"] is string ln)
             { var t = SegmentLine(ctx.Request.QueryString["key"], ln); await Send(ctx, t == null ? 404 : 200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(t ?? "{}")); return; }
             if (path == "/api/segments" && Segments != null) { var r = Segments(ctx.Request.QueryString["key"]); await Send(ctx, r == null ? 404 : 200, "application/json; charset=utf-8", r == null ? Encoding.UTF8.GetBytes("{}") : JsonSerializer.SerializeToUtf8Bytes(r, Opt)); return; }

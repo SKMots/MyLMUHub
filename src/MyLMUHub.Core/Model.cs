@@ -218,6 +218,7 @@ public sealed class CarView
     public string Model { get; set; } = "";
     public string Entry { get; set; } = "";
     public bool InPits { get; set; }
+    public int StintLaps { get; set; } = -1;     // laps done in the stint now (race only, the app's stint log), -1 = not known; the fuel widget's live VE goal
     public double BrakeBias { get; set; } = -1;  // front %
     public int Tc { get; set; } = -1;
     public int TcSlip { get; set; } = -1;

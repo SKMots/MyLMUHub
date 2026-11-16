@@ -14,6 +14,11 @@
   var MAX_STINTS = 400, BEFORE = 'Before the app was watching';
 
   function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
+  // the same driver? The game's name vs the name typed in a plan: case, extra spaces, a '#1234' tag and the order of the words do not matter
+  // (owner 2026-11-14: the plan had 'Sam Partner', the game said 'Partner Sam', and the Live tab gave him every stint as an unknown 3rd driver)
+  function nameKey(n) { return String(n || '').toLowerCase().replace(/#\d+/g, ' ').split(/\s+/).filter(Boolean).sort().join(' '); }
+  function sameDriver(a, b) { var x = nameKey(a); return x.length > 0 && x === nameKey(b); }
+  function paceOf(pace, name) { if (!pace) return undefined; if (pace[name] > 0) return pace[name]; for (var k in pace) if (sameDriver(k, name)) return pace[k]; return undefined; }
   // laps one stint does by default: the laps you aim for, or what fits in the start VE less the reserve; at least 1; no VE info = no limit
   function stintLaps(ve) {
     ve = ve || {};
@@ -38,11 +43,12 @@
     if (!drivers.length) { out.warnings.push('Add a driver with a lap time.'); return out; }
     var timed = !plan.length || plan.length.kind !== 'laps', total = timed ? num(plan.length && plan.length.time, 0) : num(plan.length.laps, 0);
     if (!(total > 0)) { out.warnings.push('Set the race length.'); return out; }
+    if (timed && live && live.raceEnd > total) total = live.raceEnd;                // live: the race ends at the leader's line after the time (fromLive)
     var ve = plan.ve || {}, pit = plan.pit || {}, ty = plan.tyres || {}, over = plan.stints || [], maxLaps = stintLaps(ve), veMax = num(ve.max, 100);
     var per = ve.mode === 'laps' ? 0 : num(ve.perLap, 0);                            // known VE use per lap (else only "needed")
     var wearPer = num(ty.wearPerLap, 0), useWear = ty.mode === 'wear' && wearPer > 0, every = Math.max(0, Math.round(num(ty.every, 0)));
     drivers.forEach(function (d) { out.drivers[d.name] = { time: 0, stints: 0, laps: 0 }; });
-    function index(name) { for (var k = 0; k < drivers.length; k++) if (drivers[k].name === name) return k; return -1; }
+    function index(name) { for (var k = 0; k < drivers.length; k++) if (sameDriver(drivers[k].name, name)) return k; return -1; }
     function canDrive(d, laps) { return !(num(d.maxTime, 0) > 0) || out.drivers[d.name].time + laps * d.lap <= d.maxTime + 1e-6; }
     function nextDriver(from) {                                                       // the next driver in the order who still has drive time left
       for (var k = 1; k <= drivers.length; k++) { var j = (from + k) % drivers.length; if (canDrive(drivers[j], 1)) return j; }
@@ -55,6 +61,15 @@
       drivers.push({ name: name, lap: drivers[0].lap }); out.drivers[name] = { time: 0, stints: 0, laps: 0 }; return drivers.length - 1;
     }
     var t = 0, lap = 0, i = 0, inRow = 0, set = 1, onSet = 0, wear = 100, prev = null;
+    // tyre age (plan.tyreDeg from this race, tyreDeg()): a stint's lap time = the driver's pace + s per lap of age x (its tyres' average age - the age his
+    // pace was driven at). Each wheel's age in laps; a stint with new tyres starts them at 0 (real stints: the wheels that were changed)
+    var deg = plan.tyreDeg && plan.tyreDeg.perLap > 0 ? plan.tyreDeg : null, wAge = [0, 0, 0, 0], refAll = null;
+    if (deg) { var rv = Object.keys(deg.refAge || {}).map(function (k) { return deg.refAge[k]; }); refAll = rv.length ? rv.reduce(function (a, b) { return a + b; }, 0) / rv.length : 0; }
+    function lapAt(d, avgAge) {
+      if (!deg) return d.lap;
+      var ref = null; for (var rk in deg.refAge || {}) if (sameDriver(rk, d.name)) ref = deg.refAge[rk];
+      return d.lap + deg.perLap * (avgAge - (ref === null ? refAll : ref));
+    }
     while (out.stints.length < MAX_STINTS) {
       var k = out.stints.length, ov = over[k] || {}, ovDriver = ov.driver ? index(ov.driver) : -1, ovLaps = Math.round(num(ov.laps, 0)), newSet = !prev;
       var real = k < done.length ? done[k] : (cur && k === done.length ? cur : null);   // this stint really happened / is happening
@@ -65,27 +80,29 @@
         var tyres = real && typeof real.newSet === 'boolean' ? real.newSet : ov.tyres === 'new' ? true : ov.tyres === 'used' ? false : autoTyres;   // live, not known: as planned
         var d0 = drivers[i], autoJ = (num(d0.maxStints, 0) > 0 && inRow + 1 >= d0.maxStints) || !canDrive(d0, isFinite(maxLaps) ? maxLaps : 1) ? nextDriver(i) : i;
         var j = ovDriver >= 0 ? ovDriver : autoJ, swap = j !== i, loss = real ? Math.max(0, real.start - prev.end) : num(pit.base, 0) + (tyres ? num(pit.tyres, 0) : 0) + (swap ? num(pit.swap, 0) : 0);
-        prev.stop = { loss: loss, tyres: tyres, swap: swap, next: drivers[j].name, real: !!real };
+        prev.stop = { loss: loss, tyres: tyres, which: real && typeof real.tyres === 'string' ? real.tyres : null, swap: swap, next: drivers[j].name, real: !!real };
         t += loss; out.stops++;
         if (tyres) { set++; onSet = 0; wear = 100; newSet = true; }
+        var chW = real && typeof real.tyres === 'string' && real.tyres ? real.tyres.split(' ') : tyres ? WHEELS : [];
+        WHEELS.forEach(function (w, q) { if (chW.indexOf(w) >= 0) wAge[q] = 0; });
         if (swap) { i = j; inRow = 0; } else inRow++;
       } else if (ovDriver >= 0) i = ovDriver;
       if (real) t = real.start;
       else if (live && prev && prev.state === 'done') t = Math.max(t, num(live.time, t));   // in the pit now: the next stint starts no sooner than now
-      var d = drivers[i], state = real === cur && cur ? 'now' : (real ? 'done' : 'plan'), n, end;
+      var d = drivers[i], state = real === cur && cur ? 'now' : (real ? 'done' : 'plan'), n, end, a0 = (wAge[0] + wAge[1] + wAge[2] + wAge[3]) / 4, sLap = d.lap;
       if (state === 'done') { n = real.laps; end = real.end; }
       else if (state === 'now') {
         // the laps this stint can still do: what the VE left allows (live), else the plan; never fewer than already driven
-        var now = num(live.time, t), left = per > 0 && real.ve >= 0 ? Math.max(0, Math.floor(real.ve / per + 1e-9) - num(ve.reserve, 0)) : Math.max(0, planned - real.laps);
+        var now = num(live.time, t), left = per > 0 && real.ve >= 0 ? Math.max(0, Math.floor(lineVe(real) / per + 1e-9) - num(ve.reserve, 0)) : Math.max(0, planned - real.laps);
         var toGo = timed ? Math.max(1, Math.ceil((total - now) / d.lap - 1e-9)) : total - lap - real.laps;
-        n = real.laps + Math.min(left, toGo); end = now + (n - real.laps) * d.lap;
+        n = real.laps + Math.min(left, toGo); sLap = lapAt(d, a0 + (real.laps + n) / 2); end = now + (n - real.laps) * sLap;
       } else {
-        var need = timed ? Math.max(1, Math.ceil((total - t) / d.lap - 1e-9)) : total - lap;
+        var l0 = lapAt(d, a0 + (isFinite(planned) ? planned : 20) / 2), need = timed ? Math.max(1, Math.ceil((total - t) / l0 - 1e-9)) : total - lap;
         n = Math.min(planned, need);
-        if (!(ovLaps > 0) && num(d.maxTime, 0) > 0) n = Math.max(1, Math.min(n, Math.floor((d.maxTime - out.drivers[d.name].time) / d.lap + 1e-9)));
-        end = t + n * d.lap;
+        if (!(ovLaps > 0) && num(d.maxTime, 0) > 0) n = Math.max(1, Math.min(n, Math.floor((d.maxTime - out.drivers[d.name].time) / l0 + 1e-9)));
+        sLap = lapAt(d, a0 + n / 2); end = t + n * sLap;
       }
-      var last = timed ? end >= total : lap + n >= total, s = { n: k + 1, driver: d.name, lap: d.lap, laps: n, fromLap: lap + 1, toLap: lap + n, start: t, end: end, state: state,
+      var last = timed ? end >= total : lap + n >= total, s = { n: k + 1, driver: d.name, lap: sLap, tyreAge: deg ? Math.round(a0) : null, laps: n, fromLap: lap + 1, toLap: lap + n, start: t, end: end, state: state,
         veNeed: veNeeded(ve, n), veUsed: per > 0 ? per * n : null, veLeft: per > 0 ? veMax - per * n : null, set: set, newSet: newSet,
         wearEnd: wearPer > 0 ? wear - wearPer * n : null, changed: { driver: !real && ovDriver >= 0, laps: !real && ovLaps > 0, tyres: !real && k > 0 && (ov.tyres === 'new' || ov.tyres === 'used') }, stop: null };
       // a stint shorter than a full one (the last one, mostly) does not need a full refill (more VE = a longer stop and a heavier car). SAVE = fill what it
@@ -104,7 +121,7 @@
         }
       }
       out.stints.push(s);
-      t = s.end; lap += n; wear -= wearPer * n; onSet++; prev = s;
+      t = s.end; lap += n; wear -= wearPer * n; onSet++; prev = s; wAge = wAge.map(function (a) { return a + n; });
       var dd = out.drivers[d.name]; dd.time += end - s.start; dd.stints++; dd.laps += n;
       if (state === 'plan' && per > 0 && s.veLeft < num(ve.reserve, 0) * per - 1e-6) out.warnings.push('Stint ' + s.n + ': ' + n + ' laps need ' + s.veNeed.toFixed(2) + ' % VE per lap or less; the plan uses ' + per + ' %.');
       if (last) break;
@@ -405,39 +422,176 @@
     if (!log || (log.greenEt < 0 && !log.missedStart)) return { status: 'grid', track: s.track, phase: s.phase };
     var green = log.greenEt >= 0 ? log.greenEt : (length && length.kind !== 'laps' && length.time > 0 && s.endEt > 0 ? s.endEt - length.time : (log.stints.length ? log.stints[0].start : s.et));
     var time = s.et - green, list = log.stints || [], lapsBefore = list.length ? list[0].startLap : 0;
-    function conv(x) { return { driver: x.driver, laps: x.laps, newSet: typeof x.newTyres === 'boolean' ? x.newTyres : null, start: x.start - green, end: x.end >= 0 ? x.end - green : -1 }; }
-    var done = list.filter(function (x) { return x.end >= 0; }).map(conv), last = list[list.length - 1], cur = last && last.end < 0 ? conv(last) : null;
+    // a stint's laps: up to the next stint's start lap when there is one (the in-lap ends in the pit lane: logs before 2026-11-14 missed it, 25 instead of 26)
+    function conv(x, i) {
+      var nx = list[i + 1], laps = nx && nx.startLap > x.startLap ? Math.max(x.laps, nx.startLap - x.startLap) : x.laps;
+      return { driver: x.driver, laps: laps, newSet: typeof x.newTyres === 'boolean' ? x.newTyres : null, tyres: typeof x.tyresChanged === 'string' ? x.tyresChanged : null,
+        start: x.start - green, end: x.end >= 0 ? x.end - green : -1, lapLog: x.lapLog || [], veStart: x.veStart, startLap: x.startLap };
+    }
+    var all = list.map(conv), done = all.filter(function (x) { return x.end >= 0; }), last = list[list.length - 1], cur = last && last.end < 0 ? all[all.length - 1] : null;
     if (cur) { cur.laps = Math.max(cur.laps, (r.car ? r.car.laps : 0) - last.startLap); if (r.car && r.car.ve >= 0) cur.ve = r.car.ve; }
     // the app started during the race: the laps before it count as one stint, so the lap count and the race time line up
     if (log.missedStart && lapsBefore > 0 && list.length) done.unshift({ driver: BEFORE, laps: lapsBefore, newSet: null, start: 0, end: list[0].start - green });
-    return { status: s.phase === 8 ? 'over' : 'live', track: s.track, phase: s.phase, time: time, greenMs: log.greenClock > 0 ? log.greenClock : r.clock - time * 1000,
+    // a timed race ends when the overall LEADER crosses the line after the time is up; you finish at your next line after that (a lap down or not).
+    // raceEnd = race time of the leader's line after the time (their last lap, else estimated; their time into the lap now), null = not known / a lap race
+    var raceEnd = null, ld = r.leader, total = length && length.kind !== 'laps' ? num(length.time, 0) : 0;
+    if (ld && total > 0) {
+      var llap = ld.last > 0 ? ld.last : ld.est > 0 ? ld.est : 0;
+      if (llap > 30 && ld.into >= 0) { var x = time + Math.max(0, llap - ld.into); while (x < total) x += llap; raceEnd = x; }
+    }
+    return { status: s.phase === 8 ? 'over' : 'live', track: s.track, phase: s.phase, time: time, raceEnd: raceEnd, leader: ld || null, greenMs: log.greenClock > 0 ? log.greenClock : r.clock - time * 1000,
       greenEstimated: !(log.greenClock > 0), stints: done, current: cur, inPit: !cur, driver: r.car ? r.car.driver : '', lapsBefore: lapsBefore, entry: log.entry };
   }
 
-  // ---- live pace per driver (api/race-live: log.stints in session time, session.et now): a stint's average lap = its time / its laps (stints of 3+ laps;
-  // the in and out lap are in it, so a little slow). Per driver the median of his stints. -> { name: s }
+  // ---- one stint from its lap log ([lap count, lap time, VE at the line, in/out lap]): the average of its clean laps (no in / out lap, none over 107 % of
+  // their median: a spin, a slow zone), its fastest lap, and the VE it used per lap (laps not in the pit lane). veStart = VE when it began.
+  // -> { avg, best, clean (laps), ve (% per lap, null = not known), veLaps }
+  function stintStats(lapLog, veStart) {
+    var L = lapLog || [], t = L.filter(function (x) { return !x[3] && x[1] > 0; }).map(function (x) { return x[1]; }), med = t.length ? P.paceMath.median(t) : 0;
+    var clean = t.filter(function (v) { return v <= med * 1.07; }), out = { avg: null, best: null, clean: clean.length, ve: null, veLaps: 0 };
+    if (clean.length) { out.avg = clean.reduce(function (a, b) { return a + b; }, 0) / clean.length; out.best = Math.min.apply(null, clean); }
+    var used = 0, n = 0, prev = veStart >= 0 ? veStart : null;
+    L.forEach(function (x) { var v = x[2]; if (v >= 0 && prev !== null && !x[3] && prev - v > 0 && prev - v < 50) { used += prev - v; n++; } if (v >= 0) prev = v; });
+    if (n) { out.ve = used / n; out.veLaps = n; }
+    return out;
+  }
+
+  // ---- live pace per driver: the average of his clean laps over all his stints (stintStats); a log without lap times: a stint's time / its laps
+  // (in and out lap in it, so slow; owner: '2:07 for both of us' made no sense). -> { name: s }
   function livePace(r) {
-    var log = r && r.log, et = r && r.session ? r.session.et : -1, per = {};
+    var log = r && r.log, et = r && r.session ? r.session.et : -1, per = {}, old = {};
     ((log && log.stints) || []).forEach(function (x) {
-      var end = x.end >= 0 ? x.end : et, n = x.laps; if (!(n >= 3) || !(end > x.start) || !x.driver) return;
-      (per[x.driver] = per[x.driver] || []).push((end - x.start) / n);
+      if (!x.driver) return;
+      var L = (x.lapLog || []).filter(function (l) { return !l[3] && l[1] > 0; }).map(function (l) { return l[1]; });
+      if (L.length) { var med = P.paceMath.median(L); (per[x.driver] = per[x.driver] || []).push.apply(per[x.driver], L.filter(function (v) { return v <= med * 1.07; })); return; }
+      var end = x.end >= 0 ? x.end : et, n = x.laps; if (!(n >= 3) || !(end > x.start)) return;
+      (old[x.driver] = old[x.driver] || []).push((end - x.start) / n);
     });
-    var out = {}; Object.keys(per).forEach(function (d) { out[d] = P.paceMath.median(per[d]); }); return out;
+    var out = {};
+    Object.keys(old).forEach(function (d) { out[d] = P.paceMath.median(old[d]); });
+    Object.keys(per).forEach(function (d) { if (per[d].length) out[d] = per[d].reduce(function (a, b) { return a + b; }, 0) / per[d].length; });
+    return out;
+  }
+
+  // ---- tyre age (owner 2026-11-16: a second stint on the same tyres is not as fast as the first). From this race's laps: how much slower a lap gets per lap
+  // the tyres have done. Each wheel's age counts from its last change (a stint's tyres: 'FL FR' = the fronts; newSet true without names = all four; not
+  // known at the start = new); a lap's age = the four wheels' average. Fitted on clean laps (no in / out lap, within 107 % of the driver's median) with each
+  // driver his own level and the lap in the stint as a second measure (the car gets lighter as the VE goes: faster), so neither the driver nor the fuel is
+  // counted as tyre wear. stints = fromLive's (done + current, in order).
+  // -> { perLap (s slower per lap of tyre age, >= 0), laps (used), refAge: { driver: his average tyre age } } | null (too little to tell: no double stints)
+  var WHEELS = ['FL', 'FR', 'RL', 'RR'];
+  function wheelAges(stints) {
+    var age = [0, 0, 0, 0], out = [];
+    (stints || []).forEach(function (x, i) {
+      if (i > 0) {
+        var w = typeof x.tyres === 'string' && x.tyres ? x.tyres.split(' ') : x.newSet === true || (x.newSet === null && x.tyres === null) ? WHEELS : [];
+        WHEELS.forEach(function (n, k) { if (w.indexOf(n) >= 0) age[k] = 0; });
+      }
+      out.push(age.slice()); var n = num(x.laps, 0); age = age.map(function (a) { return a + n; });
+    });
+    return out;                                                                             // per stint: each wheel's age (laps) at its start
+  }
+  function tyreDeg(stints) {
+    var starts = wheelAges(stints), rows = [], byDrv = {}, vs = [], healthy = 0;
+    // laps with a clearly lower top speed (damage, lapLog [4]) are left out: their time is not the tyres'
+    (stints || []).forEach(function (x) { (x.lapLog || []).forEach(function (l) { if (!l[3] && l[4] > 0) vs.push(l[4]); }); });
+    for (var h = 4; h < vs.length; h++) { var mh = P.paceMath.median(vs.slice(h - 4, h + 1)); if (mh > healthy) healthy = mh; }
+    (stints || []).forEach(function (x, i) {
+      if (!x.driver || !x.lapLog || !x.lapLog.length) return;
+      var a0 = (starts[i][0] + starts[i][1] + starts[i][2] + starts[i][3]) / 4, first = num(x.startLap, 0), L = x.lapLog.filter(function (l) { return !l[3] && l[1] > 0 && !(healthy > 0 && l[4] > 0 && l[4] < healthy - 4); });
+      L.forEach(function (l) { var k = l[0] - first; (byDrv[x.driver] = byDrv[x.driver] || []).push({ t: l[1], age: a0 + k - 0.5, k: k }); });
+    });
+    var refAge = {}, n = 0, sxx = 0, sxy = 0, syy = 0, sxt = 0, syt = 0;                  // x = tyre age, y = lap in the stint, both less the driver's mean
+    Object.keys(byDrv).forEach(function (d) {
+      var r = byDrv[d], med = P.paceMath.median(r.map(function (q) { return q.t; }));
+      r = r.filter(function (q) { return q.t <= med * 1.07; }); if (r.length < 5) return;
+      var mt = 0, ma = 0, mk = 0; r.forEach(function (q) { mt += q.t; ma += q.age; mk += q.k; }); mt /= r.length; ma /= r.length; mk /= r.length;
+      refAge[d] = ma;
+      r.forEach(function (q) { var x = q.age - ma, y = q.k - mk, t = q.t - mt; sxx += x * x; sxy += x * y; syy += y * y; sxt += x * t; syt += y * t; n++; });
+    });
+    var det = sxx * syy - sxy * sxy;
+    if (n < 30 || !(det > 1e-9 * sxx * syy) || det / syy < 25 * n) return null;          // the tyre age must vary apart from the lap in the stint (double stints)
+    var b = (sxt * syy - syt * sxy) / det, c = (syt * sxx - sxt * sxy) / det;
+    return { perLap: Math.max(0, Math.min(0.15, b)), perStintLap: Math.max(-0.1, Math.min(0.1, c)), laps: n, refAge: refAge };   // perStintLap: s per lap into the stint (< 0: lighter, faster)
+  }
+
+  // ---- damage (owner 2026-11-16: spectating a team-mate, the game froze the aero damage; at the swap it was 69 % and the top speed was well down). From the
+  // top speed per lap (lapLog [4] = km/h at the learned point on the longest straight, StintTracker): healthy = the best 5-lap median of the race, now =
+  // the last 5 laps' median; the drop since the lap it fell. Lap time lost: the same driver's clean laps after against before (tyre age taken out:
+  // tyreDeg), else the drivers who drove both, else a rough guess from the speed (about a third of a lap at high speed). Repair: the game's time
+  // (dmg.fixAero + half its random delay; 30 + 2.5 s when not known) against the time lost over the laps after the next stop (or an extra stop + the
+  // repair when this is the last stint). stints = fromLive's (done + current); o = { deg, damage (race-live), lapsAfterStop, lapsLeft, lastStint, pitLoss }
+  // -> { drop (km/h), healthy, now, since (lap), lapLoss (s, null = not known), lapHow ('measured' | 'guess'), aero (0..1 or null), aeroLive, fix (s),
+  //      cost (s), gain (s), worth (bool | null), breakEven (laps), extraStop (bool) } | null (no speeds yet)
+  function med(a) { return a.length ? P.paceMath.median(a) : null; }
+  function damageCheck(stints, o) {
+    o = o || {}; var rows = [], starts = wheelAges(stints);
+    (stints || []).forEach(function (x, i) {
+      var a0 = starts[i] ? (starts[i][0] + starts[i][1] + starts[i][2] + starts[i][3]) / 4 : 0;
+      (x.lapLog || []).forEach(function (l) { var k = l[0] - num(x.startLap, 0); if (!l[3] && l[4] > 0) rows.push({ lap: l[0], t: l[1], v: l[4], d: x.driver, age: a0 + k - 0.5, k: k }); });
+    });
+    var dmg = o.damage || null, out = { aero: dmg && dmg.aero >= 0 ? dmg.aero : null, aeroLive: !!(dmg && dmg.live) };
+    if (rows.length < 6) return rows.length || out.aero !== null ? Object.assign(out, { drop: null }) : null;
+    var healthy = 0; for (var i = 4; i < rows.length; i++) { var m = med(rows.slice(i - 4, i + 1).map(function (r) { return r.v; })); if (m > healthy) healthy = m; }
+    var now = med(rows.slice(-5).map(function (r) { return r.v; })), drop = Math.max(0, healthy - now), since = null;
+    if (drop >= 3) {                                                                        // the lap it fell: after the last 3-lap median still near the healthy speed
+      for (var j = rows.length - 1; j >= 2; j--) if (med(rows.slice(j - 2, j + 1).map(function (r) { return r.v; })) >= healthy - drop / 2) { since = j + 1 < rows.length ? rows[j + 1].lap : null; break; }
+      if (since === null) since = rows[0].lap;
+    }
+    Object.assign(out, { drop: drop, healthy: healthy, now: now, since: since, lapLoss: null, lapHow: null });
+    if (drop >= 3 && since !== null) {
+      var deg = o.deg, adj = function (r) { var ref = deg && deg.refAge ? deg.refAge[r.d] : null; return deg && ref !== undefined && ref !== null ? r.t - deg.perLap * (r.age - ref) - num(deg.perStintLap, 0) * r.k : r.t; };
+      var per = {}; rows.forEach(function (r) { if (r.t > 0) (per[r.d] = per[r.d] || []).push(r); });
+      var diffs = [], cur = rows[rows.length - 1].d, curDiff = null;
+      Object.keys(per).forEach(function (d) {
+        var all = per[d], m0 = med(all.map(function (r) { return r.t; })), ok = all.filter(function (r) { return r.t <= m0 * 1.07; });
+        var b = ok.filter(function (r) { return r.lap < since; }).slice(-8).map(adj), a = ok.filter(function (r) { return r.lap >= since; }).slice(0, 8).map(adj);   // the laps just before and after
+        if (b.length >= 5 && a.length >= 3) { var df = a.reduce(function (x, y) { return x + y; }, 0) / a.length - b.reduce(function (x, y) { return x + y; }, 0) / b.length; diffs.push(df); if (sameDriver(d, cur)) curDiff = df; }
+      });
+      if (curDiff !== null) { out.lapLoss = Math.max(0, curDiff); out.lapHow = 'measured'; }
+      else if (diffs.length) { out.lapLoss = Math.max(0, diffs.reduce(function (x, y) { return x + y; }, 0) / diffs.length); out.lapHow = 'measured'; }
+      else { var lt = med(rows.map(function (r) { return r.t; }).filter(function (t) { return t > 0; })); if (lt) { out.lapLoss = lt * 0.33 * drop / healthy; out.lapHow = 'guess'; } }
+    }
+    // what a repair costs and earns back
+    var fix = (dmg && dmg.fixAero > 0 ? dmg.fixAero : 30) + (dmg && dmg.fixRandom >= 0 ? dmg.fixRandom / 2 : 2.5);
+    out.fix = fix; out.extraStop = !!o.lastStint; out.cost = fix + (o.lastStint ? num(o.pitLoss, 0) : 0);
+    var laps = o.lastStint ? num(o.lapsLeft, 0) : num(o.lapsAfterStop, 0);
+    if (out.lapLoss > 0.05) { out.gain = out.lapLoss * laps; out.breakEven = Math.ceil(out.cost / out.lapLoss); out.worth = out.gain > out.cost; }
+    else { out.gain = 0; out.breakEven = null; out.worth = drop >= 3 ? null : false; }
+    return out;
+  }
+
+  // ---- will the VE last to the planned stop? Not one lap against a strict limit (owner 2026-11-14: one lap a bit over turned it red although we had saved
+  // plenty before): the VE in the tank now against the laps still to drive at your usual use (use = this stint's average per lap). t = liveTarget().
+  // -> { level: 'push' | 'ok' | 'close' | 'over', spare (% VE left at the stop, may be < 0), spareLaps, room (% per lap you may use more, < 0 = save), use, need (% per lap allowed) } | null
+  function veCheck(t, use, reserve) {
+    if (!t || !(t.left > 0) || !(use > 0) || !(t.ve >= 0)) return null;
+    var res = t.finish ? 0 : num(reserve, 0), spare = t.ve - (t.left + res) * use, spareLaps = spare / use, room = spare / t.left;
+    var level = spareLaps >= 1 ? 'push' : spareLaps >= 0 ? 'ok' : spareLaps >= -0.5 ? 'close' : 'over';
+    return { level: level, spare: spare, spareLaps: spareLaps, room: room, use: use, need: use + room };
   }
   // ---- the stint you are in: the VE per lap you may still use to reach its planned end (planned laps, or the finish if that comes first) with the
   // reserve. plan, live = fromLive(), lap = the driver's lap time -> { laps (planned), left (laps to go), pitLap (the car's lap count at the stop, null =
   // the finish), target (% per lap), ve (now), finish } or null (not in a stint / VE not known)
+  // the VE left at the last line (lapLog), so the laps still to go are whole laps; else the VE now (owner 2026-11-15: mid-lap the VE now with the lap
+  // counted whole looked short: LIFT while on target)
+  function lineVe(cur) {
+    var g = cur && cur.lapLog, e = g && g.length ? g[g.length - 1] : null;
+    return e && e[0] === num(cur.startLap, -1e9) + cur.laps && e[2] >= 0 ? e[2] : cur ? cur.ve : -1;
+  }
   function liveTarget(plan, live, lap) {
     var cur = live && live.current; if (!cur || !(cur.ve >= 0)) return null;
+    var ve = lineVe(cur);
     var k = (live.stints || []).length, ov = (plan.stints || [])[k] || {}, n = Math.round(num(ov.laps, 0)) > 0 ? Math.round(ov.laps) : stintLaps(plan.ve), res = num(plan.ve && plan.ve.reserve, 0);
     var timed = !plan.length || plan.length.kind !== 'laps', total = timed ? num(plan.length && plan.length.time, 0) : num(plan.length.laps, 0);
+    if (timed && live.raceEnd > total) total = live.raceEnd;
     var done = (live.stints || []).reduce(function (a, x) { return a + x.laps; }, 0) + cur.laps;
     var toGo = timed ? (lap > 0 && total > 0 ? Math.max(0, Math.ceil((total - live.time) / lap - 1e-9)) : Infinity) : Math.max(0, total - done);
     var left = isFinite(n) ? Math.max(0, n - cur.laps) : toGo, finish = toGo <= left;
     left = Math.min(left, toGo); if (!isFinite(left)) return null;
-    return { laps: n, left: left, pitLap: finish ? null : done + left, target: left > 0 ? cur.ve / (left + (finish ? 0 : res)) : null, ve: cur.ve, finish: finish };
+    return { laps: n, left: left, pitLap: finish ? null : done + left, target: left > 0 ? ve / (left + (finish ? 0 : res)) : null, ve: ve, veNow: cur.ve, finish: finish };
   }
 
-  P.strategyMath = { build: build, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, stintOptions: stintOptions, combine: combine, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, livePace: livePace, liveTarget: liveTarget, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
+  P.strategyMath = { build: build, damageCheck: damageCheck, tyreDeg: tyreDeg, wheelAges: wheelAges, stintLaps: stintLaps, veNeeded: veNeeded, pastStints: pastStints, fromSessions: fromSessions, fromRace: fromRace, suggest: suggest, stintOptions: stintOptions, combine: combine, parseDur: parseDur, clockAt: clockAt, fromLive: fromLive, livePace: livePace, liveTarget: liveTarget, stintStats: stintStats, veCheck: veCheck, sameDriver: sameDriver, paceOf: paceOf, BEFORE: BEFORE, quickPlan: quickPlan, parseEvent: parseEvent };
   if (typeof module !== 'undefined') module.exports = P.strategyMath;
 })(typeof window !== 'undefined' ? window : globalThis);

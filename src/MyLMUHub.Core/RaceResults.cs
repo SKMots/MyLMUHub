@@ -12,6 +12,9 @@ public sealed record ResultLap(int N, double? T, double? S1, double? S2, double?
     public double Et { get; init; } = -1;
     /// <summary>The driver comes from the event log (reliable), not from the swap list.</summary>
     public bool FromLog { get; init; }
+    /// <summary>VE left after the lap in % (the file's ve), null = none; tyre left per wheel 0..1 (FL FR RL RR), null = not in the file (race review).</summary>
+    public double? VeLeft { get; init; }
+    public double[] Wheels { get; init; }
 }
 
 public sealed class ResultCar
@@ -24,6 +27,10 @@ public sealed class ResultCar
     public bool Human { get; set; }
     public int Pos { get; set; }
     public int ClassPos { get; set; }
+    public int Pitstops { get; set; }
+    public double FinishTime { get; set; } = -1;
+    public double BestLap { get; set; } = -1;
+    public string Finish { get; set; } = "";          // FinishStatus ("Finished Normally", DNF ...)
     public List<ResultLap> Laps { get; } = new();
     /// <summary>The car's slot in this file's event log (-1 = not found) and who drove each lap according to that log (lap -> driver; only the laps
     /// this game session saw: a file written after leaving / rejoining a race only logs its own part).</summary>
@@ -41,6 +48,8 @@ public sealed class ResultSession
     public double TrackLength { get; set; }
     public string Setting { get; set; } = "";         // Multiplayer / Offline ...
     public double GameVersion { get; set; }           // e.g. 1.42 (<GameVersion>1.4200</GameVersion>), 0 = unknown
+    public double RaceMinutes { get; set; }           // the race's set length (<RaceTime>480</RaceTime> = 8 h), 0 = not timed / unknown
+    public int RaceLapsSet { get; set; }              // a lap race's set laps (<RaceLaps>), 0 = none
     public List<ResultCar> Cars { get; } = new();
     /// <summary>Races: the same race in several files (left and rejoined) has the same key: track, layout and the race clock at the start of lap 1
     /// (every file repeats the whole lap history). "" = not a race.</summary>
@@ -79,11 +88,13 @@ public static class ResultsXml
                 case "Setting": head.Setting = r.ReadElementContentAsString().Trim(); continue;
                 case "GameVersion": head.GameVersion = Num(r.ReadElementContentAsString()) ?? 0; continue;
                 case "DateTime": head.Time = (long)(Num(r.ReadElementContentAsString()) ?? 0); continue;
+                case "RaceTime": head.RaceMinutes = Num(r.ReadElementContentAsString()) ?? 0; continue;
+                case "RaceLaps": head.RaceLapsSet = (int)(Num(r.ReadElementContentAsString()) ?? 0); continue;
             }
             string type = SessionType(r.Name);
             if (type != null && !r.IsEmptyElement)
             {
-                var s = new ResultSession { Type = type, Time = head.Time, Track = head.Track, Venue = head.Venue, Layout = head.Layout, TrackLength = head.TrackLength, Setting = head.Setting, GameVersion = head.GameVersion };
+                var s = new ResultSession { Type = type, Time = head.Time, Track = head.Track, Venue = head.Venue, Layout = head.Layout, TrackLength = head.TrackLength, Setting = head.Setting, GameVersion = head.GameVersion, RaceMinutes = head.RaceMinutes, RaceLapsSet = head.RaceLapsSet };
                 using (var sub = r.ReadSubtree()) ReadSession(sub, s);
                 list.Add(s);
             }
@@ -167,7 +178,7 @@ public static class ResultsXml
 
     static ResultCar ReadCar(XmlReader r)
     {
-        var c = new ResultCar(); var swaps = new List<(int From, int To, string Name)>(); var raw = new List<(int N, double? T, double? S1, double? S2, double? S3, bool Pit, bool Wet, int Pos, double? Ve, double? Wear, double Et)>();
+        var c = new ResultCar(); var swaps = new List<(int From, int To, string Name)>(); var raw = new List<(int N, double? T, double? S1, double? S2, double? S3, bool Pit, bool Wet, int Pos, double? Ve, double? Wear, double Et, double? VeLeft, double[] Wheels)>();
         r.Read(); r.Read();                                                               // past <Driver>
         while (!r.EOF)
         {
@@ -182,6 +193,10 @@ public static class ResultsXml
                 case "isPlayer": c.Human = r.ReadElementContentAsString().Trim() == "1"; continue;
                 case "Position": c.Pos = (int)(Num(r.ReadElementContentAsString()) ?? 0); continue;
                 case "ClassPosition": c.ClassPos = (int)(Num(r.ReadElementContentAsString()) ?? 0); continue;
+                case "Pitstops": c.Pitstops = (int)(Num(r.ReadElementContentAsString()) ?? 0); continue;
+                case "FinishTime": c.FinishTime = Num(r.ReadElementContentAsString()) ?? -1; continue;
+                case "BestLapTime": c.BestLap = Num(r.ReadElementContentAsString()) ?? -1; continue;
+                case "FinishStatus": c.Finish = r.ReadElementContentAsString().Trim(); continue;
                 case "Swap":
                     {
                         int from = (int)(Num(r.GetAttribute("startLap")) ?? 0), to = (int)(Num(r.GetAttribute("endLap")) ?? 0);
@@ -196,8 +211,10 @@ public static class ResultsXml
                         double? ve = Pos(r.GetAttribute("veUsed")) * 100, wear = null;
                         double?[] tw = { Num(r.GetAttribute("twfl")), Num(r.GetAttribute("twfr")), Num(r.GetAttribute("twrl")), Num(r.GetAttribute("twrr")) };
                         if (tw.All(w => w is >= 0 and <= 1)) wear = tw.Average() * 100;
+                        double[] wheels = tw.All(w => w is > 0 and <= 1) ? tw.Select(w => w.Value).ToArray() : null;   // 0.000 on all four = not in the file (a team-mate's laps)
+                        double? veLeft = Num(r.GetAttribute("ve")) is double vl && vl >= 0 && vl <= 1.5 ? vl * 100 : null;
                         double? t = Pos(r.ReadElementContentAsString());
-                        raw.Add((n, t, s1, s2, s3, pit, wet, pos, ve, wear, et)); continue;
+                        raw.Add((n, t, s1, s2, s3, pit, wet, pos, ve, wear, et, veLeft, wheels)); continue;
                     }
             }
             r.Skip();
@@ -207,7 +224,7 @@ public static class ResultsXml
             string driver = c.Name;
             foreach (var sw in swaps) if (l.N >= sw.From && l.N <= sw.To) { driver = sw.Name; break; }
             if (driver == "???") driver = "";
-            c.Laps.Add(new ResultLap(l.N, l.T, l.S1, l.S2, l.S3, l.Pit, l.Wet, l.Pos, driver, l.Ve, l.Wear) { Et = l.Et });
+            c.Laps.Add(new ResultLap(l.N, l.T, l.S1, l.S2, l.S3, l.Pit, l.Wet, l.Pos, driver, l.Ve, l.Wear) { Et = l.Et, VeLeft = l.VeLeft, Wheels = l.Wheels });
         }
         return c;
     }

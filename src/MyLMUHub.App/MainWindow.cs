@@ -36,7 +36,7 @@ public sealed class MainWindow : Window
         if (p.Maximized) WindowState = WindowState.Maximized;
         SourceInitialized += (_, _) => DarkTitleBar();
         Loaded += async (_, _) => await Init();
-        Closing += (_, _) => { SavePlacement(); var h = new System.Windows.Interop.WindowInteropHelper(this).Handle; foreach (var id in hotkeys.Keys) UnregisterHotKey(h, id); padWatcher?.Dispose(); };
+        Closing += (_, _) => { SavePlacement(); ReleaseInput(); };
         PreviewKeyDown += OnKey;
     }
 
@@ -156,7 +156,7 @@ public sealed class MainWindow : Window
             var r = doc.RootElement;
             if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("hotkeys", out var hk) && hk.ValueKind == System.Text.Json.JsonValueKind.Array)
             { SetHotkeys(hk.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x)).ToList()); return; }
-            if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("padLearn", out var pl)) { Pads().Learn(pl.ValueKind == System.Text.Json.JsonValueKind.True); return; }
+            if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("padLearn", out var pl)) { Learn(pl.ValueKind == System.Text.Json.JsonValueKind.True); return; }
             if (r.ValueKind != System.Text.Json.JsonValueKind.Object || !r.TryGetProperty("titleBar", out var bg)) return;
             int? c = Colour(bg.GetString()), tx = r.TryGetProperty("titleText", out var t) ? Colour(t.GetString()) : null;
             if (c == null) return;
@@ -171,49 +171,44 @@ public sealed class MainWindow : Window
         }
         catch (Exception) { }
     }
-    // ---- global hotkeys (Race Control: a key per view, app.js): registered with Windows so they work while the game has the keyboard. A press is sent
-    // back to the page as { hotkey: "Ctrl+Alt+1" }; combinations Windows refuses (another program has them) go back as { hotkeysFailed: [...] }.
-    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint mods, uint vk);
-    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-    readonly Dictionary<int, string> hotkeys = new(); bool hooked;
+    // ---- global hotkeys (Race Control: a key or controller button per view, the fuel widget's stint laps + / -; app.js sends the list): they work while the game
+    // has the keyboard and are never taken from it (KeyWatcher only looks; PadWatcher reads the controllers alongside the game). ONE watcher of each for the
+    // whole app (owner 2026-11-15: the hub, learning a button, and Race Control each had their own controller watcher; Windows keeps one per app, so learning
+    // took the buttons away from Race Control and switched them off for both after). A press goes to the window that set the list as { hotkey: combo }, a
+    // learned button to the window that asked as { padLearned, padName }, the controllers found as { padDevices }; keys that cannot be read as { hotkeysFailed }.
+    static PadWatcher pads; static KeyWatcher keys; static MainWindow bindOwner, padLearner;
+    void Post(object o) => Dispatcher.BeginInvoke(() => { try { web.CoreWebView2?.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(o)); } catch (Exception) { } });
+    static PadWatcher Pads()
+    {
+        if (pads != null) return pads;
+        pads = new PadWatcher();
+        pads.Pressed += c => bindOwner?.Post(new { hotkey = c });
+        pads.Learned += (c, n) => padLearner?.Post(new { padLearned = c, padName = n });
+        pads.Seen += l => padLearner?.Post(new { padDevices = l });
+        return pads;
+    }
+    static KeyWatcher Keys()
+    {
+        if (keys != null) return keys;
+        keys = new KeyWatcher();
+        keys.Pressed += c => bindOwner?.Post(new { hotkey = c });
+        return keys;
+    }
     void SetHotkeys(List<string> combos)
     {
-        var h = new System.Windows.Interop.WindowInteropHelper(this).Handle; if (h == IntPtr.Zero) return;
-        if (!hooked) { System.Windows.Interop.HwndSource.FromHwnd(h)?.AddHook(WndProc); hooked = true; }
-        foreach (var id in hotkeys.Keys) UnregisterHotKey(h, id);
-        hotkeys.Clear();
-        var failed = new List<string>(); int next = 0x7100;
-        var pads = combos.Where(c => c.StartsWith("Pad:")).ToList();                         // wheel / button box / gamepad buttons: PadWatcher
-        if (pads.Count > 0 || padWatcher != null) Pads().SetBindings(pads);
-        foreach (var c in combos.Except(pads).Distinct())
-        {
-            if (!ParseCombo(c, out uint mods, out uint vk)) { failed.Add(c); continue; }
-            int id = next++;
-            if (RegisterHotKey(h, id, mods | 0x4000, vk)) hotkeys[id] = c; else failed.Add(c);   // 0x4000 = MOD_NOREPEAT
-        }
-        try { web.CoreWebView2?.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(new { hotkeysFailed = failed })); } catch (Exception) { }
+        bindOwner = this;
+        var pl = combos.Where(c => c.StartsWith("Pad:")).ToList();                              // wheel / button box / gamepad buttons
+        if (pl.Count > 0 || pads != null) Pads().SetBindings(pl);
+        var kl = combos.Except(pl).ToList(); var failed = new List<string>();
+        if (kl.Count > 0 || keys != null) failed = Keys().SetBindings(kl);
+        Post(new { hotkeysFailed = failed });
     }
-    IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    void Learn(bool on) { if (on) padLearner = this; else if (padLearner != this) return; Pads().Learn(on); if (!on) padLearner = null; }
+    // a closing window lets go of what it had: its hotkeys (Race Control), a button it was learning (the hub)
+    void ReleaseInput()
     {
-        if (msg == 0x0312 && hotkeys.TryGetValue(wParam.ToInt32(), out var combo))              // WM_HOTKEY
-        {
-            try { web.CoreWebView2?.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(new { hotkey = combo })); } catch (Exception) { }
-            handled = true;
-        }
-        return IntPtr.Zero;
-    }
-    // controller buttons (made on first use): a press goes to the page like a key ({ hotkey }), a learned button as { padLearned, padName },
-    // the controllers found when learning starts as { padDevices } (shown in the Keys panel, so a missing device can be seen)
-    PadWatcher padWatcher;
-    PadWatcher Pads()
-    {
-        if (padWatcher != null) return padWatcher;
-        padWatcher = new PadWatcher();
-        void Post(object o) => Dispatcher.BeginInvoke(() => { try { web.CoreWebView2?.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(o)); } catch (Exception) { } });
-        padWatcher.Pressed += c => Post(new { hotkey = c });
-        padWatcher.Learned += (c, n) => Post(new { padLearned = c, padName = n });
-        padWatcher.Seen += l => Post(new { padDevices = l });
-        return padWatcher;
+        if (bindOwner == this) { bindOwner = null; pads?.SetBindings(Array.Empty<string>()); keys?.SetBindings(Array.Empty<string>()); }
+        if (padLearner == this) { pads?.Learn(false); padLearner = null; }
     }
 
     // "Ctrl+Alt+1" / "Shift+F5" / "Num3" / "K" -> modifiers (MOD_ALT 1, MOD_CONTROL 2, MOD_SHIFT 4) + virtual key

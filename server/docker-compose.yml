@@ -1,0 +1,40 @@
+# My LMU Hub team server + a Cloudflare tunnel. No port is opened on your network: the tunnel connects out to Cloudflare, and the server can only be
+# reached through it. The server sits on a network of its own ("inside", internal): it cannot reach the internet or the rest of your home network.
+#
+# 1. mkdir data && sudo chown 1654:1654 data          (the server runs as uid 1654, not root)
+# 2. put TUNNEL_TOKEN=... in a file named .env next to this one (Cloudflare Zero Trust > Networks > Tunnels > your tunnel); never commit it
+# 3. in the tunnel's Public Hostname: e.g. lmuhub.yourdomain.com -> HTTP -> mlh-server:8080
+# 4. docker compose up -d --build ; docker compose logs mlh-server  -> the setup key (once), for My LMU Hub > Team > Set up this server
+services:
+  mlh-server:
+    build: .
+    container_name: mlh-server
+    restart: unless-stopped
+    read_only: true                       # nothing in the container can be changed; only /data (the database) is written
+    tmpfs: [ /tmp ]
+    volumes: [ ./data:/data ]
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    mem_limit: 256m
+    pids_limit: 100
+    environment:
+      - MLH_SETUP_KEY=${MLH_SETUP_KEY:-}  # optional: your own setup key; empty = a random one is shown once in the log
+    networks: [ inside ]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mlh-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    read_only: true
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    networks: [ inside, outside ]
+    depends_on: [ mlh-server ]
+
+networks:
+  inside:
+    internal: true                        # no way out from here
+  outside: {}

@@ -71,12 +71,23 @@ public sealed class DataPump : IDisposable
                         engine.FocusNames = getFocusNames();
                         var standings = engine.Build(snap);
                         JoinPenaltyKinds(standings);
-                        if (web != null && engine.FocusCar != null && engine.FocusCar.IsPlayer) { engine.Car.Aero = web.Aero; engine.Car.Susp = web.Susp; engine.Car.SuspWheels = web.SuspWheels; }   // the repair screen is YOUR car: not while watching
+                        var rep = web?.Repair; var fc = engine.FocusCar;                          // the repair screen = your team's car: while you drive it, or a team-mate does
+                        if (rep != null && fc != null && (fc.IsPlayer || rep.Is(fc)))
+                        {
+                            engine.Car.Aero = rep.Aero; engine.Car.Susp = rep.Susp; engine.Car.SuspWheels = rep.SuspWheels;
+                            rep.FillWheels(fc.Detail?.Wheels);                                     // a team-mate drives: no tyre data in shared memory, the repair screen has it
+                        }
                         if (web != null) { DamageDiag(engine.FocusCar); FlagDiag(snap); RelDiag(snap); }
                         if (web != null)                                                         // live only: a replay must not overwrite the saved race
                         {
                             lock (stintGate) stints.Update(snap, engine.FocusCar, DateTimeOffset.Now.ToUnixTimeMilliseconds());
                             if (stints.Changed) { stints.Changed = false; SaveLog(); }
+                            lock (stintGate)                                                     // laps done in the stint now: the fuel widget's live VE goal
+                            {
+                                var lg = stints.Log; var st = lg != null && lg.Stints.Count > 0 ? lg.Stints[^1] : null; var fc2 = engine.FocusCar;
+                                bool thisRace = snap.Session.SessionId >= 10 && snap.Session.SessionId <= 13 && lg != null && Math.Abs(lg.EndEt - snap.Session.EndEt) <= 1;   // not an old race's log
+                                engine.Car.StintLaps = thisRace && st != null && st.End < 0 && fc2 != null && fc2.Slot == lg.Slot ? Math.Max(0, fc2.Laps - st.StartLap) : -1;
+                            }
                         }
                         Map();
                         var pb = BestLap(snap, engine.FocusCar);
@@ -117,6 +128,7 @@ public sealed class DataPump : IDisposable
         var s = lastSnap; RaceLog log; var f = engine.FocusCar;
         lock (stintGate) log = stints.Log == null ? null : JsonSerializer.Deserialize<RaceLog>(JsonSerializer.Serialize(stints.Log));   // a copy: the pump keeps changing it
         var car = s == null || log == null || log.Slot < 0 ? f : s.Cars.FirstOrDefault(c => c.Slot == log.Slot) ?? f;
+        var lead = s?.Cars.Where(c => c.Place > 0).OrderBy(c => c.Place).FirstOrDefault();          // the overall leader: a timed race ends at their line after the time
         return new
         {
             clock = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
@@ -125,6 +137,10 @@ public sealed class DataPump : IDisposable
                 fuel = car.Detail?.Fuel ?? -1, fuelCap = car.Detail?.FuelCap ?? -1,
                 veUse = car == f ? engine.Car.Ve.Avg : -1, fuelUse = car == f ? engine.Car.Fuel.Avg : -1 },   // per lap, 5-lap average (the followed car only)
             log,
+            // the team car's damage (the repair screen: exact while you drive it; the game does NOT update it while a team-mate drives: frozen at the swap,
+            // seen 2026-11-15) and what a repair costs; the Live tab's damage card
+            damage = web?.Repair is { } rp && car != null && rp.Is(car) ? new { aero = rp.Aero, susp = rp.Susp, live = car.IsPlayer, fixAero = rp.FixAero, fixAll = rp.FixAll, fixRandom = rp.FixRandom, fixConcurrent = rp.FixConcurrent } : null,
+            leader = lead == null ? null : new { driver = lead.Driver, cls = lead.Cls, laps = lead.Laps, last = lead.Last, best = lead.Best, est = lead.EstLap, into = lead.TimeInto, me = car != null && lead.Slot == car.Slot },
             @event = web?.Event,                                                                 // race length, fuel / VE limits (quick race planner)
         };
     }
@@ -191,7 +207,7 @@ public sealed class DataPump : IDisposable
         if (f?.Detail == null) return;
         var c = engine.Car;
         string now = JsonSerializer.Serialize(new { f.Driver, player = f.IsPlayer, dents = f.Detail.Dents, detached = f.Detail.Detached,
-            wheels = f.Detail.Wheels.Select(w => new { w.Flat, w.Detached }), body = c.Body, aero = c.Aero, susp = c.Susp, webAero = web?.Aero, webSusp = web?.Susp });
+            wheels = f.Detail.Wheels.Select(w => new { w.Flat, w.Detached }), body = c.Body, aero = c.Aero, susp = c.Susp, webAero = web?.Repair?.Aero, webSusp = web?.Repair?.Susp, webCar = web?.Repair?.Vehicle });
         if (now == lastDamage) return;
         lastDamage = now; damageHist.Enqueue(DateTime.Now.ToString("HH:mm:ss") + " " + now); while (damageHist.Count > 50) damageHist.Dequeue();
         try { var dir = Path.Combine(AppPaths.Dir, "webapi"); Directory.CreateDirectory(dir); File.WriteAllLines(Path.Combine(dir, "damage-live.txt"), damageHist); } catch (Exception) { }
