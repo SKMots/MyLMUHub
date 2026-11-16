@@ -251,7 +251,8 @@ public sealed class TeamClient
         // stints: split after each pit lap (the in-lap)
         var stints = new List<object>(); var cur = new List<PaceService.RaceLap>();
         void Flush() { if (cur.Count == 0) return; var c = cur.Where(l => !l.Pit && l.T > 0).Select(l => l.T).ToList(); stints.Add(new { driver = cur.GroupBy(l => l.Driver).OrderByDescending(g => g.Count()).First().Key, laps = cur.Count, avg = Avg(c), best = c.DefaultIfEmpty(0).Min() }); cur = new List<PaceService.RaceLap>(); }
-        foreach (var l in laps) { cur.Add(l); if (l.Pit && cur.Count > 1) Flush(); }
+        // a stint also ends where the driver changes (a file without its pit laps marked: two drivers are two stints)
+        for (int i = 0; i < laps.Count; i++) { var l = laps[i]; cur.Add(l); bool swap = i + 1 < laps.Count && l.Driver.Length > 0 && laps[i + 1].Driver.Length > 0 && laps[i + 1].Driver != l.Driver; if ((l.Pit && cur.Count > 1) || swap) Flush(); }
         Flush();
         var rkey = keyAs ?? RaceId(d);
         // every lap (the team race review, like the Review tab): [lap, time, pit, driver index, VE used, VE left, tyre left %, race clock] + tyre left per wheel; -1 = not known

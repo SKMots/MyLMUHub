@@ -13,10 +13,19 @@
   var WHEELS = ['FL', 'FR', 'RL', 'RR'];
 
   // lap rows of api/stints -> objects. [n, time, pit, wear %, driver, VE used %, VE left %, wheels [4] 0..1, et]
+  // A stop the file did not mark (owner 2026-11-16: an 8 h race whose file had no pit lap at all, so two drivers became one 115-lap stint): a lap is the
+  // in-lap too when the next lap has another driver, or when the VE left went up by more than 5 % in it (refilled). pitGuess = found that way.
   function laps(race) {
-    return ((race && race.laps) || []).map(function (l) {
+    var L = ((race && race.laps) || []).map(function (l) {
       return { n: l[0], t: l[1] > 0 ? l[1] : null, pit: !!l[2], driver: l[4] || '', veUsed: l[5] > 0 ? l[5] : null, veLeft: l[6] >= 0 ? l[6] : null, wheels: Array.isArray(l[7]) && l[7].length === 4 ? l[7] : null, et: num(l[8], -1) };
     }).sort(function (a, b) { return a.n - b.n; });
+    L.forEach(function (l, i) {
+      if (l.pit) return;
+      var nx = L[i + 1], pv = L[i - 1];
+      var swap = nx && l.driver && nx.driver && nx.driver !== l.driver, refill = pv && !pv.pit && pv.veLeft !== null && l.veLeft !== null && l.veLeft > pv.veLeft + 5;   // right after a pit lap: that stop's refill
+      if ((swap || refill) && nx) { l.pit = true; l.pitGuess = true; }
+    });
+    return L;
   }
 
   // which tyres were changed at a stop: the wear per wheel at the end of the in-lap against the end of the out-lap (fresher = changed). In-lap not known

@@ -142,6 +142,7 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 ![Live strategy](docs/images/live.png)
 
 **Review:** a race you drove, afterwards: every stint (average, fastest lap, VE per lap, VE left, the stop and which tyres were changed), against the plan you had, what worked and what didn't, and what other stint lengths would have given.
+A stint ends at a pit lap, and also where the driver changes or the energy is refilled when the game's file didn't mark the stop.
 
 ![Race review](docs/images/review.png)
 
@@ -155,7 +156,7 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
 - **Race results:** every team race as a card; click one for its **review** (stints, stops, tyres, drivers, what worked, what if), like the Strategy review.
 - **Race pace:** everyone's race pace from all their sessions, by class and car: per track the best pace, the average team pace, the best quali lap and
   yours; per driver their average over their cars and which car was fastest, most consistent and best in race pace. A track you never raced together
-  still shows what each of you drives there.
+  still shows what each of you drives there. Your app sends yours to each team by itself when it reads your results (and again when a team has none of it).
 - **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
 - When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
 - **Live:** when a team-mate is racing, the Team tab says "Sam is in a race · View": their position, lap times, stint and virtual energy, with the car

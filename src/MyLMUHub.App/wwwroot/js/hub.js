@@ -129,6 +129,30 @@
     }, function (e) { done({ error: String(e), sessions: [], names: [], candidates: [] }); });
   }
 
+  // your race pace to each of your teams (owner 2026-11-16: a team showed only a team-mate's pace; it was sent only from the Team tab): per track + car (the
+  // Team tab's sheet), sent when it changed, or when the team has none of yours on the server (a lost one comes back). A team with sharing off answers
+  // { off: true } (TeamClient) and gets nothing.
+  function teamApi(op, body) { return fetch('api/team?op=' + op, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(r.status); return j; }); }); }
+  function shareTeams(sessions) {
+    var M = P.paceMath; if (!M) return;
+    var rows = M.groups(sessions.filter(function (s) { return !s.live; })).slice(0, 400).map(function (g) {
+      var c = M.combine(g.sessions, 0.05, ['Race']).dry;
+      return { track: g.track, car: g.car, cls: g.cls || '', best: c.best || 0, optimal: c.optimal || 0, pace: c.clean >= 3 ? c.pace : 0, sd: c.clean >= 3 && c.sd > 0 ? c.sd : 0, clean: c.clean || 0, laps: c.laps || 0, last: g.last };
+    }).filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; });
+    if (!rows.length) return;
+    var sig = JSON.stringify(rows), h = String(sig.length) + ':' + sig.slice(-200);
+    teamApi('status').then(function (st) {
+      ((st && st.member && st.me && st.me.teams) || []).forEach(function (t) {
+        var k = 'pw-team-pace-' + t.id, old = null; try { old = localStorage.getItem(k); } catch (e) {}
+        teamApi('pace', { team: t.id }).catch(function () { return []; }).then(function (have) {
+          var mine = (have || []).some(function (p) { return p.me; });
+          if (old === h && mine) return;
+          return teamApi('sharePace', { team: t.id, rows: rows }).then(function (r) { if (r && !r.off) try { localStorage.setItem(k, h); } catch (e) {} });
+        }).catch(function () {});
+      });
+    }, function () {});
+  }
+
   // My stats on the website (2026-11-16): the Race Pace page's overview (pace.js, its default view: race sessions, all time, current game version), one row
   // per track (every layout its own track) and class, with the alien race pace and hotlap of the reference sheet; the car = your fastest car there.
   // Sent to the team server only when it changed (Settings: on by default; only you see it there).
@@ -162,6 +186,7 @@
       rows = rows.filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; }).sort(function (a, b) { return b.last - a.last; }).slice(0, 400);
       var sig = JSON.stringify(rows), h = sig.length + ':' + sig.slice(-300), old2 = null;
       try { old2 = localStorage.getItem('pw-my-pace'); } catch (e) {}
+      shareTeams(data.sessions);                                                        // your race pace to your teams too (below)
       if (old2 === h) return;
       return fetch('api/team?op=myPace', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify({ rows: rows }) }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) { if (r.ok && !j.off) try { localStorage.setItem('pw-my-pace', h); } catch (e) {} });

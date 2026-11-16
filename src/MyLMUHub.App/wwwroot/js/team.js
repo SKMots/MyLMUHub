@@ -62,6 +62,7 @@
     Promise.all([api('members', { team: id }), api('results', { team: id }), api('pace', { team: id }).catch(function () { return []; })]).then(function (a) {
       if (!team || team.id !== id) return;
       members = a[0] || []; results = a[1] || []; pace = a[2] || [];
+      if (!pace.some(function (p) { return p.me; })) { try { localStorage.removeItem('pw-team-pace-' + id); } catch (e) {} sharePace(); }   // none of yours there: send it again
       renderSummary(); renderResults(); renderMembers(); renderPace(); renderSettings();
     }, function (e) { info(e.message, true); });
   }
