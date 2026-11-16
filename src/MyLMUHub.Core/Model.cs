@@ -237,6 +237,7 @@ public sealed class CarView
     public double LapsLeft { get; set; } = -1;   // race laps left (same estimate as the top bar)
     public UsageView Fuel { get; set; } = new();
     public UsageView Ve { get; set; } = new();
+    public string LiveFrom { get; set; } = "";   // spectating a team-mate whose app shares its live data: their name (these numbers are theirs, exact); "" = from the game
 }
 
 /// <summary>A car on the track map: lap fraction (the page puts it on the learned outline).</summary>

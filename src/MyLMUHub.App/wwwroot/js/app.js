@@ -132,9 +132,13 @@
         if (!urlView && !lm.edit && n.current !== f.current && f.views[n.current]) { lm.flush(); if (ws.select(n.current)) show(); } else fillViews();
       });
     }
+    // spectating a team-mate whose app shares its live data (TeamClient): a small tag, so you know these car numbers are theirs (exact), not the game's spectator view
+    var liveTag = doc.createElement('div'), liveFrom = null; liveTag.className = 'pw-livetag'; liveTag.hidden = true; doc.body.appendChild(liveTag);
     store.subscribe(function (s) {
       if (s.layoutMsg && s.layoutMsg.at !== lastMsg) { lastMsg = s.layoutMsg.at; if (s.layoutMsg.by !== P.pageId) fromFile(); }
       lm.update(s); spec.update(s);
+      var lf = (s.car && s.car.liveFrom) || '';
+      if (lf !== liveFrom) { liveFrom = lf; liveTag.hidden = !lf; liveTag.innerHTML = lf ? '<i></i>LIVE: ' + lf.replace(/[&<>"']/g, '') : ''; liveTag.title = lf ? 'Spectating ' + lf + ': tyres, fuel, VE and damage come from their own app (exact), not from the game' : ''; }
       status.textContent = s.status === 'demo' ? 'DEMO DATA – keys 1-5 switch scenario, E edits the layout' : (s.standings ? '' : (s.status === 'live' ? 'WAITING FOR LE MANS ULTIMATE…' : 'CONNECTING…'));
     });
 

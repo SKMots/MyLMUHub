@@ -126,3 +126,8 @@ body.preview .pw-canvas.edit { background-image:none; box-shadow:none; } body.pr
 .pw-wx-card[data-art=heavy] .pw-wx-art { background:repeating-linear-gradient(105deg, rgba(180,220,255,.24) 0 2px, transparent 2px 7px), linear-gradient(110deg, #060f22 0%, #0e3369 55%, #1d5fa8 100%); }
 .pw-wx-card[data-art=storm] .pw-wx-art { background:repeating-linear-gradient(105deg, rgba(220,200,255,.18) 0 2px, transparent 2px 8px), radial-gradient(circle at 78% 30%, rgba(255,240,150,.32), transparent 35%), linear-gradient(110deg, #120a22 0%, #331a5e 55%, #5d36a3 100%); }
 
+
+/* spectating a team-mate whose app shares its live data: 'LIVE: Sam' (app.js) */
+.pw-livetag { position:fixed; right:12px; bottom:10px; z-index:900; display:flex; align-items:center; gap:7px; padding:5px 11px; border-radius:999px; background:rgba(10,12,14,.88); border:1px solid rgba(255,90,95,.55); color:#fff; font:700 12px/1.2 var(--pw-font, 'Segoe UI', sans-serif); letter-spacing:.06em; pointer-events:auto; }
+.pw-livetag i { width:7px; height:7px; border-radius:50%; background:#FF5A5F; }
+.pw-livetag[hidden] { display:none; }

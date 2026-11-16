@@ -92,7 +92,20 @@ public sealed class DataPump : IDisposable
                         Map();
                         var pb = BestLap(snap, engine.FocusCar);
                         var forecast = web == null ? null : new { nodes = web.Nodes, status = web.Status };
-                        json = JsonSerializer.Serialize(new { type = "state", standings, top = engine.Top, car = engine.Car, track = engine.Track, forecast, pb, rel = engine.Rel, pred = engine.Pred }, Opt);
+                        // live sessions with your team (TeamClient): driving = yours go out; spectating a team-mate whose app shares = theirs come in (exact)
+                        object carOut = engine.Car, topOut = engine.Top;
+                        if (Team != null && web != null)
+                        {
+                            var lf = engine.FocusCar;
+                            if (lf != null && lf.IsPlayer) Team.PushLive(snap.Session.TrackName, snap.Session.SessionId, lf.Entry, lf.Driver, web.Event?.RaceMinutes ?? -1, engine.Car, engine.Top);
+                            else
+                            {
+                                Team.StopLive();
+                                var mate = lf != null ? Team.LiveFor(snap.Session.TrackName, lf.Entry) : null;
+                                if (mate != null) { carOut = mate.Value.Car; topOut = mate.Value.Top; }
+                            }
+                        }
+                        json = JsonSerializer.Serialize(new { type = "state", standings, top = topOut, car = carOut, track = engine.Track, forecast, pb, rel = engine.Rel, pred = engine.Pred }, Opt);
                     }
                     if (json != last) { server.Broadcast(json); last = json; }              // nothing changed: nothing is sent
                     LastError = "";
@@ -123,6 +136,9 @@ public sealed class DataPump : IDisposable
     }
 
     /// <summary>/api/race-live: the session now (numbers), the followed car and its race so far (StintTracker). The strategy page polls it while open.</summary>
+    /// <summary>The team server (live sessions: yours out while you drive, a team-mate's in while you spectate them). null = none.</summary>
+    public TeamClient Team { get; set; }
+
     public object RaceLive()
     {
         var s = lastSnap; RaceLog log; var f = engine.FocusCar;

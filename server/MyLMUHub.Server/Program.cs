@@ -49,9 +49,9 @@ public static class Server
         b.Services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = 429;
-            // everyone: 120 requests a minute per member key (else per address)
+            // everyone: 240 requests a minute (live: one every 2 s) per member key (else per address)
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx => RateLimitPartition.GetFixedWindowLimiter(Auth.KeyOf(ctx.Request) is string k ? "k" + Auth.Hash(k) : "a" + Address(ctx),
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 240, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             // setup / join (no key yet): 5 tries a minute per address
             o.AddPolicy("join", ctx => RateLimitPartition.GetFixedWindowLimiter("j" + Address(ctx), _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             // sending race results: 20 a minute per member
@@ -213,6 +213,7 @@ public static class Server
         });
 
         Web.Map(app, store, KeyUser, log);                                                   // logging in on a phone, Discord (Web.cs)
+        Live.Map(app, store, KeyUser, Me);                                                     // live sessions (Live.cs)
 
         app.MapFallback("/api/{**rest}", () => Err(404, "not found"));                         // unknown API paths; the rest: the website's files
         return app;

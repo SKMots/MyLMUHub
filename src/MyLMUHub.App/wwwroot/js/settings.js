@@ -50,7 +50,7 @@
       show('phoneCard', member);
       if (!member) return;
       if (document.activeElement !== $('nameIn')) $('nameIn').value = s.me.name || '';
-      show('adminBox', !!s.me.admin);
+      show('adminBox', !!s.me.admin); $('liveSel').value = s.liveShare || 'events';
       $('siteUrl').textContent = url.replace(/^team\./, '');
       $('discordBtn').textContent = s.me.discord ? 'Discord: ' + s.me.discord + ' (unlink)' : 'Link my Discord';
       $('phoneInfo').textContent = s.me.phones ? s.me.phones + (s.me.phones === 1 ? ' phone logged in' : ' phones logged in') : 'No phone logged in.';
@@ -62,6 +62,7 @@
   $('joinMoreBtn').onclick = function () { show('joinBox', true); $('joinNameField').hidden = true; $('joinSub').textContent = 'Another team: its invite code.'; $('codeIn').focus(); };
   $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); loadServer(); }, function (e) { info(e.message, true); }); };
   $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; info('Team made: invite the others on the Team tab (Members).'); loadServer(); }, function (e) { info(e.message, true); }); };
+  $('liveSel').onchange = function () { api('liveShare', { value: this.value }).then(function (r) { info(r.value === 'off' ? 'Your live sessions are not shared.' : 'Saved.'); }, function (e) { info(e.message, true); }); };
   $('discBtn').onclick = function () { if (confirm('Disconnect from this server? You need a new invite code to come back (your teams keep you as a member).')) api('disconnect').then(loadServer); };
 
   // ---------- your phone ----------

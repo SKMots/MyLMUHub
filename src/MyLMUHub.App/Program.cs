@@ -74,7 +74,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         server.GuestInfo = () => guests.Info(pace.GuestFiles);
         server.GuestDo = (what, name) => { if (what == "start") guests.Start(name); else if (what == "stop") guests.Stop(); else if (what == "delete") guests.Delete(name, pace.Folder, pace.HandGiven(name)); };
         server.SessionsInfo = pace.Files; server.SessionsDo = pace.Manage;                   // My sessions page: hide / give to a guest / delete result files
-        var team = new TeamClient(pace); server.Team = team.Do;                                    // the team server (Team page; your key stays in this app)
+        var team = new TeamClient(pace); server.Team = team.Do; pump.Team = team;                                    // the team server (Team page; your key stays in this app)
         server.Coach = new CoachService();                                                       // AI Coach: the user's own API key, asked only on a click
         var twitch = new TwitchViewers(); server.Twitch = twitch.Get;                            // viewer count for the Twitch chat widget
         var updates = new UpdateService();

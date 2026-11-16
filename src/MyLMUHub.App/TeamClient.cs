@@ -21,6 +21,7 @@ public sealed class TeamClient
         public Dictionary<long, bool> Auto { get; set; } = new();          // per team: send the races recognised as this team's by itself
         public Dictionary<long, bool> Share { get; set; } = new();         // per team: share my race pace (default on)
         public List<string> Dismissed { get; set; } = new();               // race ids marked "not a team race"
+        public string LiveShare { get; set; } = "events";                   // your live sessions to your teams: "events" (2 h+ races), "all", "off"
     }
     Saved opts = new();
     readonly string file;
@@ -100,11 +101,11 @@ public sealed class TeamClient
                 if (url.Length == 0) return (200, "{\"connected\":false}");
                 var (hc, hb) = await Call(HttpMethod.Get, "/api/v1/health", withKey: false);
                 var h = Parse(hb); bool setup = h?["setup"] is JsonValue sv && sv.TryGetValue<bool>(out var su) && su;
-                if (key.Length == 0) return (200, JsonSerializer.Serialize(new { connected = true, url, reachable = hc == 200, setup, member = false }));
+                if (key.Length == 0) return (200, JsonSerializer.Serialize(new { connected = true, url, reachable = hc == 200, setup, member = false, liveShare = LiveShare }));
                 var (mc, mb) = await Call(HttpMethod.Get, "/api/v1/me");
                 if (mc == 401) { key = ""; Save(); }                                              // removed from every team / a new key elsewhere
                 return (200, "{\"connected\":true,\"url\":" + JsonSerializer.Serialize(url) + ",\"reachable\":" + (hc == 200 ? "true" : "false") + ",\"setup\":" + (setup ? "true" : "false") +
-                    ",\"member\":" + (mc == 200 ? "true" : "false") + ",\"me\":" + (mc == 200 ? mb : "null") + "}");
+                    ",\"member\":" + (mc == 200 ? "true" : "false") + ",\"liveShare\":\"" + LiveShare + "\",\"me\":" + (mc == 200 ? mb : "null") + "}");
             }
             case "connect":
             {
@@ -145,6 +146,17 @@ public sealed class TeamClient
                 return await Call(HttpMethod.Post, $"/api/v1/teams/{team}/results", res);
             }
             case "suggest": return (200, JsonSerializer.Serialize(await Suggest(false), Web));
+            // team-mates' live sessions (the Team tab), and your share setting
+            case "live":
+            {
+                var (c, b2) = await Call(HttpMethod.Get, "/api/v1/live"); if (c == 200 && Parse(b2) is JsonArray a) liveList = a;
+                return (c, b2);
+            }
+            case "liveShare":
+            {
+                var v = S(b, "value"); if (v is "events" or "all" or "off") { opts.LiveShare = v; Save(); if (v == "off") StopLive(); }
+                return (200, JsonSerializer.Serialize(new { value = LiveShare }));
+            }
             // ---- your phone (the website): a pairing code, Discord, log out every phone ----
             case "pair": return await Call(HttpMethod.Post, "/api/v1/web/pair", new { });
             case "logoutPhones": return await Call(HttpMethod.Post, "/api/v1/web/logout-all", new { });
@@ -298,6 +310,84 @@ public sealed class TeamClient
             return new { races = outList, teams = info.Select(t => new { id = t.Id, name = t.Name, share = !opts.Share.TryGetValue(t.Id, out var sh) || sh }) };
         }
         finally { busy.Release(); }
+    }
+
+    // ---- live sessions (owner 2026-11-16): while you drive, your car's own numbers go to your teams (every 2 s); while you spectate a team-mate whose app does
+    // the same, the dashboard shows THEIR numbers (exact tyres, fuel, VE, damage). Share: "events" (default: sessions of an event with a race of 2 h or more),
+    // "all", "off" (Settings). Nothing is sent without a team server and a team.
+    DateTime liveSent = DateTime.MinValue, livePolled = DateTime.MinValue; volatile bool liveBusy, livePolling, liveOn;
+    volatile JsonArray liveList = new();
+    readonly Dictionary<string, (long At, CarView Car, TopBarView Top)> liveCars = new();
+    static readonly JsonSerializerOptions LiveOpt = new(JsonSerializerDefaults.Web);
+    public string LiveShare => opts.LiveShare is "all" or "off" ? opts.LiveShare : "events";
+    /// <summary>The pump, while YOU drive: your car + top bar (sent at most every 2 s, never two at once).</summary>
+    // this session's laps of your car (the Team tab's live view: stints and laps, like a team race): the top bar's lap counter going up = a lap done;
+    // [lap, time, in the pits during it 0/1, VE used, VE left at the line]; a new session / car starts over
+    string lapKey = ""; int lapSeen = -1, lapsSent = -1; bool lapPit; DateTime lapsSentAt = DateTime.MinValue; readonly List<double[]> liveLaps = new();
+    void CollectLap(string key, CarView car, TopBarView top)
+    {
+        if (car == null || top == null) return;
+        if (key != lapKey) { lapKey = key; lapSeen = top.Lap; lapPit = car.InPits; lock (liveLaps) liveLaps.Clear(); return; }
+        if (car.InPits) lapPit = true;
+        if (top.Lap > lapSeen && lapSeen > 0)
+        {
+            lock (liveLaps) { liveLaps.Add(new[] { top.Lap - 1, top.Last > 0 ? Math.Round(top.Last, 3) : -1, lapPit ? 1 : 0, car.Ve.Last > 0 ? Math.Round(car.Ve.Last, 2) : -1, car.Ve.Now >= 0 ? Math.Round(car.Ve.Now, 2) : -1 }); if (liveLaps.Count > 400) liveLaps.RemoveAt(0); }
+            lapPit = car.InPits;
+        }
+        lapSeen = top.Lap;
+    }
+    public void PushLive(string track, int session, string entry, string driver, double eventMinutes, object car, object top)
+    {
+        CollectLap(track + "|" + session + "|" + entry, car as CarView, top as TopBarView);
+        if (url.Length == 0 || key.Length == 0 || LiveShare == "off" || (LiveShare == "events" && !(eventMinutes >= 120))) { StopLive(); return; }
+        if (liveBusy || (DateTime.UtcNow - liveSent).TotalSeconds < 2) return;
+        liveBusy = true; liveSent = DateTime.UtcNow; liveOn = true;
+        // the laps only when one was added (or every 30 s): the server keeps them in between (a 24 h race: ~350 laps, not every 2 s)
+        double[][] laps = null; lock (liveLaps) if (liveLaps.Count != lapsSent || (DateTime.UtcNow - lapsSentAt).TotalSeconds > 30) { laps = liveLaps.ToArray(); lapsSent = liveLaps.Count; lapsSentAt = DateTime.UtcNow; }
+        var body = new { track, session, entry, driver, eventMinutes = eventMinutes > 0 ? Math.Round(eventMinutes, 1) : 0, car, top, laps };
+        _ = Task.Run(async () => { try { await Call(HttpMethod.Post, "/api/v1/live", body); } finally { liveBusy = false; } });
+    }
+    /// <summary>Not driving any more: your live data off the server at once (else it fades out after 20 s).</summary>
+    public void StopLive()
+    {
+        if (!liveOn || url.Length == 0 || key.Length == 0) return;
+        liveOn = false; _ = Task.Run(async () => { try { await Call(HttpMethod.Delete, "/api/v1/live"); } catch (Exception) { } });
+    }
+    void PollLive()
+    {
+        if (livePolling || url.Length == 0 || key.Length == 0 || (DateTime.UtcNow - livePolled).TotalSeconds < 2) return;
+        livePolling = true; livePolled = DateTime.UtcNow;
+        _ = Task.Run(async () =>
+        {
+            try { var (c, b) = await Call(HttpMethod.Get, "/api/v1/live"); if (c == 200 && Parse(b) is JsonArray a) liveList = a; }
+            finally { livePolling = false; }
+        });
+    }
+    /// <summary>The pump, while you SPECTATE: a team-mate's live numbers for this car (same track + entry, at most 10 s old), else null (the game's own).</summary>
+    public (CarView Car, TopBarView Top)? LiveFor(string track, string entry)
+    {
+        if (url.Length == 0 || key.Length == 0 || string.IsNullOrEmpty(entry)) return null;
+        PollLive();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var n in liveList)
+        {
+            if (n is not JsonObject o || (o["me"]?.GetValue<bool>() ?? false)) continue;
+            if (S(o, "entry") != entry || S(o, "track") != track) continue;
+            long at = L(o, "at"); if (now - at > 10_000) continue;
+            lock (liveCars)
+            {
+                if (liveCars.TryGetValue(entry, out var c) && c.At == at) return (c.Car, c.Top);
+                try
+                {
+                    var car = o["car"].Deserialize<CarView>(LiveOpt); var top = o["top"].Deserialize<TopBarView>(LiveOpt);
+                    if (car == null || top == null) return null;
+                    car.LiveFrom = S(o, "name") ?? "team-mate";
+                    liveCars[entry] = (at, car, top); return (car, top);
+                }
+                catch (Exception) { return null; }
+            }
+        }
+        return null;
     }
 
     static string Clip(string s, int n) => string.IsNullOrEmpty(s) ? "" : s.Length <= n ? s : s[..n];

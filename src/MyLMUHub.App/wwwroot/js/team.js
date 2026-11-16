@@ -44,7 +44,7 @@
       info('');
       if (!member) { show('teamArea', false); show('newCard', false); return; }
       var keep = team && teamById(team.id); team = keep || teams()[0] || null;
-      renderChips(); loadTeam(); loadSuggest();
+      renderChips(); loadTeam(); loadSuggest(); liveLoad();
     }, function (e) { info(e.message, true); });
   }
   function loadSuggest() {
@@ -355,6 +355,84 @@
     var me = members.filter(function (m) { return m.me; })[0]; if (!me) return;
     api('remove', { team: team.id, user: me.id }).then(function () { team = null; load(); }, function (e) { info(e.message, true); });
   };
+
+  // ---------- team-mates racing now (live sessions: their app's own numbers, every 2 s) ----------
+  var lives = [], liveOpen = null, liveTimer = null;
+  function liveLoad() {
+    if (!st || !st.member) return;
+    api('live').then(function (l) { lives = (l || []).filter(function (x) { return !x.me; }); liveBar(); if (liveOpen) liveView(); }, function () {});
+  }
+  function sesName(n) { return F.sessionName ? F.sessionName(n) : n >= 10 ? 'Race' : 'Session'; }
+  function liveBar() {
+    $('liveBar').innerHTML = lives.map(function (x) {
+      return '<div class="liveb" data-live="' + x.user + '"><i class="dot"></i><span><b>' + esc(x.name) + '</b> is in a ' + esc(sesName(x.session).toLowerCase()) + ' at ' + esc(trackName(x.track)) +
+        (x.top && x.top.classPos ? ' · P' + x.top.classPos : '') + '</span><em>View</em></div>';
+    }).join('');
+    if (liveOpen && !lives.some(function (x) { return x.user === liveOpen; })) { $('lvAge').textContent = 'not live any more'; }
+  }
+  $('liveBar').onclick = function (e) { var b = e.target.closest('[data-live]'); if (!b) return; liveOpen = +b.getAttribute('data-live'); lvOpenStint = {}; show('liveView', true); liveView(); clearInterval(liveTimer); liveTimer = setInterval(liveLoad, 3000); };
+  $('lvClose').onclick = function () { liveOpen = null; show('liveView', false); clearInterval(liveTimer); liveTimer = setInterval(liveLoad, 10000); };
+  // the live view: a strip with the essentials; "Car" = the car from above (tyres coloured by temperature like the dashboard, wear, pressure, compound) and
+  // its damage; "Laps" = the stints of this session (review-math, like a team race) with their laps
+  var lvCar = false, lvLapsOpen = false, lvOpenStint = {};
+  $('lvCarBtn').onclick = function () { lvCar = !lvCar; liveView(); };
+  $('lvLapsBtn').onclick = function () { lvLapsOpen = !lvLapsOpen; liveView(); };
+  function bar(frac, color) { return '<div class="lv-bar"><i style="width:' + Math.max(0, Math.min(100, frac * 100)).toFixed(0) + '%;background:' + color + '"></i></div>'; }
+  function liveView() {
+    var x = lives.filter(function (l) { return l.user === liveOpen; })[0]; if (!x) return;
+    var c = x.car || {}, t = x.top || {}, ve = c.ve || {}, fu = c.fuel || {};
+    $('lvName').textContent = c.driver || x.name;
+    $('lvSub').textContent = [trackName(x.track), sesName(x.session), c.model || x.entry, c.inPits ? 'in the pits' : ''].filter(Boolean).join(' · ');
+    $('lvPos').textContent = t.classPos ? 'P' + t.classPos : '--'; $('lvPos2').textContent = t.overall ? 'P' + t.overall + ' overall' : '';
+    $('lvAge').textContent = 'updated ' + Math.max(0, Math.round((Date.now() - x.at) / 1000)) + ' s ago';
+    var lastC = F.lastColor ? F.lastColor(t.lastFlag, { classBest: 'var(--purple)', ownBest: 'var(--green)', normal: 'var(--text)' }) : 'var(--text)';
+    var veC = F.veColor ? F.veColor(ve.now, { none: 'var(--faint)', low: 'var(--red)', mid: 'var(--yellow)', ok: 'var(--lime)' }) : 'var(--lime)';
+    var cell = function (k, v, n, style) { return '<div class="lv-cell"><div class="k">' + k + '</div><div class="v"' + (style ? ' style="' + style + '"' : '') + '>' + v + '</div><div class="n">' + (n || '') + '</div></div>'; };
+    $('lvStrip').innerHTML = cell('Lap', t.lap || '--', t.timeLeft >= 0 ? F.clock(t.timeLeft) + ' left' : t.lapsLeft >= 0 ? Math.ceil(t.lapsLeft) + ' laps left' : '') +
+      cell('Last lap', lap(t.last), t.lastDiff !== null && t.lastDiff !== undefined && t.last > 0 ? (t.lastDiff > 0 ? '+' : '') + t.lastDiff.toFixed(3) + ' to best' : '', 'color:' + lastC) +
+      cell('Best', lap(t.best), '', 'color:var(--purple)') +
+      cell('Stint', c.stintLaps >= 0 ? c.stintLaps + (c.stintLaps === 1 ? ' lap' : ' laps') : '--', '') +
+      '<div class="lv-cell"><div class="k">Virtual energy</div><div class="v" style="color:' + veC + '">' + (ve.now >= 0 ? F.pct(ve.now, 1) : '--') + '</div>' + bar((ve.now || 0) / 100, veC) +
+        '<div class="n">' + (ve.avg > 0 ? F.pct(ve.avg, 2) + ' a lap' : '') + (ve.laps > 0 ? ' · ' + ve.laps.toFixed(1) + ' laps' : '') + '</div></div>' +
+      (fu.now > 0 ? cell('Fuel', fu.now.toFixed(1) + ' L', fu.avg > 0 ? fu.avg.toFixed(2) + ' L a lap' : '') : '');
+    $('lvCarBtn').classList.toggle('on', lvCar); $('lvLapsBtn').classList.toggle('on', lvLapsOpen);
+    show('lvCar', lvCar); if (lvCar) $('lvCar').innerHTML = carHtml(c);
+    show('lvLapsBox', lvLapsOpen); if (lvLapsOpen) lapsHtml(x);
+  }
+  // the car from above: four tyres coloured by temperature (the dashboard's ramp), wear and pressure on them; damage bars beside it
+  function carHtml(c) {
+    var w = c.wheels || [], pos = [[34, 56], [166, 56], [34, 214], [166, 214]], names = ['FL', 'FR', 'RL', 'RR'];
+    var tyres = pos.map(function (p, i) {
+      var x = w[i] || {}, col = x.temp !== null && x.temp !== undefined ? F.tyreTempColor(x.temp, '#3A4348') : '#3A4348';
+      var tx = i % 2 ? p[0] + 22 : p[0] - 22, anchor = i % 2 ? 'start' : 'end';
+      return '<rect x="' + (p[0] - 14) + '" y="' + (p[1] - 26) + '" width="28" height="52" rx="7" fill="' + col + '" opacity="' + (x.detached ? 0.25 : 0.95) + '"/>' +
+        '<text x="' + tx + '" y="' + (p[1] - 6) + '" text-anchor="' + anchor + '" class="t1">' + (x.wear >= 0 ? Math.round(x.wear * 100) + '%' : '--') + '</text>' +
+        '<text x="' + tx + '" y="' + (p[1] + 10) + '" text-anchor="' + anchor + '" class="t2">' + (x.temp !== null && x.temp !== undefined ? Math.round(x.temp) + '°' : '') + '</text>' +
+        '<text x="' + tx + '" y="' + (p[1] + 25) + '" text-anchor="' + anchor + '" class="t2">' + (x.pressure > 1 ? Math.round(x.pressure) + ' kPa' : '') + '</text>';
+    }).join('');
+    var body = '<path d="M80 24 Q100 12 120 24 L136 70 L140 200 L132 262 Q100 280 68 262 L60 200 L64 70 Z" fill="#14191C" stroke="#2A3237" stroke-width="2"/>' +
+      '<rect x="78" y="96" width="44" height="70" rx="10" fill="#0C1013" stroke="#2A3237"/>';
+    var svg = '<svg viewBox="-70 0 340 290"><style>.t1{fill:#E9EEEF;font:700 14px Cascadia Mono,Consolas,monospace}.t2{fill:#94A1A6;font:12px Cascadia Mono,Consolas,monospace}</style>' + body + tyres + '</svg>';
+    var icon = { s: 's', m: 'm', h: 'h', w: 'w' }[String(c.compound || '').charAt(0).toLowerCase()];
+    var row = function (k, v) { var col = F.condColor(v, { none: 'var(--faint)', good: 'var(--green)', fair: 'var(--yellow)', bad: 'var(--red)' }); return '<div class="row"><b>' + k + '</b>' + bar(v >= 0 ? v : 0, col) + '<span style="color:' + col + '">' + (v >= 0 ? Math.round(v * 100) + '%' : '--') + '</span></div>'; };
+    return '<div class="lv-car">' + svg + '<div class="lv-dmg">' + (c.compound ? '<div class="cmp">' + (icon ? '<img src="assets/icons/tyre_' + icon + '.png" alt="">' : '') + '<span>' + esc(c.compound) + ' tyres</span></div>' : '') +
+      row('Aero', c.aero) + row('Body', c.body) + row('Suspension', c.susp) +
+      '<div class="row"><b>Settings</b><span style="width:auto;text-align:left;color:var(--muted)">' + [c.brakeBias > 0 ? 'BB ' + c.brakeBias.toFixed(1) + '%' : '', c.tc >= 0 ? 'TC ' + c.tc : '', c.abs >= 0 ? 'ABS ' + c.abs : '', c.map >= 0 ? 'Map ' + c.map : ''].filter(Boolean).join(' · ') + '</span></div></div></div>';
+  }
+  // this session's stints (a pit lap ends one) with their laps, the review's maths
+  function lapsHtml(x) {
+    var laps = (x.laps || []).map(function (l) { return [l[0], l[1] > 0 ? l[1] : null, l[2] ? 1 : 0, null, (x.car && x.car.driver) || x.name, l[3] > 0 ? l[3] : null, l[4] >= 0 ? l[4] : null, null, -1]; });
+    if (!laps.length) { $('lvLaps').innerHTML = '<tbody><tr><td class="faint">No laps yet in this session.</td></tr></tbody>'; return; }
+    var st = RM.stints({ laps: laps });
+    $('lvLaps').innerHTML = '<thead><tr><th class="num">#</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE / lap</th><th class="num">VE left</th><th></th></tr></thead><tbody>' +
+      st.map(function (s, i) {
+        return '<tr class="click" data-lst="' + i + '"><td class="num">' + s.n + '</td><td class="num">' + s.laps + '<span class="two">' + s.from + '-' + s.to + '</span></td><td class="num">' + lap(s.avg) + '<span class="two">' + s.clean + ' clean</span></td>' +
+          '<td class="num" style="color:var(--purple)">' + lap(s.best) + '</td><td class="num">' + (s.ve ? F.pct(s.ve, 2) : '--') + '</td><td class="num">' + (s.veLeft >= 0 && s.veLeft !== null ? F.pct(s.veLeft, 1) : '--') + '</td>' +
+          '<td class="faint">' + (i === st.length - 1 && !s.pitted ? 'now' : s.pitted ? 'stop' : '') + '</td></tr>' + (lvOpenStint[i] ? lapsRow(s).replace('colspan="8"', 'colspan="7"') : '');
+      }).join('') + '</tbody>';
+  }
+  $('lvLaps').onclick = function (e) { var tr = e.target.closest('tr[data-lst]'); if (!tr) return; var i = +tr.getAttribute('data-lst'); lvOpenStint[i] = !lvOpenStint[i]; liveView(); };
+  liveTimer = setInterval(liveLoad, 10000);
 
   // my sessions (for the race pace I share)
   if (H.inApp) H.loadPace(function () {}, function (data) { mySessions = (data.sessions || []).filter(function (s) { return !s.live; }); sharePace(); });

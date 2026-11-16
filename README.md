@@ -46,6 +46,8 @@ A full-screen dashboard for a second monitor, built from widgets. Open it on thi
 | **Twitch chat** | Your channel's chat, with emotes and the viewer count. |
 
 **Spectator mode:** when you're not in the car (you're watching your team-mate), the whole dashboard follows their car. **SPECTATE** picks any car.
+When that team-mate uses My LMU Hub too (same team), the dashboard shows **their own live numbers**: exact tyres, fuel, virtual energy and damage, which the
+game doesn't give a spectator. A **LIVE: name** tag in the corner says so; without it (no team, or a team-mate without the app) it works as before.
 
 ## Make it your own
 Press **E** and you're in edit mode:
@@ -157,7 +159,12 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
   still shows what each of you drives there.
 - **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
 - When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
+- **Live:** when a team-mate is racing, the Team tab says "Sam is in a race · View": their position, lap times, stint and virtual energy, with the car
+  (tyres coloured by temperature, compound, damage) and the stints and laps of the session one click away. Your own sessions are shared with your teams only
+  for team events (races of 2 h or more) by default; all sessions or off in Settings.
 - Connecting to a team server, joining a team with its invite code and your name in the team: on the **Settings** page.
+
+![A team-mate racing, live](docs/images/team-live.png)
 
 The team server is optional and you host it yourself (Docker behind a Cloudflare tunnel: [server/](server/README.md)). It only accepts invited members
 and strictly checked numbers and short text, never files. Your login stays in the app, encrypted on your PC.
