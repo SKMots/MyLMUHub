@@ -28,7 +28,13 @@ public sealed class Store
             CREATE TABLE IF NOT EXISTS results (id INTEGER PRIMARY KEY, team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE, rkey TEXT NOT NULL,
                                                 uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created INTEGER NOT NULL, track TEXT NOT NULL, date INTEGER NOT NULL,
                                                 body TEXT NOT NULL, UNIQUE (team_id, rkey));
+            CREATE TABLE IF NOT EXISTS pace    (team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                                track TEXT NOT NULL, car TEXT NOT NULL, cls TEXT NOT NULL, best REAL, optimal REAL, pace REAL, clean INTEGER NOT NULL,
+                                                laps INTEGER NOT NULL, last INTEGER NOT NULL, PRIMARY KEY (team_id, user_id, track, car));
             """);
+        // added later (2026-11-16): every lap of a race (kept apart: the list of results stays small), consistency per pace row
+        if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('results') WHERE name = 'laps'")) == 0) Exec(c, "ALTER TABLE results ADD COLUMN laps TEXT");
+        if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('pace') WHERE name = 'sd'")) == 0) Exec(c, "ALTER TABLE pace ADD COLUMN sd REAL");
     }
 
     SqliteConnection Open() { var c = new SqliteConnection(cs); c.Open(); Exec(c, "PRAGMA foreign_keys = ON;"); return c; }
@@ -96,6 +102,7 @@ public sealed class Store
         using var c = Open(); using var tx = c.BeginTransaction();
         using (var cmd = Cmd(c, "DELETE FROM members WHERE team_id = $t AND user_id = $u", ("$t", team), ("$u", user))) if (cmd.ExecuteNonQuery() == 0) return false;
         Exec(c, "UPDATE results SET uploaded_by = NULL WHERE team_id = $t AND uploaded_by = $u", ("$t", team), ("$u", user));
+        Exec(c, "DELETE FROM pace WHERE team_id = $t AND user_id = $u", ("$t", team), ("$u", user));          // personal: their race pace
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM members WHERE user_id = $u", ("$u", user))) == 0)
             Exec(c, "DELETE FROM users WHERE id = $u AND admin = 0", ("$u", user));
         tx.Commit(); return true;
@@ -129,17 +136,46 @@ public sealed class Store
 
     // ---- race results ----
     /// <summary>Adds a result (the same race sent twice = the first one stays). false = already there.</summary>
-    public bool AddResult(long team, long by, string rkey, string track, long date, string body)
+    public bool AddResult(long team, long by, string rkey, string track, long date, string body, string laps = null)
     {
-        using var c = Open(); using var cmd = Cmd(c, "INSERT OR IGNORE INTO results (team_id, rkey, uploaded_by, created, track, date, body) VALUES ($t, $k, $b, $c, $tr, $d, $body)",
-            ("$t", team), ("$k", rkey), ("$b", by), ("$c", Now), ("$tr", track), ("$d", date), ("$body", body));
-        return cmd.ExecuteNonQuery() == 1;
+        using var c = Open(); using var cmd = Cmd(c, "INSERT OR IGNORE INTO results (team_id, rkey, uploaded_by, created, track, date, body, laps) VALUES ($t, $k, $b, $c, $tr, $d, $body, $laps)",
+            ("$t", team), ("$k", rkey), ("$b", by), ("$c", Now), ("$tr", track), ("$d", date), ("$body", body), ("$laps", laps));
+        if (cmd.ExecuteNonQuery() == 1) return true;
+        // already there (sent by a team-mate or an older version without laps): the laps are added when they were missing
+        if (laps != null) Exec(c, "UPDATE results SET laps = $laps WHERE team_id = $t AND rkey = $k AND laps IS NULL", ("$laps", laps), ("$t", team), ("$k", rkey));
+        return false;
     }
-    public int ResultsToday(long team) { using var c = Open(); return Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM results WHERE team_id = $t AND created > $since", ("$t", team), ("$since", Now - 86400))); }
-    public List<(long Id, string Body)> Results(long team, int max)
+    /// <summary>One race with its laps (null laps = sent without them). null = no such race in the team.</summary>
+    public (string Body, string Laps)? Result(long team, long id)
     {
-        using var c = Open(); using var cmd = Cmd(c, "SELECT id, body FROM results WHERE team_id = $t ORDER BY date DESC LIMIT $m", ("$t", team), ("$m", max));
-        using var r = cmd.ExecuteReader(); var l = new List<(long, string)>(); while (r.Read()) l.Add((r.GetInt64(0), r.GetString(1))); return l;
+        using var c = Open(); using var cmd = Cmd(c, "SELECT body, laps FROM results WHERE team_id = $t AND id = $i", ("$t", team), ("$i", id));
+        using var r = cmd.ExecuteReader(); return r.Read() ? (r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1)) : null;
+    }
+    public bool HasLaps(long team, long id) { using var c = Open(); return Scalar(c, "SELECT laps IS NOT NULL FROM results WHERE team_id = $t AND id = $i", ("$t", team), ("$i", id)) is long v && v == 1; }
+    public int ResultsToday(long team) { using var c = Open(); return Convert.ToInt32(Scalar(c, "SELECT COUNT(*) FROM results WHERE team_id = $t AND created > $since", ("$t", team), ("$since", Now - 86400))); }
+    public List<(long Id, string Body, bool Laps)> Results(long team, int max)
+    {
+        using var c = Open(); using var cmd = Cmd(c, "SELECT id, body, laps IS NOT NULL FROM results WHERE team_id = $t ORDER BY date DESC LIMIT $m", ("$t", team), ("$m", max));
+        using var r = cmd.ExecuteReader(); var l = new List<(long, string, bool)>(); while (r.Read()) l.Add((r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1)); return l;
+    }
+    // ---- race pace: each member's own sheet for the team (replaced as a whole when they send it; personal: deleted when they leave) ----
+    public void SetPace(long team, long user, IEnumerable<PaceRow> rows)
+    {
+        using var c = Open(); using var tx = c.BeginTransaction();
+        Exec(c, "DELETE FROM pace WHERE team_id = $t AND user_id = $u", ("$t", team), ("$u", user));
+        foreach (var r in rows)
+            Exec(c, "INSERT OR REPLACE INTO pace (team_id, user_id, track, car, cls, best, optimal, pace, clean, laps, last, sd) VALUES ($t, $u, $tr, $car, $cls, $b, $o, $p, $cl, $l, $last, $sd)",
+                ("$t", team), ("$u", user), ("$tr", r.Track), ("$car", r.Car), ("$cls", r.Cls), ("$b", r.Best > 0 ? r.Best : null), ("$o", r.Optimal > 0 ? r.Optimal : null),
+                ("$p", r.Pace > 0 ? r.Pace : null), ("$cl", r.Clean), ("$l", r.Laps), ("$last", r.Last), ("$sd", r.Sd > 0 ? r.Sd : null));
+        tx.Commit();
+    }
+    public List<(long User, string Name, PaceRow Row)> Pace(long team)
+    {
+        using var c = Open(); using var cmd = Cmd(c, "SELECT p.user_id, u.name, p.track, p.car, p.cls, p.best, p.optimal, p.pace, p.clean, p.laps, p.last, p.sd FROM pace p JOIN users u ON u.id = p.user_id WHERE p.team_id = $t", ("$t", team));
+        using var r = cmd.ExecuteReader(); var l = new List<(long, string, PaceRow)>();
+        double D(int i) => r.IsDBNull(i) ? 0 : r.GetDouble(i);
+        while (r.Read()) l.Add((r.GetInt64(0), r.GetString(1), new PaceRow { Track = r.GetString(2), Car = r.GetString(3), Cls = r.GetString(4), Best = D(5), Optimal = D(6), Pace = D(7), Clean = r.GetInt32(8), Laps = r.GetInt32(9), Last = r.GetInt64(10), Sd = D(11) }));
+        return l;
     }
     public bool DeleteResult(long team, long id) { using var c = Open(); using var cmd = Cmd(c, "DELETE FROM results WHERE team_id = $t AND id = $i", ("$t", team), ("$i", id)); return cmd.ExecuteNonQuery() == 1; }
 }

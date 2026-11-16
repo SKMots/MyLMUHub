@@ -145,9 +145,16 @@ Your own AI reads a summary of a session and writes a debrief with a plan for yo
 **Quick race:** paste the event text (e.g. from Discord). It reads the race length and the VE / fuel limits, takes the rest from the game, and gives the fewest stops with pit windows.
 
 ## Team
-Your team on a **team server**: invite codes, members with roles (driver, engineer, owner), and the team's **race results** as a little showcase. Send
-any race you drove for the team; a team-mate sending the same race counts once. When someone leaves, their personal data goes; the races they drove
-with the team stay. Team race pace and live race sharing come next.
+Your teams on a **team server**: invite codes, members with roles (driver, engineer, owner), one tab per team.
+- **Team races, by themselves:** the app finds your special events (the game's scheduled endurance events, solo or with team-mates) in your result files and
+  sends each to its team, recognised by the car's team name, the team's earlier races and team-mates in the car. A race left and rejoined several times is
+  put back together from all its files. A race a team-mate already sent is not added twice.
+- **Race results:** every team race as a card; click one for its **review** (stints, stops, tyres, drivers, what worked, what if), like the Strategy review.
+- **Race pace:** everyone's race pace from all their sessions, by class and car: per track the best pace, the average team pace, the best quali lap and
+  yours; per driver their average over their cars and which car was fastest, most consistent and best in race pace. A track you never raced together
+  still shows what each of you drives there.
+- **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
+- When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
 
 The team server is optional and you host it yourself (Docker behind a Cloudflare tunnel: [server/](server/README.md)). It only accepts invited members
 and strictly checked numbers and short text, never files. Your login stays in the app, encrypted on your PC.

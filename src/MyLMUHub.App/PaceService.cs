@@ -199,15 +199,40 @@ public sealed class PaceService
         return new RaceSum
         {
             Track = s.Track, Time = s.Time, RaceKey = s.RaceKey.Length > 0 ? s.RaceKey : s.Track + "|" + s.Layout + "|" + s.Time, Length = s.RaceMinutes > 0 ? s.RaceMinutes * 60 : 0,
-            CarType = car.CarType, Cls = car.CarClass, Vehicle = car.VehName, Pos = car.Pos, ClassPos = car.ClassPos, Cars = s.Cars.Count,
+            CarType = car.CarType, Cls = car.CarClass, Vehicle = car.VehName, TeamName = car.Team, Special = s.Special, Pos = car.Pos, ClassPos = car.ClassPos, Cars = s.Cars.Count,
             ClassCars = s.Cars.Count(c => c.CarClass == car.CarClass), Best = car.BestLap, Finish = car.Finish,
-            Laps = car.Laps.Select(l => new RaceLap(l.N, l.T ?? -1, l.Pit, Who(l) ?? "")).ToList()
+            FinishTime = car.FinishTime,
+            Complete = car.Laps.Count > 0 && car.Laps.Select(l => l.N).Distinct().Count() == car.Laps.Max(l => l.N) && (car.FinishTime > 0 || (car.Finish.Length > 0 && car.Finish != "None")),
+            Laps = car.Laps.Select(l => new RaceLap(l.N, l.T ?? -1, l.Pit, Who(l) ?? "", l.Ve ?? -1, l.VeLeft ?? -1, l.Wear ?? -1, l.Wheels, l.Et)).ToList()
         };
     }
-    public sealed record RaceLap(int N, double T, bool Pit, string Driver);
+    public sealed record RaceLap(int N, double T, bool Pit, string Driver, double Ve = -1, double VeLeft = -1, double Wear = -1, double[] Wheels = null, double Et = -1);
     public sealed class RaceSum
     {
-        public string Track, RaceKey, CarType, Cls, Vehicle, Finish; public long Time; public double Length, Best; public int Pos, ClassPos, Cars, ClassCars; public List<RaceLap> Laps;
+        public string Track, RaceKey, CarType, Cls, Vehicle, TeamName, Finish; public bool Special, Complete; public long Time; public double Length, Best, FinishTime; public int Pos, ClassPos, Cars, ClassCars; public List<RaceLap> Laps;
+    }
+
+    // the other results files of one race: the files written within 2 days of this one (the date is in the file name) whose race key is the same; each
+    // file's race key read once and kept (by its time written)
+    readonly Dictionary<string, (DateTime At, string Key)> keyOf = new();
+    List<string> SameRace(string dir, string file, string raceKey)
+    {
+        var res = new List<string>();
+        if (!DateTime.TryParseExact(file.Length >= 19 ? file[..19] : "", "yyyy_MM_dd_HH_mm_ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var at)) return res;
+        foreach (var p in Directory.EnumerateFiles(dir, "*.xml"))
+        {
+            var n = Path.GetFileName(p);
+            if (n == file || n.Length < 19 || !DateTime.TryParseExact(n[..19], "yyyy_MM_dd_HH_mm_ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var t) || Math.Abs((t - at).TotalDays) > 2) continue;
+            try
+            {
+                var w = File.GetLastWriteTimeUtc(p); string k;
+                lock (keyOf) { if (keyOf.TryGetValue(n, out var c) && c.At == w) k = c.Key; else k = null; }
+                if (k == null) { k = ResultsXml.Parse(p).FirstOrDefault(x => x.Type == "Race")?.RaceKey ?? ""; lock (keyOf) keyOf[n] = (w, k); }
+                if (k == raceKey) res.Add(n);
+            }
+            catch (Exception) { }
+        }
+        return res;
     }
 
     // your car's race in a results file (several files of one race: the most laps, every driver the event logs saw) and who drove each lap
@@ -226,6 +251,9 @@ public sealed class PaceService
             var drivers = new Dictionary<int, string>(car.LogDrivers);
             var group = new List<string>();
             lock (gate) if (cache != null && s.RaceKey.Length > 0) group = cache.Files.Where(kv => kv.Key != file && kv.Value.RaceKeys.Contains(s.RaceKey)).Select(kv => kv.Key).ToList();
+            // also the files of this race WITHOUT your name in them (owner 2026-11-16: left the 24 h several times to spectate; the later files hold the rest of
+            // the race but your name is on none of its laps): every results file within 2 days with the same race key, the car found by entry + team
+            if (s.RaceKey.Length > 0) foreach (var o in SameRace(dir, file, s.RaceKey)) if (!group.Contains(o)) group.Add(o);
             foreach (var other in group)
             {
                 try

@@ -35,7 +35,7 @@ public static class Server
         b.WebHost.ConfigureKestrel(k =>
         {
             k.AddServerHeader = false;
-            k.Limits.MaxRequestBodySize = 64 * 1024;
+            k.Limits.MaxRequestBodySize = 256 * 1024;                                       // a 24 h race with every lap: ~60 KB
             k.Limits.MaxRequestHeadersTotalSize = 16 * 1024;
             k.Limits.MaxRequestLineSize = 4 * 1024;
             k.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(15);
@@ -168,19 +168,40 @@ public static class Server
             var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
             var (clean, why) = Check.Result(r); if (clean == null) return Err(400, "result: " + why);
             if (store.ResultsToday(team) >= 200) return Err(429, "too many results today");
-            bool added = store.AddResult(team, me.Id, clean.Key, clean.Track, clean.Date, JsonSerializer.Serialize(clean, Json));
+            var laps = clean.LapRows == null ? null : JsonSerializer.Serialize(clean.LapRows); clean.LapRows = null;   // the laps apart: the list stays small
+            bool added = store.AddResult(team, me.Id, clean.Key, clean.Track, clean.Date, JsonSerializer.Serialize(clean, Json), laps);
             return Results.Json(new { added });
         }).RequireRateLimiting("upload");
         app.MapGet("/api/v1/teams/{team:long}/results", (HttpContext ctx, long team) =>
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
-            return Results.Json(store.Results(team, 500).Select(x => new { id = x.Id, result = JsonSerializer.Deserialize<JsonElement>(x.Body) }));
+            return Results.Json(store.Results(team, 500).Select(x => new { id = x.Id, laps = x.Laps, result = JsonSerializer.Deserialize<JsonElement>(x.Body) }));
+        });
+        app.MapGet("/api/v1/teams/{team:long}/results/{id:long}", (HttpContext ctx, long team, long id) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
+            var x = store.Result(team, id); if (x == null) return Err(404, "no such result");
+            return Results.Json(new { id, result = JsonSerializer.Deserialize<JsonElement>(x.Value.Body), lapRows = x.Value.Laps == null ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(x.Value.Laps) });
         });
         app.MapDelete("/api/v1/teams/{team:long}/results/{id:long}", (HttpContext ctx, long team, long id) =>
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key");
             var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
             return store.DeleteResult(team, id) ? Results.Json(new { ok = true }) : Err(404, "no such result");
+        });
+
+        // ---- race pace (each member sends their own sheet; everyone in the team sees all of them) ----
+        app.MapPost("/api/v1/teams/{team:long}/pace", (HttpContext ctx, long team, PaceReq r) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
+            var (rows, why) = Check.Pace(r); if (rows == null) return Err(400, "pace: " + why);
+            store.SetPace(team, me.Id, rows); return Results.Json(new { rows = rows.Count });
+        }).RequireRateLimiting("upload");
+        app.MapGet("/api/v1/teams/{team:long}/pace", (HttpContext ctx, long team) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key"); if (store.RolesIn(team, me.Id) == Role.None) return Err(404, "no such team");
+            return Results.Json(store.Pace(team).Select(x => new { user = x.User, name = x.Name, me = x.User == me.Id, track = x.Row.Track, car = x.Row.Car, cls = x.Row.Cls,
+                best = x.Row.Best, optimal = x.Row.Optimal, pace = x.Row.Pace, sd = x.Row.Sd, clean = x.Row.Clean, laps = x.Row.Laps, last = x.Row.Last }));
         });
 
         app.MapFallback(() => Err(404, "not found"));

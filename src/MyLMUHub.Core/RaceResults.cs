@@ -50,6 +50,9 @@ public sealed class ResultSession
     public double GameVersion { get; set; }           // e.g. 1.42 (<GameVersion>1.4200</GameVersion>), 0 = unknown
     public double RaceMinutes { get; set; }           // the race's set length (<RaceTime>480</RaceTime> = 8 h), 0 = not timed / unknown
     public int RaceLapsSet { get; set; }              // a lap race's set laps (<RaceLaps>), 0 = none
+    public int FuelVisible { get; set; } = -1;        // <ClientFuelVisible>: 3 in every special event seen (8 h, 24 h, 6 h, 2.4 h), 2 in daily races (2026-11-16); -1 = not in the file
+    /// <summary>A special event (the game's scheduled endurance events, where teams race), not a daily race: ClientFuelVisible 3, else (not in the file) 2 h or longer.</summary>
+    public bool Special => FuelVisible >= 0 ? FuelVisible == 3 : RaceMinutes >= 120;
     public List<ResultCar> Cars { get; } = new();
     /// <summary>Races: the same race in several files (left and rejoined) has the same key: track, layout and the race clock at the start of lap 1
     /// (every file repeats the whole lap history). "" = not a race.</summary>
@@ -90,11 +93,12 @@ public static class ResultsXml
                 case "DateTime": head.Time = (long)(Num(r.ReadElementContentAsString()) ?? 0); continue;
                 case "RaceTime": head.RaceMinutes = Num(r.ReadElementContentAsString()) ?? 0; continue;
                 case "RaceLaps": head.RaceLapsSet = (int)(Num(r.ReadElementContentAsString()) ?? 0); continue;
+                case "ClientFuelVisible": head.FuelVisible = (int)(Num(r.ReadElementContentAsString()) ?? -1); continue;
             }
             string type = SessionType(r.Name);
             if (type != null && !r.IsEmptyElement)
             {
-                var s = new ResultSession { Type = type, Time = head.Time, Track = head.Track, Venue = head.Venue, Layout = head.Layout, TrackLength = head.TrackLength, Setting = head.Setting, GameVersion = head.GameVersion, RaceMinutes = head.RaceMinutes, RaceLapsSet = head.RaceLapsSet };
+                var s = new ResultSession { Type = type, Time = head.Time, Track = head.Track, Venue = head.Venue, Layout = head.Layout, TrackLength = head.TrackLength, Setting = head.Setting, GameVersion = head.GameVersion, RaceMinutes = head.RaceMinutes, RaceLapsSet = head.RaceLapsSet, FuelVisible = head.FuelVisible };
                 using (var sub = r.ReadSubtree()) ReadSession(sub, s);
                 list.Add(s);
             }

@@ -85,10 +85,16 @@
   </div>
 
   <section class="card" style="margin-top:14px">
-    <h2>Drivers</h2>
-    <div class="sub">In driving order. Full names exactly as in the game: during the race they find each driver in the live data.</div>
-    <div class="scroll"><table class="tbl" id="drvTbl"></table></div>
-    <div style="margin-top:10px"><button class="btn" id="addDrv">Add driver</button></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div><h2>Drivers</h2>
+      <div class="sub" style="margin-bottom:0">In driving order. Full names exactly as in the game: during the race they find each driver in the live data.</div></div>
+      <label class="field inline" id="teamField" hidden>Team<select class="sel" id="teamSel"></select></label>
+    </div>
+    <div class="scroll" style="margin-top:10px"><table class="tbl" id="drvTbl"></table></div>
+    <datalist id="teamNames"></datalist>
+    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="btn" id="addDrv">Add driver</button>
+      <button class="btn" id="addTeamDrv" hidden>Add the team's drivers</button><button class="btn" id="fillTeamPace" hidden>Lap times from team race pace</button>
+      <span class="faint" id="teamInfo"></span></div>
   </section>
 
   <section class="card" style="margin-top:14px">

@@ -1,12 +1,17 @@
-// Hub page "Team" (owner 2026-11-16): the team server. Connect, set it up (server owner) or join with an invite code; then the team: its race results
-// (a little showcase), sending your races, the members and their roles, invite codes. Every action goes through the app (api/team?op=..., TeamClient.cs):
-// the member key stays in the app and never comes to this page. Text from the server is always shown as text (esc), never as HTML.
+// Hub page "Team" (owner 2026-11-16): the team server. Connect, set it up (server owner) or join with an invite code. Then:
+//  - NEW RACES FOR YOUR TEAMS (all teams): your races of the last 60 days and which team each was for (TeamClient.Suggest: the car's team name in the
+//    results file, the team's earlier races, team-mates in the car); send with one click or skip ("not a team race"); a team can send its races by itself.
+//  - one tab per team: Overview (numbers + race results showcase), Race pace (every member's sheet per track + car), Members (+ invites), Settings.
+//  - Account: your name, join another team, disconnect; the server owner makes teams.
+// Every action goes through the app (api/team?op=..., TeamClient.cs): the member key stays in the app. Text from the server is shown as text (esc), never HTML.
 (function (root) {
   'use strict';
-  var P = root.MyLMUHub, H = P.hub, F = P.format, esc = H.esc;
+  var P = root.MyLMUHub, H = P.hub, F = P.format, R = P.paceRef, PM = P.paceMath, esc = H.esc;
   var $ = function (id) { return document.getElementById(id); };
   H.header('team');
-  var st = null, team = null, members = [], results = [], races = [], sent = {};
+  if (H.inApp) H.json('api/pace?light=1').then(function (i) { H.setWho(i.names && i.names[0]); }, function () {});
+  var st = null, team = null, tab = 'overview', members = [], results = [], pace = [], sug = { races: [], teams: [] }, mySessions = null, paceTrack = null, cls = '';
+  try { tab = new URLSearchParams(location.search).get('tab') || localStorage.getItem('pw-team-tab') || 'overview'; } catch (e) {}
 
   function api(op, body) {
     return fetch('api/team?op=' + encodeURIComponent(op), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify(body || {}) })
@@ -14,110 +19,299 @@
   }
   function info(t, bad) { $('info').textContent = t || ''; $('info').style.color = bad ? 'var(--red)' : ''; }
   function tile(k, v, n) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div><div class="n">' + (n || '') + '</div></div>'; }
-  function day(t) { var d = new Date(t * 1000); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function day(t) { return new Date(t * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function trackName(t) { return (R && R.trackName(t, '')) || t || ''; }
   function roleWords(r) { return (r || []).map(function (x) { return x === 'owner' ? 'Owner' : x === 'engineer' ? 'Engineer' : 'Driver'; }).join(' + '); }
-  function myRoles() { return team ? team.roles || [] : []; }
-  function isOwner() { return myRoles().indexOf('owner') >= 0; }
-
+  function isOwner() { return !!team && (team.roles || []).indexOf('owner') >= 0; }
+  function teams() { return (st && st.me && st.me.teams) || []; }
+  function teamById(id) { return teams().filter(function (t) { return t.id === id; })[0]; }
   function show(id, on) { $(id).hidden = !on; }
+  function lap(v) { return v > 0 ? F.lap(v) : '--'; }
+
+  // ---------- load ----------
   function load() {
     if (!H.inApp) { info('Open this page in the app.'); return; }
     api('status').then(function (s) {
       st = s;
-      var member = s.connected && s.member && s.me;
+      var member = !!(s.connected && s.member && s.me);
       show('connectCard', !s.connected); show('setupCard', s.connected && !s.member && s.setup); show('joinCard', s.connected && !s.member && !s.setup);
-      show('memberArea', !!member); show('topBar', !!member);
-      $('joinNameField').hidden = false;
+      show('acctCard', member); show('chips', member); $('joinNameField').hidden = false;
       if (s.connected && !s.reachable) info('The server at ' + s.url + ' cannot be reached right now.', true);
-      else info(s.connected ? 'Server: ' + s.url : '');
-      if (!member) return;
-      var teams = s.me.teams || [];
-      if (!teams.length) { info('Server: ' + s.url + ' · you are in no team yet' + (s.me.admin ? ': make one below.' : '.')); }
-      var keep = team && teams.filter(function (t) { return t.id === team.id; })[0];
-      team = keep || teams[0] || null;
-      $('teamSel').innerHTML = teams.map(function (t) { return '<option value="' + t.id + '"' + (team && t.id === team.id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('');
+      else info(s.connected ? 'Server: ' + s.url.replace(/^https:\/\//, '') : '');
+      if (!member) { show('teamArea', false); show('newCard', false); return; }
       if (document.activeElement !== $('nameIn')) $('nameIn').value = s.me.name || '';
       show('adminBox', !!s.me.admin);
-      loadTeam();
+      var keep = team && teamById(team.id); team = keep || teams()[0] || null;
+      if (!team) info('Server: ' + s.url.replace(/^https:\/\//, '') + ' · you are in no team yet' + (s.me.admin ? ': make one under Account.' : '.'));
+      renderChips(); loadTeam(); loadSuggest();
     }, function (e) { info(e.message, true); });
   }
-
+  function loadSuggest() {
+    $('syncInfo') && ($('syncInfo').textContent = 'checking your files...');
+    api('suggest').then(function (s) {
+      sug = s || { races: [], teams: [] }; renderChips(); renderNew(); renderSettings(); sharePace();
+      if (team && (sug.races || []).some(function (r) { return r.status === 'sent now' && r.sentTo.indexOf(team.id) >= 0; })) loadTeam();
+    }, function () {});
+  }
   function loadTeam() {
-    if (!team) { $('teamName').textContent = 'No team'; $('results').innerHTML = ''; $('memTbl').innerHTML = ''; show('inviteBox', false); return; }
-    $('teamName').textContent = team.name; $('teamInfo').textContent = 'you: ' + roleWords(team.roles);
-    show('inviteBox', isOwner()); show('leaveBtn', true);
-    Promise.all([api('members', { team: team.id }), api('results', { team: team.id })]).then(function (a) {
-      members = a[0] || []; results = a[1] || [];
-      renderSummary(); renderResults(); renderMembers(); renderSend();
+    show('teamArea', !!team); if (!team) return;
+    $('teamName').textContent = team.name; $('teamInfo').textContent = 'You: ' + roleWords(team.roles);
+    show('inviteBox', isOwner()); setTab(tab);
+    var id = team.id;
+    Promise.all([api('members', { team: id }), api('results', { team: id }), api('pace', { team: id }).catch(function () { return []; })]).then(function (a) {
+      if (!team || team.id !== id) return;
+      members = a[0] || []; results = a[1] || []; pace = a[2] || [];
+      renderSummary(); renderResults(); renderMembers(); renderPace(); renderSettings();
     }, function (e) { info(e.message, true); });
   }
 
+  // ---------- team chips + tabs ----------
+  function renderChips() {
+    var waiting = function () { return 0; };
+    $('chips').innerHTML = teams().map(function (t) {
+      var w = waiting(t.id);
+      return '<span class="tchip' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + esc(t.name) + (w ? '<small>' + w + ' new</small>' : '') + '</span>';
+    }).join('');
+  }
+  $('chips').onclick = function (e) { var c = e.target.closest('[data-team]'); if (!c) return; team = teamById(+c.getAttribute('data-team')); paceTrack = null; show('rvArea', false); show('resCard', true); renderChips(); loadTeam(); };
+  function setTab(t) {
+    tab = t; try { localStorage.setItem('pw-team-tab', t); } catch (e) {}
+    [].forEach.call(document.querySelectorAll('#tabs [data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === t); });
+    [].forEach.call(document.querySelectorAll('[data-pane]'), function (p) { p.hidden = p.getAttribute('data-pane') !== t; });
+  }
+  $('tabs').onclick = function (e) { var a = e.target.closest('[data-tab]'); if (a) setTab(a.getAttribute('data-tab')); };
+
+  // ---------- team races from your files (sent by themselves, TeamClient.Suggest) ----------
+  var STATUS = { 'sent': ['sent', 'var(--green)'], 'sent now': ['sent just now', 'var(--green)'], 'incomplete': ['not sent: incomplete (no finish or laps missing in your files)', 'var(--yellow)'],
+    'unclear': ['not sent: fits more than one team', 'var(--yellow)'], 'unknown': ['not sent: no team recognised', 'var(--faint)'] };
+  function renderNew() {
+    var list = sug.races || [];
+    show('newCard', !!teams().length);
+    var sent = list.filter(function (r) { return r.sentTo.length; }).length;
+    $('syncInfo').textContent = list.length ? sent + ' of ' + list.length + ' with the team' : '';
+    if (!list.length) { $('newTbl').innerHTML = '<tbody><tr><td class="faint">No special events of yours in the last 60 days (10 laps or more).</td></tr></tbody>'; return; }
+    $('newTbl').innerHTML = '<thead><tr><th>When</th><th>Race</th><th class="num">Class</th><th>Team</th><th>Status</th></tr></thead><tbody>' + list.map(function (r) {
+      var c = r.candidates[0], to = r.sentTo.map(function (id) { var t = teamById(id); return t ? t.name : '?'; });
+      var st = STATUS[r.status] || ['', 'var(--faint)'];
+      var teamCell = to.length ? '<span class="tag">' + esc(to.join(', ')) + '</span>' : c ? esc(r.candidates.map(function (x) { return x.name; }).join(' / ')) : '<span class="faint">--</span>';
+      var why = c ? '<div class="why">' + esc(c.why.join(' · ')) + '</div>' : '';
+      return '<tr><td>' + day(r.date) + '</td><td>' + esc(trackName(r.track)) + '<div class="why">' + esc([r.car, r.teamName].filter(Boolean).join(' · ')) + ' · ' + r.laps + ' laps</div></td>' +
+        '<td class="num">' + (r.classPos ? 'P' + r.classPos : '--') + '</td><td>' + teamCell + why + '</td><td style="color:' + st[1] + '">' + esc(st[0]) + '</td></tr>';
+    }).join('') + '</tbody>';
+  }
+
+  // ---------- overview ----------
   function renderSummary() {
     var rs = results.map(function (x) { return x.result; }), best = null, laps = 0;
     rs.forEach(function (r) { laps += r.laps || 0; if (r.classPos > 0 && (best === null || r.classPos < best.classPos)) best = r; });
+    var tracks = {}; pace.forEach(function (p) { tracks[p.track] = 1; });
     $('sumTiles').innerHTML = tile('Members', members.length, members.filter(function (m) { return m.roles.indexOf('driver') >= 0; }).length + ' drivers') +
-      tile('Races', rs.length, rs.length ? 'last ' + day(rs[0].date) : '') + tile('Laps raced', laps, '') +
-      tile('Best finish', best ? 'P' + best.classPos : '--', best ? esc(best.cls + ' · ' + best.track) : '');
+      tile('Races', rs.length, rs.length ? 'last ' + day(rs[0].date) : '') + tile('Laps raced', laps, 'in team races') +
+      tile('Best finish', best ? 'P' + best.classPos : '--', best ? esc(best.cls + ' · ' + trackName(best.track)) : '') +
+      tile('Tracks with pace', Object.keys(tracks).length, 'shared by the members');
   }
-
   function renderResults() {
-    if (!results.length) { $('results').innerHTML = '<div class="faint">No races yet. Send one below.</div>'; return; }
+    if (!results.length) { $('results').innerHTML = '<div class="faint">No races yet: send one from "New races for your teams".</div>'; return; }
     $('results').innerHTML = results.map(function (x) {
       var r = x.result, len = r.lengthKind === 'time' ? F.hm(r.length) : r.length + ' laps';
       var drv = (r.drivers || []).map(function (d) { return '<div class="drv">' + esc(d.name) + ' <span>' + d.laps + ' laps' + (d.avg ? ' · avg ' + F.lap(d.avg) : '') + (d.best ? ' · best ' + F.lap(d.best) : '') + '</span></div>'; }).join('');
-      return '<div class="rcard"><span class="pos">' + (r.classPos ? 'P' + r.classPos : '--') + '</span><div class="t">' + esc(r.track) + '</div>' +
+      return '<div class="rcard open" data-race="' + x.id + '" title="Open the review"><span class="pos">' + (r.classPos ? 'P' + r.classPos : '--') + '</span><div class="t">' + esc(trackName(r.track)) + '</div>' +
         '<div class="d">' + day(r.date) + ' · ' + esc(len) + ' · ' + esc(r.cls || '') + (r.classCars ? ' (' + r.classCars + ' cars)' : '') + '</div>' +
-        '<div class="d">' + esc(r.car || '') + (r.entry ? ' · ' + esc(r.entry) : '') + '</div>' +
+        '<div class="d">' + esc([r.car, r.teamName || r.entry].filter(Boolean).join(' · ')) + '</div>' +
         '<div class="d">' + r.laps + ' laps' + (r.best ? ' · best ' + F.lap(r.best) : '') + (r.finish ? ' · ' + esc(r.finish) : '') + '</div>' + drv +
-        (isOwner() ? '<div style="margin-top:8px;text-align:right"><button class="btn" style="padding:3px 10px;font-size:12px" data-delres="' + x.id + '">Remove</button></div>' : '') + '</div>';
+        (isOwner() ? '<div style="margin-top:8px;text-align:right"><button class="btn sm" data-delres="' + x.id + '">Remove</button></div>' : '') + '</div>';
     }).join('');
   }
+  $('results').onclick = function (e) {
+    var b = e.target.closest('[data-delres]');
+    if (!b) { var c = e.target.closest('[data-race]'); if (c) openRace(+c.getAttribute('data-race')); return; }
+    if (!confirm('Remove this race from the team results?')) return;
+    api('deleteResult', { team: team.id, id: +b.getAttribute('data-delres') }).then(function () { loadTeam(); loadSuggest(); }, function (er) { info(er.message, true); });
+  };
 
+  // ---------- one race: its review (owner 2026-11-16: "like the review in Strategy"), from the laps sent with it (review-math.js) ----------
+  var RM = P.reviewMath, rvOpen = {}, rv = null, rvRace = null;
+  function openRace(id) {
+    $('rvTitle').textContent = 'Loading...'; show('resCard', false); show('rvArea', true); show('rvBody', false); $('rvTiles').innerHTML = ''; $('rvSub').textContent = ''; show('rvNoLaps', false);
+    window.scrollTo(0, $('rvArea').offsetTop - 20);
+    api('result', { team: team.id, id: id }).then(function (x) {
+      var r = x.result || {}, names = (r.drivers || []).map(function (d) { return d.name; });
+      // the laps as the Review tab reads them: [n, time, pit, tyre %, driver, VE used, VE left, wheels, race clock]
+      var laps = (x.lapRows || []).map(function (l) {
+        var v = function (k) { return l[k] >= 0 ? l[k] : null; };
+        return [l[0], v(1), l[2] ? 1 : 0, v(6), l[3] >= 0 ? names[l[3]] || '' : '', v(4), v(5), l.length >= 12 ? [l[8], l[9], l[10], l[11]] : null, v(7)];
+      });
+      rvRace = { track: r.track, time: r.date, laps: laps, car: { team: r.teamName, vehicle: r.entry, carType: r.car, cls: r.cls, pos: r.pos, classPos: r.classPos, finishTime: r.finishTime || 0, best: r.best, finish: r.finish } };
+      rvOpen = {}; lastRaceSummary = r; renderRace(r);
+    }, function (e) { $('rvTitle').textContent = 'Not found'; info(e.message, true); });
+  }
+  function renderRace(r) {
+    var len = r.lengthKind === 'time' ? F.hm(r.length) : r.length + ' laps';
+    $('rvTitle').textContent = trackName(r.track) + (r.classPos ? '  ·  P' + r.classPos : '');
+    $('rvSub').textContent = [day(r.date), len + ' race', r.cls + (r.classCars ? ' (' + r.classCars + ' cars)' : ''), r.car, r.teamName || r.entry, r.finish].filter(Boolean).join(' · ');
+    rv = rvRace.laps.length ? RM.review(rvRace, { length: r.lengthKind === 'time' && r.length > 0 ? { kind: 'time', time: r.length } : null }) : null;
+    if (!rv) {
+      // sent without its laps (an older app): the summary only
+      $('rvTiles').innerHTML = tile('Result', r.classPos ? 'P' + r.classPos : '--', r.pos ? 'class · P' + r.pos + ' overall' : '') + tile('Laps', r.laps, '') + tile('Best lap', r.best ? F.lap(r.best) : '--', '') +
+        (r.drivers || []).map(function (d) { return tile(d.name, d.avg ? F.lap(d.avg) : '--', d.laps + ' laps · best ' + (d.best ? F.lap(d.best) : '--')); }).join('');
+      $('rvNoLaps').textContent = 'This race was sent without its laps (an older app version), so there is no full review. Whoever drove it can send it again from "New races for your teams" (show all): the laps are then added.';
+      show('rvNoLaps', true); show('rvBody', false); return;
+    }
+    show('rvBody', true);
+    var c = rv.car || {}, stops = rv.stints.filter(function (s) { return s.pitted; }).length;
+    $('rvTiles').innerHTML = tile('Result', c.classPos ? 'P' + c.classPos : '--', c.pos ? 'class · P' + c.pos + ' overall' : '') + tile('Laps', rv.laps, rv.length && rv.length.kind !== 'laps' ? F.hm(rv.length.time) + ' race' : '') +
+      tile('Stops', stops, rv.pitLoss ? Math.round(rv.pitLoss) + ' s each (median)' : '') + tile('Finish', rv.finish > 0 ? F.clock(rv.finish) : '--', 'race time') +
+      '<div class="tile"><div class="k">Best lap</div><div class="v purple">' + (c.best > 0 ? F.lap(c.best) : '--') + '</div><div class="n"></div></div>' +
+      rv.drivers.map(function (d) { return tile(d.name || '?', d.avg ? F.lap(d.avg) : '--', d.stints + ' stints · best ' + (d.best ? F.lap(d.best) : '--')); }).join('');
+    $('rvFindings').innerHTML = rv.findings.map(function (f) { return '<div class="finding ' + f.kind + '"><b>' + esc(f.title) + '</b><span class="muted">' + esc(f.text) + '</span></div>'; }).join('') || '<div class="faint">Nothing to point out.</div>';
+    $('rvStints').innerHTML = '<thead><tr><th class="num">#</th><th>Driver</th><th class="num">Laps</th><th class="num">Average</th><th class="num">Fastest</th><th class="num">VE / lap</th><th class="num">VE left</th><th>Stop after</th></tr></thead><tbody>' +
+      rv.stints.map(function (s, i) {
+        var nx = rv.stints[i + 1];
+        var stop = s.pitted ? (s.stopLoss > 0 ? Math.round(s.stopLoss) + ' s' : 'stop') + (nx ? (nx.tyres ? ' · ' + RM.tyreWord(nx.tyres) + (nx.tyresLikely ? ' (likely)' : '') : nx.tyres === '' ? ' · no tyres' : '') + (nx.driver && nx.driver !== s.driver ? ' · swap to ' + esc(nx.driver) : '') : '') : '<span class="faint">finish</span>';
+        return '<tr class="click" data-st="' + i + '"><td class="num">' + s.n + '</td><td>' + esc(s.driver || '?') + '</td><td class="num">' + s.laps + '<span class="two">' + s.from + '-' + s.to + '</span></td>' +
+          '<td class="num">' + (s.avg ? F.lap(s.avg) : '--') + '<span class="two">' + s.clean + ' clean</span></td><td class="num purple">' + (s.best ? F.lap(s.best) : '--') + '</td>' +
+          '<td class="num">' + (s.ve ? F.pct(s.ve, 2) : '--') + '</td><td class="num">' + (s.veLeft >= 0 ? F.pct(s.veLeft, 1) : '--') + '</td><td>' + stop + '</td></tr>' + (rvOpen[i] ? lapsRow(s) : '');
+      }).join('') + '</tbody>';
+    $('rvDrivers').innerHTML = '<thead><tr><th>Driver</th><th class="num">Stints</th><th class="num">Laps</th><th class="num">Average lap</th><th class="num">Fastest</th><th class="num">VE per lap</th></tr></thead><tbody>' +
+      rv.drivers.map(function (d) { return '<tr><td>' + esc(d.name || '?') + '</td><td class="num">' + d.stints + '</td><td class="num">' + d.laps + '</td><td class="num">' + (d.avg ? F.lap(d.avg) : '--') + '</td><td class="num purple">' + (d.best ? F.lap(d.best) : '--') + '</td><td class="num">' + (d.vePerLap ? F.pct(d.vePerLap, 2) : '--') + '</td></tr>'; }).join('') + '</tbody>';
+    var w = rv.whatIf; show('rvWhatCard', !!(w && w.options.length));
+    if (w && w.options.length) {
+      $('rvWhatSub').textContent = 'The race again with its own numbers: ' + F.lap(w.pace) + ' a lap, ' + F.pct(w.rate, 2) + ' VE a lap without lifting (the most a stint used), ' + Math.round(rv.pitLoss) + ' s a stop. ' +
+        (w.costKnown ? 'Lifting costs ' + (rv.cost.cost * 0.1).toFixed(2) + ' s a lap per 0.1 % (from this race), so a stint length that needs lifting has slower laps.' : 'What lifting costs is not known from this race: lap times stay the same.');
+      $('rvWhat').innerHTML = '<thead><tr><th class="num">Laps a stint</th><th class="num">VE per lap</th><th class="num">Lifting</th><th class="num">Lap time</th><th class="num">Stops</th><th class="num">Laps</th><th class="num">Finish</th><th></th></tr></thead><tbody>' +
+        w.options.map(function (o) {
+          return '<tr' + (o === w.best ? ' class="ls-now"' : '') + '><td class="num">' + o.laps + '</td><td class="num">' + F.pct(o.perLap, 2) + '</td><td class="num">' + (o.save > 0 ? F.pct(o.save, 2) : '<span class="faint">none</span>') + '</td>' +
+            '<td class="num">' + F.lap(o.lap) + '</td><td class="num">' + o.stops + '</td><td class="num">' + o.raceLaps + '</td><td class="num">' + F.clock(o.end) + '</td><td>' +
+            (o.laps === w.did ? '<span class="chip lime">THE TEAM DID</span> ' : '') + (o === w.best ? '<span class="chip ok">BEST</span>' : '') + '</td></tr>';
+        }).join('') + '</tbody>';
+    }
+  }
+  // the laps of one stint (under its row)
+  function lapsRow(s) {
+    var rows = s.lapList.map(function (l) {
+      var d = l.t && s.avg ? l.t - s.avg : null, note = l.pit ? 'in lap' : (s.n > 1 && l === s.lapList[0]) ? 'out lap' : l.n === 1 ? 'start' : l.t && s.avg && l.t > s.avg * 1.07 ? 'slow' : !l.t ? 'not timed' : '';
+      var tw = l.wheels ? Math.round((l.wheels[0] + l.wheels[1] + l.wheels[2] + l.wheels[3]) / 4 * 100) + '%' : '';
+      return '<tr><td class="num">' + l.n + '</td><td class="num"' + (l.t && l.t === s.best ? ' style="color:var(--purple);font-weight:700"' : '') + '>' + (l.t ? F.lap(l.t) : '--') + '</td>' +
+        '<td class="num"' + (d !== null && !note ? ' style="color:var(' + (d <= 0 ? '--green' : '--red') + ')"' : '') + '>' + (d !== null && !note ? (d > 0 ? '+' : '−') + Math.abs(d).toFixed(3) : '') + '</td>' +
+        '<td class="num">' + (l.veUsed ? F.pct(l.veUsed, 2) : '--') + '</td><td class="num">' + (l.veLeft >= 0 && l.veLeft !== null ? F.pct(l.veLeft, 1) : '--') + '</td><td class="num">' + tw + '</td><td class="faint">' + note + '</td></tr>';
+    }).join('');
+    return '<tr class="laps"><td colspan="8"><table class="tbl"><thead><tr><th class="num">Lap</th><th class="num">Time</th><th class="num">vs average</th><th class="num">VE used</th><th class="num">VE left</th><th class="num">Tyres left</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></td></tr>';
+  }
+  $('rvStints').onclick = function (e) { var tr = e.target.closest('tr[data-st]'); if (!tr || !rv) return; var i = +tr.getAttribute('data-st'); rvOpen[i] = !rvOpen[i]; renderRace(lastRaceSummary); };
+  var lastRaceSummary = null;
+  $('rvBack').onclick = function () { show('rvArea', false); show('resCard', true); };
+
+  // ---------- race pace (like the Race Pace page: class buttons, car buttons, the tracks, a page per track) ----------
+  var CLASSES = [['LMH', 'Hypercar'], ['LMP2wec', 'LMP2'], ['LMP2elms', 'LMP2 ELMS'], ['LMP3', 'LMP3'], ['LMGT3', 'GT3'], ['GTE', 'GTE']], pCar = '', pFind = '';
+  function clsOf(p) { return (R && R.className(p.cls)) || p.cls || '?'; }
+  function clsLabel(c) { var x = CLASSES.filter(function (k) { return k[0] === c; })[0]; return x ? x[1] : c; }
+  function segHtml(items, on) { return items.map(function (it) { return '<button data-v="' + esc(it[0]) + '"' + (it[0] === on ? ' class="on"' : '') + '>' + esc(it[1]) + '</button>'; }).join(''); }
+  function renderPace() {
+    // classes the team drove, the one with the most rows first chosen
+    var count = {}; pace.forEach(function (p) { var c = clsOf(p); count[c] = (count[c] || 0) + 1; });
+    var classes = CLASSES.map(function (c) { return c[0]; }).filter(function (c) { return count[c]; }).concat(Object.keys(count).filter(function (c) { return !CLASSES.some(function (k) { return k[0] === c; }); }));
+    if (!cls || !count[cls]) cls = classes.slice().sort(function (a, b) { return count[b] - count[a]; })[0] || '';
+    $('segPCls').innerHTML = segHtml(classes.map(function (c) { return [c, clsLabel(c)]; }), cls);
+    var inCls = pace.filter(function (p) { return clsOf(p) === cls; }), cars = {}; inCls.forEach(function (p) { cars[p.car] = 1; });
+    if (pCar && !cars[pCar]) pCar = '';
+    $('segPCar').innerHTML = segHtml([['', 'All cars']].concat(Object.keys(cars).sort().map(function (c) { return [c, c]; })), pCar);
+    var rows = inCls.filter(function (p) { return !pCar || p.car === pCar; }), by = {};
+    rows.forEach(function (p) { var k = trackName(p.track); if (!by[k]) by[k] = { name: k, raw: {}, rows: [], last: 0 }; by[k].raw[p.track] = 1; by[k].rows.push(p); by[k].last = Math.max(by[k].last, p.last); });
+    var list = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.last - a.last; });
+    if (!pace.length) { $('trkTbl').innerHTML = '<tbody><tr><td class="faint">No race pace shared yet. Each member shares theirs by opening the Team tab (Settings: on by default).</td></tr></tbody>'; show('pTrack', false); show('pList', true); return; }
+    if (paceTrack && by[paceTrack]) { showTrack(by[paceTrack]); return; }
+    paceTrack = null; show('pTrack', false); show('pList', true);
+    var f = pFind.toLowerCase(), shown = list.filter(function (g) { return !f || g.name.toLowerCase().indexOf(f) >= 0 || Object.keys(g.raw).join(' ').toLowerCase().indexOf(f) >= 0; });
+    // per track (owner 2026-11-16): best pace, the team's average pace (each driver's average over their cars), best quali lap, your pace
+    $('trkTbl').innerHTML = '<thead><tr><th>Track</th><th class="num">Drivers</th><th class="num">Best pace</th><th class="num">Average team pace</th><th class="num">Best quali</th><th class="num">Your pace</th><th class="num">Last driven</th></tr></thead><tbody>' + shown.map(function (g) {
+      var ds = perDriver(g.rows), wp = ds.filter(function (d) { return d.pace > 0; }), topP = wp.slice().sort(function (a, b) { return a.pace - b.pace; })[0];
+      var avg = wp.length ? wp.reduce(function (t, d) { return t + d.pace; }, 0) / wp.length : 0, topL = ds.filter(function (d) { return d.best > 0; }).sort(function (a, b) { return a.best - b.best; })[0];
+      var mine = wp.filter(function (d) { return d.me; })[0];
+      return '<tr class="click" data-trk="' + esc(g.name) + '"><td><b>' + esc(g.name) + '</b><span class="two">' + esc(Object.keys(g.raw).join(', ')) + '</span></td><td class="num">' + ds.length + '</td>' +
+        '<td class="num">' + (topP ? lap(topP.pace) + '<span class="two">' + esc(topP.name) + '</span>' : '--') + '</td>' +
+        '<td class="num">' + (avg ? lap(avg) + '<span class="two">' + wp.length + (wp.length === 1 ? ' driver' : ' drivers') + '</span>' : '--') + '</td>' +
+        '<td class="num purple">' + (topL ? lap(topL.best) + '<span class="two">' + esc(topL.name) + '</span>' : '--') + '</td>' +
+        '<td class="num">' + (mine ? lap(mine.pace) + '<span class="two">' + (topP && mine.user !== topP.user ? '+' + (mine.pace - topP.pace).toFixed(3) + ' to the best' : 'the best') + '</span>' : '--') + '</td><td class="num">' + day(g.last) + '</td></tr>';
+    }).join('') + '</tbody>';
+  }
+  // one row per driver (owner 2026-11-16): race pace = the average over their cars (weighted by clean laps), best lap = their best in any car, clean laps
+  // added up; plus which car had the best race pace, the fastest lap and the most consistent laps (smallest spread of the clean laps)
+  function perDriver(rows) {
+    var by = {};
+    rows.forEach(function (p) { (by[p.user] = by[p.user] || []).push(p); });
+    return Object.keys(by).map(function (u) {
+      var rs = by[u], wp = rs.filter(function (p) { return p.pace > 0 && p.clean > 0; }), n = wp.reduce(function (t, p) { return t + p.clean; }, 0);
+      var bl = rs.filter(function (p) { return p.best > 0; }).sort(function (a, b) { return a.best - b.best; })[0], bp = wp.slice().sort(function (a, b) { return a.pace - b.pace; })[0];
+      var cs = wp.filter(function (p) { return p.sd > 0 && p.clean >= 5; }).sort(function (a, b) { return a.sd - b.sd; })[0];
+      var opt = rs.filter(function (p) { return p.optimal > 0; }).sort(function (a, b) { return a.optimal - b.optimal; })[0];
+      return { user: +u, name: rs[0].name, me: rs[0].me, cars: rs.length, pace: n ? wp.reduce(function (t, p) { return t + p.pace * p.clean; }, 0) / n : 0,
+        best: bl ? bl.best : 0, bestCar: bl ? bl.car : '', paceCar: bp ? bp.car : '', pacePace: bp ? bp.pace : 0, consCar: cs ? cs.car : '', consSd: cs ? cs.sd : 0,
+        optimal: opt ? opt.optimal : 0, clean: rs.reduce(function (t, p) { return t + (p.clean || 0); }, 0), laps: rs.reduce(function (t, p) { return t + (p.laps || 0); }, 0),
+        last: Math.max.apply(null, rs.map(function (p) { return p.last; })) };
+    });
+  }
+  function showTrack(g) {
+    show('pList', false); show('pTrack', true);
+    var ds = perDriver(g.rows).sort(function (a, b) { return (a.pace > 0 ? a.pace : 1e9) - (b.pace > 0 ? b.pace : 1e9) || (a.best || 1e9) - (b.best || 1e9); });
+    var wp = ds.filter(function (d) { return d.pace > 0; }), top = wp[0], avg = wp.length ? wp.reduce(function (t, d) { return t + d.pace; }, 0) / wp.length : 0;
+    var topL = ds.filter(function (d) { return d.best > 0; }).sort(function (a, b) { return a.best - b.best; })[0], mine = wp.filter(function (d) { return d.me; })[0];
+    $('trkName').textContent = g.name; $('trkSub').textContent = clsLabel(cls) + (pCar ? ' · ' + pCar : ' · all cars') + ' · ' + Object.keys(g.raw).join(', ');
+    $('trkTiles').innerHTML = tile('Best pace', top ? lap(top.pace) : '--', top ? esc(top.name) : '') + tile('Average team pace', avg ? lap(avg) : '--', wp.length + (wp.length === 1 ? ' driver' : ' drivers')) +
+      '<div class="tile"><div class="k">Best quali</div><div class="v purple">' + (topL ? lap(topL.best) : '--') + '</div><div class="n">' + (topL ? esc(topL.name + ' · ' + topL.bestCar) : '') + '</div></div>' +
+      tile('Your pace', mine ? lap(mine.pace) : '--', mine && top ? (mine === top ? 'the best' : '+' + (mine.pace - top.pace).toFixed(3) + ' to the best · ' + (mine.pace - avg >= 0 ? '+' : '−') + Math.abs(mine.pace - avg).toFixed(3) + ' to the average') : 'not driven here');
+    var many = !pCar && ds.some(function (d) { return d.cars > 1; });
+    $('paceTbl').innerHTML = '<thead><tr><th>Driver</th><th class="num">Race pace</th><th class="num">Gap</th><th class="num">Best lap</th><th class="num">Optimal</th><th class="num">Clean laps</th>' +
+      (many ? '<th>Best race pace</th><th>Fastest lap</th><th>Most consistent</th>' : '<th>Car</th><th class="num">Consistency</th>') + '<th class="num">Last driven</th></tr></thead><tbody>' + ds.map(function (d) {
+      var carCells = many
+        ? '<td>' + esc(d.paceCar || '--') + (d.cars > 1 && d.pacePace ? '<span class="two">' + lap(d.pacePace) + '</span>' : '') + '</td><td>' + esc(d.bestCar || '--') + '</td><td>' + esc(d.consCar || '--') + (d.consSd ? '<span class="two">± ' + d.consSd.toFixed(3) + ' s</span>' : '') + '</td>'
+        : '<td>' + esc(d.paceCar || d.bestCar) + '</td><td class="num">' + (d.consSd ? '± ' + d.consSd.toFixed(3) : '--') + '</td>';
+      return '<tr' + (d.me ? ' class="sel"' : '') + '><td>' + esc(d.name) + (d.me ? ' <span class="faint">(you)</span>' : '') + (many && d.cars > 1 ? '<span class="two">' + d.cars + ' cars, average</span>' : '') + '</td>' +
+        '<td class="num">' + lap(d.pace) + '</td><td class="num">' + (top && d.pace > 0 ? (d === top ? '<span class="faint">best</span>' : '+' + (d.pace - top.pace).toFixed(3)) : '--') + '</td>' +
+        '<td class="num purple">' + lap(d.best) + '</td><td class="num">' + lap(d.optimal) + '</td><td class="num">' + d.clean + '<span class="two">of ' + d.laps + '</span></td>' + carCells + '<td class="num">' + day(d.last) + '</td></tr>';
+    }).join('') + '</tbody>';
+    $('paceNote').textContent = 'Race pace = the average of clean laps in race sessions (no pit, out or incident laps, nothing over 5 % slower than that session\'s median), shown from 3 clean laps; with several cars, the average over them (by clean laps). ' +
+      'Consistency = how much the clean laps spread (smaller = steadier). Best quali = the fastest lap in any session.';
+  }
+  $('segPCls').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; cls = b.getAttribute('data-v'); pCar = ''; paceTrack = null; renderPace(); };
+  $('segPCar').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; pCar = b.getAttribute('data-v'); renderPace(); };
+  $('pFind').oninput = function () { pFind = this.value; renderPace(); };
+  $('trkTbl').onclick = function (e) { var r = e.target.closest('[data-trk]'); if (r) { paceTrack = r.getAttribute('data-trk'); renderPace(); window.scrollTo(0, $('pTrack').offsetTop - 20); } };
+  $('pBack').onclick = function () { paceTrack = null; renderPace(); };
+
+  // my sheet: per track + car from my result files (the Race Pace numbers), sent to every team that has sharing on, when it changed
+  function myRows() {
+    if (!mySessions) return null;
+    return PM.groups(mySessions).slice(0, 400).map(function (g) {
+      var c = PM.combine(g.sessions, 0.05, ['Race']).dry;
+      return { track: g.track, car: g.car, cls: g.cls || '', best: c.best || 0, optimal: c.optimal || 0, pace: c.clean >= 3 ? c.pace : 0, sd: c.clean >= 3 && c.sd > 0 ? c.sd : 0, clean: c.clean || 0, laps: c.laps || 0, last: g.last };
+    }).filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; });
+  }
+  function sharePace() {
+    var rows = myRows(); if (!rows) return;
+    var sig = JSON.stringify(rows);
+    (sug.teams || []).forEach(function (t) {
+      if (!t.share) return;
+      var k = 'pw-team-pace-' + t.id, old = null; try { old = localStorage.getItem(k); } catch (e) {}
+      var h = String(sig.length) + ':' + sig.slice(-200);
+      if (old === h) return;
+      api('sharePace', { team: t.id, rows: rows }).then(function () { try { localStorage.setItem(k, h); } catch (e) {} if (team && team.id === t.id) loadTeam(); }, function () {});
+    });
+  }
+
+  // ---------- members ----------
   function renderMembers() {
     var own = isOwner();
-    $('memTbl').innerHTML = '<thead><tr><th>Name</th><th>Role</th><th>Since</th><th></th></tr></thead><tbody>' + members.map(function (m) {
+    $('memTbl').innerHTML = '<thead><tr><th>Name</th><th>Role</th><th class="num">Tracks shared</th><th>Since</th><th></th></tr></thead><tbody>' + members.map(function (m) {
+      var n = {}; pace.forEach(function (p) { if (p.user === m.id) n[p.track] = 1; });
       var roles = own ? '<span class="roles">' + ['driver', 'engineer', 'owner'].map(function (r) { return '<label><input type="checkbox" data-role="' + r + '" data-user="' + m.id + '"' + (m.roles.indexOf(r) >= 0 ? ' checked' : '') + '> ' + r.charAt(0).toUpperCase() + r.slice(1) + '</label>'; }).join('') + '</span>' : esc(roleWords(m.roles));
-      return '<tr><td>' + esc(m.name) + (m.me ? ' <span class="faint">(you)</span>' : '') + '</td><td>' + roles + '</td><td class="faint">' + day(m.joined) + '</td>' +
-        '<td style="text-align:right">' + (own && !m.me ? '<button class="btn" style="padding:3px 10px;font-size:12px" data-remove="' + m.id + '">Remove</button>' : '') + '</td></tr>';
+      return '<tr><td>' + esc(m.name) + (m.me ? ' <span class="faint">(you)</span>' : '') + '</td><td>' + roles + '</td><td class="num">' + Object.keys(n).length + '</td><td class="faint">' + day(m.joined) + '</td>' +
+        '<td style="text-align:right">' + (own && !m.me ? '<button class="btn sm" data-remove="' + m.id + '">Remove</button>' : '') + '</td></tr>';
     }).join('') + '</tbody>';
   }
-
-  function renderSend() {
-    if (!races.length) { $('sendTbl').innerHTML = '<tbody><tr><td class="faint">' + (racesLoaded ? 'No races of yours in the results files.' : 'Reading your result files...') + '</td></tr></tbody>'; return; }
-    $('sendTbl').innerHTML = '<thead><tr><th>When</th><th>Track</th><th>Car</th><th class="num">Laps</th><th class="num">Class</th><th></th></tr></thead><tbody>' + races.map(function (s) {
-      var k = team ? team.id + '|' + s.file : '', state = sent[k];
-      return '<tr><td>' + day(s.time) + '</td><td>' + esc(s.track || '') + '</td><td>' + esc(s.car || '') + '</td><td class="num">' + s.last + '</td><td class="num">' + (s.classPos ? 'P' + s.classPos : '--') + '</td>' +
-        '<td style="text-align:right">' + (state ? '<span class="faint">' + esc(state) + '</span>' : '<button class="btn" style="padding:3px 10px;font-size:12px" data-send="' + esc(s.file) + '">Send</button>') + '</td></tr>';
-    }).join('') + '</tbody>';
-  }
-
-  // ---- actions ----
-  $('connectBtn').onclick = function () { info('Connecting...'); api('connect', { url: $('urlIn').value }).then(load, function (e) { info(e.message, true); }); };
-  $('setupBtn').onclick = function () { api('setup', { setupKey: $('setupIn').value, name: $('setupName').value }).then(function () { info('Done: you own this server. Make your first team below.'); load(); }, function (e) { info(e.message, true); }); };
-  $('joinBtn').onclick = function () { api('join', { code: $('codeIn').value, name: $('joinName').value }).then(function () { $('codeIn').value = ''; show('joinCard', false); info('Welcome to the team.'); load(); }, function (e) { info(e.message, true); }); };
-  $('joinMoreBtn').onclick = function () { show('joinCard', true); $('joinNameField').hidden = true; $('codeIn').focus(); };
-  $('teamSel').onchange = function () { var id = +this.value; team = (st.me.teams || []).filter(function (t) { return t.id === id; })[0]; loadTeam(); };
-  $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); load(); }, function (e) { info(e.message, true); }); };
-  $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; load(); }, function (e) { info(e.message, true); }); };
-  $('discBtn').onclick = function () { if (confirm('Disconnect from this server? You need a new invite code to come back (your teams keep you as a member).')) api('disconnect').then(load); };
-  $('leaveBtn').onclick = function () {
-    if (!team || !confirm('Leave "' + team.name + '"? Your personal data in this team is deleted; the races you drove with the team stay in its results.')) return;
-    var me = members.filter(function (m) { return m.me; })[0]; if (!me) return;
-    api('remove', { team: team.id, user: me.id }).then(function () { team = null; load(); }, function (e) { info(e.message, true); });
-  };
-  $('invBtn').onclick = function () {
-    var roles = [].slice.call(document.querySelectorAll('#invRoles input:checked')).map(function (x) { return x.value; });
-    if (!roles.length) { info('Pick at least one role.', true); return; }
-    api('invite', { team: team.id, roles: roles, days: +$('invDays').value }).then(function (r) {
-      $('invOut').innerHTML = '<div class="codebox">' + esc(r.code) + '</div><div class="faint">Works once, for ' + r.days + (r.days === 1 ? ' day' : ' days') + '. Send it to the new member with the server address: ' + esc(st.url.replace(/^https:\/\//, '')) +
-        '</div><button class="btn" id="copyCode" style="margin-top:6px">Copy</button>';
-      $('copyCode').onclick = function () { try { navigator.clipboard.writeText(r.code); this.textContent = 'Copied'; } catch (e) {} };
-    }, function (e) { info(e.message, true); });
-  };
   $('memTbl').onclick = function (e) {
     var b = e.target.closest('[data-remove]'); if (!b) return;
     var m = members.filter(function (x) { return x.id === +b.getAttribute('data-remove'); })[0];
-    if (!m || !confirm('Remove ' + m.name + ' from the team? Their personal data in this team is deleted; the races they drove with the team stay.')) return;
+    if (!m || !confirm('Remove ' + m.name + ' from ' + team.name + '? Their personal data in this team (race pace) is deleted; the races they drove with the team stay.')) return;
     api('remove', { team: team.id, user: m.id }).then(loadTeam, function (er) { info(er.message, true); });
   };
   $('memTbl').onchange = function (e) {
@@ -126,27 +320,46 @@
     if (!roles.length) { c.checked = true; info('A member keeps at least one role.', true); return; }
     api('roles', { team: team.id, user: u, roles: roles }).then(function () { info('Saved.'); load(); }, function (er) { info(er.message, true); loadTeam(); });
   };
-  $('results').onclick = function (e) {
-    var b = e.target.closest('[data-delres]'); if (!b || !confirm('Remove this race from the team results?')) return;
-    api('deleteResult', { team: team.id, id: +b.getAttribute('data-delres') }).then(loadTeam, function (er) { info(er.message, true); });
-  };
-  $('sendTbl').onclick = function (e) {
-    var b = e.target.closest('[data-send]'); if (!b || !team) return;
-    var file = b.getAttribute('data-send'), k = team.id + '|' + file; b.disabled = true; b.textContent = 'Sending...';
-    api('send', { team: team.id, file: file }).then(function (r) { sent[k] = r.added ? 'sent' : 'already there'; renderSend(); loadTeam(); },
-      function (er) { sent[k] = ''; info(er.message, true); renderSend(); });
+  $('invBtn').onclick = function () {
+    var roles = [].slice.call(document.querySelectorAll('#invRoles input:checked')).map(function (x) { return x.value; });
+    if (!roles.length) { info('Pick at least one role.', true); return; }
+    api('invite', { team: team.id, roles: roles, days: +$('invDays').value }).then(function (r) {
+      $('invOut').innerHTML = '<div class="codebox">' + esc(r.code) + '</div><div class="faint">For ' + esc(team.name) + '. Works once, for ' + r.days + (r.days === 1 ? ' day' : ' days') +
+        '. Send it with the server address: ' + esc(st.url.replace(/^https:\/\//, '')) + '</div><button class="btn" id="copyCode" style="margin-top:6px">Copy</button>';
+      $('copyCode').onclick = function () { try { navigator.clipboard.writeText(r.code); this.textContent = 'Copied'; } catch (e) {} };
+    }, function (e) { info(e.message, true); });
   };
 
-  // your races (the same list as the Review tab)
-  var racesLoaded = false;
-  if (H.inApp) H.loadPace(function () {}, function (data) {
-    var seen = {};
-    // one row per race: a race you left and rejoined is in several files (the same raceKey); the app sends it with all of them
-    races = (data.sessions || []).filter(function (s) { var last = s.laps.length ? s.laps[s.laps.length - 1][0] : 0; s.last = last; return s.type === 'Race' && !s.live && last >= 10; })
-      .sort(function (a, b) { return (b.classPos > 0) - (a.classPos > 0) || b.last - a.last; })
-      .filter(function (s) { var k = s.raceKey || s.file; if (seen[k]) return false; return (seen[k] = true); })
-      .sort(function (a, b) { return b.time - a.time; }).slice(0, 40);
-    racesLoaded = true; renderSend();
-  });
+  // ---------- settings ----------
+  function renderSettings() {
+    if (!team) return;
+    var t = (sug.teams || []).filter(function (x) { return x.id === team.id; })[0];
+    $('shareChk').checked = !t || t.share !== false;
+  }
+  $('shareChk').onchange = function () {
+    var on = this.checked, id = team.id;
+    // off: first take my sheet back from the team (an empty sheet), then switch sharing off
+    (on ? Promise.resolve() : api('sharePace', { team: id, rows: [] }).catch(function () {})).then(function () { return api('settings', { team: id, share: on }); }).then(function () {
+      try { localStorage.removeItem('pw-team-pace-' + id); } catch (e) {}
+      loadSuggest(); loadTeam();
+    });
+  };
+  $('leaveBtn').onclick = function () {
+    if (!team || !confirm('Leave "' + team.name + '"? Your personal data in this team (race pace) is deleted; the races you drove with the team stay in its results.')) return;
+    var me = members.filter(function (m) { return m.me; })[0]; if (!me) return;
+    api('remove', { team: team.id, user: me.id }).then(function () { team = null; load(); }, function (e) { info(e.message, true); });
+  };
+
+  // ---------- connect / account ----------
+  $('connectBtn').onclick = function () { info('Connecting...'); api('connect', { url: $('urlIn').value }).then(load, function (e) { info(e.message, true); }); };
+  $('setupBtn').onclick = function () { api('setup', { setupKey: $('setupIn').value, name: $('setupName').value }).then(function () { info('Done: you own this server. Make your first team under Account.'); load(); }, function (e) { info(e.message, true); }); };
+  $('joinBtn').onclick = function () { api('join', { code: $('codeIn').value, name: $('joinName').value }).then(function () { $('codeIn').value = ''; show('joinCard', false); info('Welcome to the team.'); team = null; load(); }, function (e) { info(e.message, true); }); };
+  $('joinMoreBtn').onclick = function () { show('joinCard', true); $('joinNameField').hidden = true; $('codeIn').focus(); };
+  $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); load(); }, function (e) { info(e.message, true); }); };
+  $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; load(); }, function (e) { info(e.message, true); }); };
+  $('discBtn').onclick = function () { if (confirm('Disconnect from this server? You need a new invite code to come back (your teams keep you as a member).')) api('disconnect').then(load); };
+
+  // my sessions (for the race pace I share)
+  if (H.inApp) H.loadPace(function () {}, function (data) { mySessions = (data.sessions || []).filter(function (s) { return !s.live; }); sharePace(); });
   load();
 })(typeof window !== 'undefined' ? window : globalThis);

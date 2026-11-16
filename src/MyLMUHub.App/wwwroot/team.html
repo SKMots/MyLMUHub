@@ -9,11 +9,25 @@
 <style>
   .rcards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
   .rcard { background:var(--tile); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
-  .rcard .t { font-weight:700; font-size:15px; } .rcard .d { color:var(--faint); font-size:12px; margin:2px 0 8px 0; }
+  .rcard .t { font-weight:700; font-size:15px; } .rcard .d { color:var(--faint); font-size:12px; margin:2px 0 6px 0; }
   .rcard .pos { float:right; font-family:var(--mono); font-size:22px; font-weight:700; color:var(--lime); }
-  .rcard .drv { font-size:12.5px; margin-top:4px; } .rcard .drv span { color:var(--faint); }
+  .rcard .drv { font-size:12.5px; margin-top:3px; } .rcard .drv span { color:var(--faint); }
   .codebox { font-family:var(--mono); font-size:26px; letter-spacing:.08em; color:var(--lime); }
   .roles label { margin-right:10px; white-space:nowrap; font-size:13px; }
+  .tchips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .tchip { border:1px solid var(--line); background:var(--tile); border-radius:999px; padding:7px 14px; cursor:pointer; font-weight:700; font-size:13px; }
+  .tchip.on { border-color:var(--lime); color:var(--lime); }
+  .tchip small { color:var(--faint); font-weight:400; margin-left:6px; }
+  .why { color:var(--faint); font-size:12px; }
+  .tag { display:inline-block; border:1px solid var(--lime); color:var(--lime); border-radius:999px; padding:1px 8px; font-size:12px; font-weight:700; margin-right:4px; }
+  .sm { padding:3px 10px; font-size:12px; }
+  .switch { display:flex; gap:10px; align-items:flex-start; margin:10px 0; } .switch input { margin-top:3px; }
+  .switch b { display:block; } .switch span { color:var(--faint); font-size:12.5px; }
+  .tbl tr.click td { cursor:pointer; }
+  .rcard.open { cursor:pointer; } .rcard.open:hover { border-color:var(--lime); }
+  .finding { border-left:3px solid var(--line); padding:8px 12px; margin:8px 0; background:var(--tile); border-radius:6px; }
+  .finding b { display:block; margin-bottom:3px; } .finding.ok { border-left-color:var(--green); } .finding.tip { border-left-color:var(--yellow); } .finding.info { border-left-color:var(--lime); }
+  #rvStints tr.laps td { background:var(--tile); padding:6px 10px; } #tabs .segl { cursor:pointer; }
 </style>
 </head>
 <body>
@@ -21,41 +35,33 @@
   <header id="hdr"></header>
 
   <section class="card" style="margin-top:14px">
-    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
-      <div>
-        <h2>Team</h2>
-        <div class="sub" style="margin-bottom:0">Your team on a team server: who is in it, and the races you drove together. Your login stays in this app (encrypted on this PC).</div>
-      </div>
-      <div class="bar" id="topBar" hidden>
-        <label class="field inline">Team<select class="sel" id="teamSel"></select></label>
-      </div>
-    </div>
+    <h2>Team</h2>
+    <div class="sub" style="margin-bottom:0">Your teams on a team server: the races you drove together, everyone's race pace, the members. Your login stays in this app (encrypted on this PC).</div>
+    <div class="tchips" id="chips" hidden></div>
     <div class="faint" id="info" style="margin-top:8px"></div>
   </section>
 
   <!-- not connected / not a member yet -->
   <section class="card" style="margin-top:14px" id="connectCard" hidden>
     <h2>Connect to a team server</h2>
-    <div class="sub">The address your team owner gave you, e.g. lmuhub.yourdomain.com.</div>
+    <div class="sub">The address your team owner gave you, e.g. team.example.com.</div>
     <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-      <label class="field" style="min-width:360px">Server address<input class="input" id="urlIn" placeholder="lmuhub.yourdomain.com"></label>
+      <label class="field" style="min-width:360px">Server address<input class="input" id="urlIn" placeholder="team.example.com"></label>
       <button class="btn lime" id="connectBtn">Connect</button>
     </div>
   </section>
-
   <section class="card" style="margin-top:14px" id="setupCard" hidden>
     <h2>Set up this server</h2>
-    <div class="sub">This server has no owner yet. Enter the setup key from the server's log (docker compose logs mlh-server) to become its owner. It works once.</div>
+    <div class="sub">This server has no owner yet. Enter the setup key from the server's log to become its owner. It works once.</div>
     <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
       <label class="field">Setup key<input class="input" id="setupIn" placeholder="XXXX-XXXX-XXXX"></label>
       <label class="field">Your name<input class="input" id="setupName" placeholder="as your team sees you"></label>
       <button class="btn lime" id="setupBtn">Set up</button>
     </div>
   </section>
-
   <section class="card" style="margin-top:14px" id="joinCard" hidden>
     <h2>Join a team</h2>
-    <div class="sub">With the invite code from your team owner. A code works once.</div>
+    <div class="sub">With the invite code from the team owner. A code works once.</div>
     <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
       <label class="field">Invite code<input class="input" id="codeIn" placeholder="XXXX-XXXX-XXXX"></label>
       <label class="field" id="joinNameField">Your name<input class="input" id="joinName" placeholder="as your team sees you"></label>
@@ -63,60 +69,124 @@
     </div>
   </section>
 
-  <!-- a member -->
-  <div id="memberArea" hidden>
-    <section class="card" style="margin-top:14px">
-      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2 id="teamName">Team</h2><span class="faint" id="teamInfo"></span></div>
-      <div class="tiles" id="sumTiles"></div>
-    </section>
+  <!-- the team races found in your files: sent by themselves -->
+  <section class="card" style="margin-top:14px" id="newCard" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>Team races from your files</h2><span class="faint" id="syncInfo"></span></div>
+    <div class="sub">Your special events of the last 60 days (the game's scheduled endurance events, solo or with team-mates; daily races are not team races). Each is matched to a
+      team by the car's team name, the team's earlier races and team-mates in the car, and sent to it by itself: when the app starts, every 10 minutes, and when you
+      join a team. A race the team already has (sent by a team-mate) is not added twice.</div>
+    <div class="scroll" style="max-height:420px"><table class="tbl" id="newTbl"></table></div>
+  </section>
 
+  <!-- one team -->
+  <div id="teamArea" hidden>
     <section class="card" style="margin-top:14px">
-      <h2>Race results</h2>
-      <div class="sub">The races the team drove, newest first. They stay with the team, also when someone leaves.</div>
-      <div class="rcards" id="results"></div>
-    </section>
-
-    <section class="card" style="margin-top:14px">
-      <h2>Send a race to the team</h2>
-      <div class="sub">Your races from the game's results files (10 laps or more). Sent: the car's result, each driver's laps, best and average lap, the stints. The same race sent by a team-mate counts once.</div>
-      <div class="scroll" style="max-height:360px"><table class="tbl" id="sendTbl"></table></div>
-    </section>
-
-    <section class="card" style="margin-top:14px">
-      <h2>Members</h2>
-      <div class="scroll"><table class="tbl" id="memTbl"></table></div>
-      <div id="inviteBox" hidden style="margin-top:14px">
-        <h2 style="font-size:15px">Invite someone</h2>
-        <div class="form" style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
-          <div class="roles" id="invRoles"><label><input type="checkbox" value="driver" checked> Driver</label><label><input type="checkbox" value="engineer"> Engineer</label><label><input type="checkbox" value="owner"> Owner</label></div>
-          <label class="field">Valid for<select class="sel" id="invDays"><option value="1">1 day</option><option value="7" selected>7 days</option><option value="30">30 days</option></select></label>
-          <button class="btn lime" id="invBtn">Make an invite code</button>
-        </div>
-        <div id="invOut" style="margin-top:10px"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <h2 id="teamName">Team</h2>
+        <span class="seg" id="tabs"><a class="segl on" data-tab="overview">Overview</a><a class="segl" data-tab="pace">Race pace</a><a class="segl" data-tab="members">Members</a><a class="segl" data-tab="settings">Settings</a></span>
       </div>
+      <div class="faint" id="teamInfo" style="margin-top:4px"></div>
     </section>
 
-    <section class="card" style="margin-top:14px">
-      <h2>You</h2>
-      <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-        <label class="field">Your name in the team<input class="input" id="nameIn"></label>
-        <button class="btn" id="nameBtn">Save</button>
-        <span style="flex:1"></span>
-        <button class="btn" id="joinMoreBtn">Join another team</button>
-        <button class="btn" id="leaveBtn">Leave this team</button>
-        <button class="btn" id="discBtn">Disconnect</button>
-      </div>
-      <div id="adminBox" hidden style="margin-top:14px">
-        <div class="sub">You own this server: make a team (you become its owner; invite the others).</div>
-        <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-          <label class="field">New team<input class="input" id="newTeamIn" placeholder="team name"></label>
-          <button class="btn" id="newTeamBtn">Make the team</button>
+    <div data-pane="overview">
+      <section class="card" style="margin-top:14px"><div class="tiles" id="sumTiles" style="margin-top:0"></div></section>
+      <section class="card" style="margin-top:14px" id="resCard">
+        <h2>Race results</h2>
+        <div class="sub">The races the team drove, newest first. Click one for its review. They stay with the team, also when someone leaves.</div>
+        <div class="rcards" id="results"></div>
+      </section>
+      <div id="rvArea" hidden>
+        <section class="card" style="margin-top:14px">
+          <div class="back" id="rvBack" style="cursor:pointer">&larr; All races</div>
+          <div class="big" id="rvTitle" style="margin-top:6px">-</div>
+          <div class="sub" id="rvSub" style="margin-left:0"></div>
+          <div class="tiles" id="rvTiles"></div>
+          <div id="rvNoLaps" class="warnbox" hidden></div>
+        </section>
+        <div id="rvBody">
+          <section class="card" style="margin-top:14px"><h2>What we see</h2><div id="rvFindings"></div></section>
+          <section class="card" style="margin-top:14px">
+            <h2>Stints</h2>
+            <div class="sub">Average = clean laps only (no in / out lap, nothing over 107 % of the stint's median). Stop = in-lap + out-lap against two normal laps. Click a stint for its laps.</div>
+            <div class="scroll"><table class="tbl" id="rvStints"></table></div>
+          </section>
+          <section class="card" style="margin-top:14px"><h2>Drivers</h2><div class="scroll"><table class="tbl" id="rvDrivers"></table></div></section>
+          <section class="card" style="margin-top:14px" id="rvWhatCard"><h2>What if</h2><div class="sub" id="rvWhatSub"></div><div class="scroll"><table class="tbl" id="rvWhat"></table></div></section>
         </div>
       </div>
-    </section>
+    </div>
+
+    <div data-pane="pace" hidden>
+      <section class="card" style="margin-top:14px">
+        <div class="sub" style="margin-left:0">Every member's race pace from all their sessions (the same numbers as their own Race Pace page: race sessions, clean laps, dry). A track the team never raced together still shows what each of you drives there.</div>
+        <div class="form" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:10px">
+          <label class="field">Class<span class="seg" id="segPCls"></span></label>
+          <label class="field">Car<span class="seg" id="segPCar"></span></label>
+        </div>
+      </section>
+      <section class="card" style="margin-top:14px" id="pList">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><h2>Tracks</h2><input class="input" id="pFind" placeholder="Find a track" style="min-width:220px"></div>
+        <div class="sub">Click a track for everyone's numbers there.</div>
+        <div class="scroll" style="max-height:640px"><table class="tbl" id="trkTbl"></table></div>
+      </section>
+      <section class="card" style="margin-top:14px" id="pTrack" hidden>
+        <div class="back" id="pBack" style="cursor:pointer">&larr; All tracks</div>
+        <div class="big" id="trkName" style="margin-top:6px">-</div>
+        <div class="sub" id="trkSub" style="margin-left:0"></div>
+        <div class="tiles" id="trkTiles"></div>
+        <div class="scroll" style="margin-top:12px"><table class="tbl" id="paceTbl"></table></div>
+        <div class="faint" id="paceNote" style="margin-top:8px"></div>
+      </section>
+    </div>
+
+    <div data-pane="members" hidden>
+      <section class="card" style="margin-top:14px">
+        <h2>Members</h2>
+        <div class="scroll"><table class="tbl" id="memTbl"></table></div>
+        <div id="inviteBox" hidden style="margin-top:16px">
+          <h2 style="font-size:15px">Invite someone</h2>
+          <div class="form" style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+            <div class="roles" id="invRoles"><label><input type="checkbox" value="driver" checked> Driver</label><label><input type="checkbox" value="engineer"> Engineer</label><label><input type="checkbox" value="owner"> Owner</label></div>
+            <label class="field">Valid for<select class="sel" id="invDays"><option value="1">1 day</option><option value="7" selected>7 days</option><option value="30">30 days</option></select></label>
+            <button class="btn lime" id="invBtn">Make an invite code</button>
+          </div>
+          <div id="invOut" style="margin-top:10px"></div>
+        </div>
+      </section>
+    </div>
+
+    <div data-pane="settings" hidden>
+      <section class="card" style="margin-top:14px">
+        <h2>Settings for this team</h2>
+        <label class="switch"><input type="checkbox" id="shareChk"><div><b>Share my race pace with this team</b><span>Your best lap, optimal lap and race pace per track and car, sent when you open this page. Deleted from the team when you leave it.</span></div></label>
+        <div style="margin-top:14px"><button class="btn" id="leaveBtn">Leave this team</button></div>
+      </section>
+    </div>
   </div>
+
+  <section class="card" style="margin-top:14px" id="acctCard" hidden>
+    <h2>Account</h2>
+    <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+      <label class="field">Your name in the teams<input class="input" id="nameIn"></label>
+      <button class="btn" id="nameBtn">Save</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="joinMoreBtn">Join another team</button>
+      <button class="btn" id="discBtn">Disconnect</button>
+    </div>
+    <div id="adminBox" hidden style="margin-top:14px">
+      <div class="sub">You own this server: make a team (you become its owner; invite the others).</div>
+      <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+        <label class="field">New team<input class="input" id="newTeamIn" placeholder="team name"></label>
+        <button class="btn" id="newTeamBtn">Make the team</button>
+      </div>
+    </div>
+  </section>
 </div>
 <script src="js/format.js"></script>
+<script src="js/pace-math.js"></script>
+<script src="js/pace-ref.js"></script>
+<script src="js/strategy-math.js"></script>
+<script src="js/review-math.js"></script>
 <script src="js/hub.js"></script>
 <script src="js/team.js"></script>
 </body>

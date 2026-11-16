@@ -15,7 +15,14 @@ namespace MyLMUHub.App;
 /// what is sent is only the numbers and names the server accepts.</summary>
 public sealed class TeamClient
 {
-    sealed class Saved { public string Url { get; set; } = ""; public string Key { get; set; } = ""; }
+    sealed class Saved
+    {
+        public string Url { get; set; } = ""; public string Key { get; set; } = "";
+        public Dictionary<long, bool> Auto { get; set; } = new();          // per team: send the races recognised as this team's by itself
+        public Dictionary<long, bool> Share { get; set; } = new();         // per team: share my race pace (default on)
+        public List<string> Dismissed { get; set; } = new();               // race ids marked "not a team race"
+    }
+    Saved opts = new();
     readonly string file;
     readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(12) };
     readonly PaceService pace;
@@ -29,17 +36,24 @@ public sealed class TeamClient
         {
             if (File.Exists(file))
             {
-                var s = JsonSerializer.Deserialize<Saved>(File.ReadAllText(file));
+                var s = JsonSerializer.Deserialize<Saved>(File.ReadAllText(file)); opts = s ?? new Saved();
                 url = s?.Url ?? ""; key = s == null || s.Key.Length == 0 ? "" : Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(s.Key), null, DataProtectionScope.CurrentUser));
             }
         }
         catch (Exception) { key = ""; }
         http.DefaultRequestHeaders.UserAgent.ParseAdd("MyLMUHub");
+        // races recognised for a team with "send by itself" on: looked for every 10 minutes (and when the Team page asks)
+        timer = new Timer(_ => Sync(), null, TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(10));
     }
+    readonly Timer timer;
+    // the team races in your result files, sent (owner 2026-11-16: always automatic, no manual adding): 20 s after the start, every 10 minutes, and right after
+    // you connect, set up the server, make a team or join one (a new member's files are checked at once)
+    void Sync() { if (url.Length > 0 && key.Length > 0) _ = Suggest(true); }
     void Save()
     {
         var k = key.Length == 0 ? "" : Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser));
-        Directory.CreateDirectory(Path.GetDirectoryName(file)); File.WriteAllText(file, JsonSerializer.Serialize(new Saved { Url = url, Key = k }));
+        opts.Url = url; opts.Key = k;
+        Directory.CreateDirectory(Path.GetDirectoryName(file)); File.WriteAllText(file, JsonSerializer.Serialize(opts));
     }
 
     /// <summary>"https://lmuhub.example.com" as typed -> its base address; null = not a server address the app will talk to.</summary>
@@ -71,6 +85,7 @@ public sealed class TeamClient
 
     static JsonNode Parse(string body) { try { return JsonNode.Parse(body); } catch (Exception) { return null; } }
     static string S(JsonNode n, string k) => n?[k] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+    static double D(JsonNode n, string k) => n?[k] is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d) ? d : 0;
     static long L(JsonNode n, string k) => n?[k] is JsonValue v && v.TryGetValue<long>(out var l) ? l : n?[k] is JsonValue v2 && v2.TryGetValue<double>(out var d) ? (long)d : -1;
 
     /// <summary>One action of the Team page. body = the page's JSON (small). -> (HTTP code, JSON for the page)</summary>
@@ -107,10 +122,11 @@ public sealed class TeamClient
                 var (c, r) = op == "setup" ? await Call(HttpMethod.Post, "/api/v1/setup", new { setupKey = S(b, "setupKey"), name = S(b, "name") }, false)
                                            : await Call(HttpMethod.Post, "/api/v1/join", new { code = S(b, "code"), name = S(b, "name") });
                 var k = S(Parse(r), "key"); if (c == 200 && !string.IsNullOrEmpty(k)) { key = k; Save(); }
+                if (c == 200) Sync();
                 return (c, c == 200 ? "{\"ok\":true}" : r);                                       // the key itself never goes to the page
             }
             case "rename": return await Call(HttpMethod.Post, "/api/v1/me/name", new { name = S(b, "name") });
-            case "createTeam": return await Call(HttpMethod.Post, "/api/v1/teams", new { name = S(b, "name") });
+            case "createTeam": { var r = await Call(HttpMethod.Post, "/api/v1/teams", new { name = S(b, "name") }); if (r.Item1 == 200) Sync(); return r; }
             case "members": return team > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/members") : (400, "{}");
             case "invite": return team > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/invites", new { roles = b["roles"]?.AsArray().Select(x => x?.ToString()).ToArray(), days = L(b, "days") }) : (400, "{}");
             case "roles": return team > 0 && user > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/members/{user}/roles", new { roles = b["roles"]?.AsArray().Select(x => x?.ToString()).ToArray() }) : (400, "{}");
@@ -120,12 +136,33 @@ public sealed class TeamClient
                 return r;
             }
             case "results": return team > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/results") : (400, "{}");
+            case "result": return team > 0 && id > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/results/{id}") : (400, "{}");
             case "deleteResult": return team > 0 && id > 0 ? await Call(HttpMethod.Delete, $"/api/v1/teams/{team}/results/{id}") : (400, "{}");
             case "send":
             {
                 if (team <= 0) return (400, "{}");
                 var res = BuildResult(pace?.RaceSummary(S(b, "file"))); if (res == null) return (404, "{\"error\":\"no race with your car in that file\"}");
                 return await Call(HttpMethod.Post, $"/api/v1/teams/{team}/results", res);
+            }
+            case "suggest": return (200, JsonSerializer.Serialize(await Suggest(false), Web));
+            case "settings":
+            {
+                if (team > 0 && b["auto"] is JsonValue av && av.TryGetValue<bool>(out var a)) opts.Auto[team] = a;
+                if (team > 0 && b["share"] is JsonValue sv2 && sv2.TryGetValue<bool>(out var sh)) opts.Share[team] = sh;
+                var dk = S(b, "dismiss"); if (dk != null && dk.Length == 64 && !opts.Dismissed.Contains(dk)) { opts.Dismissed.Add(dk); if (opts.Dismissed.Count > 500) opts.Dismissed.RemoveAt(0); }
+                var uk = S(b, "undismiss"); if (uk != null) opts.Dismissed.Remove(uk);
+                Save(); return (200, "{\"ok\":true}");
+            }
+            case "pace": return team > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/pace") : (400, "{}");
+            case "sharePace":
+            {
+                if (team <= 0 || b["rows"] is not JsonArray rows || rows.Count > 400) return (400, "{}");
+                if (opts.Share.TryGetValue(team, out var on) && !on) return (200, "{\"off\":true}");
+                return await Call(HttpMethod.Post, $"/api/v1/teams/{team}/pace", new { rows = rows.Select(r => new
+                {
+                    track = S(r, "track"), car = S(r, "car"), cls = S(r, "cls") ?? "", best = D(r, "best"), optimal = D(r, "optimal"), pace = D(r, "pace"), sd = D(r, "sd"),
+                    clean = (int)Math.Max(0, L(r, "clean")), laps = (int)Math.Max(0, L(r, "laps")), last = L(r, "last")
+                }).ToArray() });
             }
             case "preview": { var res = BuildResult(pace?.RaceSummary(S(b, "file"))); return res == null ? (404, "{}") : (200, JsonSerializer.Serialize(res, Web)); }
             default: return (404, "{\"error\":\"unknown action\"}");
@@ -135,7 +172,7 @@ public sealed class TeamClient
     /// <summary>A race of your car (results file) as the team server takes it: track, when, length, the car's result, each driver's laps / best / average of
     /// clean laps, the stints. Key = SHA-256 of the race (track, layout, start), the car and the day: a team-mate sending the same race from their own file
     /// gives the same key (counted once).</summary>
-    public static object BuildResult(PaceService.RaceSum d)
+    public static object BuildResult(PaceService.RaceSum d, string keyAs = null)
     {
         if (d == null) return null;
         var laps = d.Laps;
@@ -151,14 +188,104 @@ public sealed class TeamClient
         void Flush() { if (cur.Count == 0) return; var c = cur.Where(l => !l.Pit && l.T > 0).Select(l => l.T).ToList(); stints.Add(new { driver = cur.GroupBy(l => l.Driver).OrderByDescending(g => g.Count()).First().Key, laps = cur.Count, avg = Avg(c), best = c.DefaultIfEmpty(0).Min() }); cur = new List<PaceService.RaceLap>(); }
         foreach (var l in laps) { cur.Add(l); if (l.Pit && cur.Count > 1) Flush(); }
         Flush();
-        var rkey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(d.RaceKey + "|" + DateTimeOffset.FromUnixTimeSeconds(d.Time).UtcDateTime.ToString("yyyy-MM-dd") + "|" + d.Vehicle))).ToLowerInvariant();
+        var rkey = keyAs ?? RaceId(d);
+        // every lap (the team race review, like the Review tab): [lap, time, pit, driver index, VE used, VE left, tyre left %, race clock] + tyre left per wheel; -1 = not known
+        var names = drivers.Select(x => x.name).ToList();
+        static double R3(double v) => double.IsFinite(v) && v >= 0 ? Math.Round(v, 3) : -1;
+        var lapRows = laps.Take(2000).Select(l =>
+        {
+            var row = new List<double> { l.N, l.T > 0 && l.T <= 7200 ? Math.Round(l.T, 3) : -1, l.Pit ? 1 : 0, names.IndexOf(l.Driver), l.Ve > 0 && l.Ve <= 100 ? R3(l.Ve) : -1,
+                l.VeLeft >= 0 && l.VeLeft <= 100 ? R3(l.VeLeft) : -1, l.Wear >= 0 && l.Wear <= 100 ? R3(l.Wear) : -1, l.Et >= 0 && l.Et <= 1_000_000 ? R3(l.Et) : -1 };
+            if (l.Wheels is { Length: 4 } w && w.All(x => x >= 0 && x <= 1)) row.AddRange(w.Select(x => Math.Round(x, 3)));
+            return row.ToArray();
+        }).ToArray();
         return new
         {
             key = rkey, track = Clip(d.Track, 80), date = d.Time, length = d.Length > 0 ? d.Length : laps.Count, lengthKind = d.Length > 0 ? "time" : "laps",
-            car = Clip(d.CarType, 80), cls = Clip(d.Cls, 30), entry = Clip(d.Vehicle, 80), pos = Math.Clamp(d.Pos, 0, 200), classPos = Math.Clamp(d.ClassPos, 0, 200),
+            car = Clip(d.CarType, 80), cls = Clip(d.Cls, 30), entry = Clip(d.Vehicle, 80), teamName = Clip(d.TeamName, 80), pos = Math.Clamp(d.Pos, 0, 200), classPos = Math.Clamp(d.ClassPos, 0, 200),
             cars = Math.Clamp(d.Cars, 0, 200), classCars = Math.Clamp(d.ClassCars, 0, 200), laps = laps.Count, best = d.Best > 0 ? Math.Round(d.Best, 3) : 0,
-            finish = Clip(d.Finish, 30), drivers = drivers.Select(x => new { name = Clip(x.name, 60), x.laps, best = Math.Round(x.best, 3), x.avg }).ToArray(), stints = stints.Take(60).ToArray()
+            finish = Clip(d.Finish, 30), finishTime = d.FinishTime > 0 && d.FinishTime <= 7 * 86400 ? Math.Round(d.FinishTime, 3) : 0, lapRows, drivers = drivers.Select(x => new { name = Clip(x.name, 60), x.laps, best = Math.Round(x.best, 3), x.avg }).ToArray(), stints = stints.Take(60).ToArray()
         };
     }
+    // a race's id for the team: the same in every team-mate's result files (owner 2026-11-16: a new member's races must not come twice): the race key (track,
+    // layout, the race start on the server's session clock), the car entry and its team. Not the session date in the file: it differs between two PCs (a
+    // 24 h race joined on another day). OldRaceId = the id up to v2.2.3-dev (with that date): races sent with it are recognised and not sent again.
+    public static string RaceId(PaceService.RaceSum d) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("v2|" + d.RaceKey + "|" + d.Vehicle + "|" + d.TeamName))).ToLowerInvariant();
+    public static string OldRaceId(PaceService.RaceSum d) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(d.RaceKey + "|" + DateTimeOffset.FromUnixTimeSeconds(d.Time).UtcDateTime.ToString("yyyy-MM-dd") + "|" + d.Vehicle))).ToLowerInvariant();
+
+    // ---- which team was a race for? (owner 2026-11-16: "it should see this one is for team A, that one for team B") ----
+    // Per team, the clues: the car's team name in the results file contains the team's name; the same car team name as races sent to the team before (not
+    // the car entry: a personal "Custom Team #397" livery is used for several teams); a
+    // team-mate in the car (a member's name, or a driver of the team's earlier races). Races of the last 60 days, 10 laps or more. A team with "send by
+    // itself" on gets a race recognised for it alone (or clearly ahead), not yet there, not marked "not a team race". Only SPECIAL EVENTS (RaceResults
+    // ResultSession.Special) are matched: a daily race in the team livery is not a team race.
+    readonly Dictionary<string, PaceService.RaceSum> sums = new(); readonly SemaphoreSlim busy = new(1, 1);
+    static string Norm(string s) => new string((s ?? "").ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+    static string NameKey(string s) => string.Join(" ", (s ?? "").ToLowerInvariant().Split(new[] { ' ', '.', '-', '_' }, StringSplitOptions.RemoveEmptyEntries).OrderBy(x => x));
+    public static List<string> Clues(PaceService.RaceSum d, string teamName, IEnumerable<string> entries, IEnumerable<string> people, ICollection<string> myNames)
+    {
+        var why = new List<string>(); string tn = Norm(teamName);
+        if (tn.Length >= 3 && (Norm(d.TeamName).Contains(tn) || Norm(d.Vehicle).Contains(tn))) why.Add("team name \"" + (string.IsNullOrEmpty(d.TeamName) ? d.Vehicle : d.TeamName) + "\"");
+        var en = Norm(d.TeamName); if (en.Length > 0 && Norm(d.Vehicle) != en && entries.Any(e => Norm(e) == en)) why.Add("same team as earlier team races");
+        var mine = new HashSet<string>(myNames.Select(NameKey)); var ppl = new HashSet<string>(people.Select(NameKey));
+        var mates = d.Laps.Select(l => l.Driver).Where(n => n.Length > 0).Distinct().Where(n => !mine.Contains(NameKey(n)) && ppl.Contains(NameKey(n))).ToList();
+        if (mates.Count > 0) why.Add("with " + string.Join(", ", mates));
+        return why;
+    }
+    static readonly object NoData = new { races = Array.Empty<object>(), teams = Array.Empty<object>() };
+    async Task<object> Suggest(bool autoOnly)
+    {
+        if (url.Length == 0 || key.Length == 0 || pace == null) return NoData;
+        await busy.WaitAsync();
+        try
+        {
+            var (mc, mb) = await Call(HttpMethod.Get, "/api/v1/me"); if (mc != 200) return NoData;
+            var teams = (Parse(mb)?["teams"] as JsonArray ?? new JsonArray()).Select(t => (Id: L(t, "id"), Name: S(t, "name"))).Where(t => t.Id > 0).ToList();
+            var info = new List<(long Id, string Name, Dictionary<string, bool> Keys, List<string> Entries, List<string> People)>();
+            foreach (var t in teams)
+            {
+                var (rc, rb) = await Call(HttpMethod.Get, $"/api/v1/teams/{t.Id}/results"); var (pc, pb) = await Call(HttpMethod.Get, $"/api/v1/teams/{t.Id}/members");
+                var res = rc == 200 ? Parse(rb) as JsonArray ?? new JsonArray() : new JsonArray();
+                var keys = new Dictionary<string, bool>();                                          // key -> sent with its laps
+                foreach (var x in res) { var k = S(x?["result"], "key"); if (k != null) keys[k] = x?["laps"] is JsonValue lv && lv.TryGetValue<bool>(out var hl) && hl; }
+                var entries = res.Select(x => S(x?["result"], "teamName")).Where(e => !string.IsNullOrEmpty(e)).ToList();   // the car team names of earlier team races
+                var people = res.SelectMany(x => (x?["result"]?["drivers"] as JsonArray ?? new JsonArray()).Select(d => S(d, "name"))).Where(n => n != null).ToList();
+                if (pc == 200) people.AddRange((Parse(pb) as JsonArray ?? new JsonArray()).Select(m => S(m, "name")).Where(n => n != null));
+                info.Add((t.Id, t.Name, keys, entries, people));
+            }
+            long since = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 60 * 86400;
+            var races = (pace.Sessions() ?? new List<PaceSession>()).Where(s => s.Type == "Race" && !s.Live && s.Time >= since && s.Laps.Count >= 10)
+                .GroupBy(s => s.RaceKey.Length > 0 ? s.RaceKey : s.File).Select(g => g.OrderByDescending(s => s.Laps.Count).First()).OrderByDescending(s => s.Time).Take(40).ToList();
+            var outList = new List<object>();
+            foreach (var s in races)
+            {
+                if (!sums.TryGetValue(s.File, out var d)) { d = pace.RaceSummary(s.File); if (d == null) continue; sums[s.File] = d; }
+                var id = RaceId(d); var oldId = OldRaceId(d);
+                string KeyIn((long Id, string Name, Dictionary<string, bool> Keys, List<string> Entries, List<string> People) t) => t.Keys.ContainsKey(id) ? id : t.Keys.ContainsKey(oldId) ? oldId : null;
+                var sentTo = info.Where(t => KeyIn(t) != null).Select(t => t.Id).ToList();
+                // already there without its laps (an older app): the laps are added (the same key: no second entry)
+                foreach (var t in info) { var k = KeyIn(t); if (k != null && !t.Keys[k] && d.Complete && d.Laps.Count > 0) { var (lc, _) = await Call(HttpMethod.Post, $"/api/v1/teams/{t.Id}/results", BuildResult(d, k)); if (lc == 200) t.Keys[k] = true; } }
+                // only special events are team races (owner 2026-11-16: a daily race in the team livery is not); solo or with team-mates
+                var cands = !d.Special ? new List<(long team, string name, List<string> why)>().Select(c => new { c.team, c.name, c.why }).ToList()
+                    : info.Select(t => new { team = t.Id, name = t.Name, why = Clues(d, t.Name, t.Entries, t.People, pace.Names) }).Where(c => c.why.Count > 0).OrderByDescending(c => c.why.Count).ToList();
+                bool clear = cands.Count == 1 || (cands.Count > 1 && cands[0].why.Count > cands[1].why.Count);
+                string status = sentTo.Count > 0 ? "sent" : !d.Special ? "daily" : cands.Count == 0 ? "unknown" : !clear ? "unclear" : !d.Complete ? "incomplete" : "new";
+                if (status == "new")
+                {
+                    var (sc, _) = await Call(HttpMethod.Post, $"/api/v1/teams/{cands[0].team}/results", BuildResult(d));
+                    if (sc == 200) { sentTo.Add(cands[0].team); info.First(t => t.Id == cands[0].team).Keys[id] = true; status = "sent now"; }
+                }
+                if (autoOnly) continue;
+                if (!d.Special) continue;                                                               // daily races: not team races, not listed
+                outList.Add(new { file = s.File, id, status, special = d.Special, complete = d.Complete, track = d.Track, date = d.Time, laps = d.Laps.Count, classPos = d.ClassPos, classCars = d.ClassCars, cls = d.Cls, car = d.CarType,
+                    teamName = d.TeamName, entry = d.Vehicle, drivers = d.Laps.Select(l => l.Driver).Where(n => n.Length > 0).Distinct().ToArray(), sentTo, candidates = cands });
+            }
+            return new { races = outList, teams = info.Select(t => new { id = t.Id, name = t.Name, share = !opts.Share.TryGetValue(t.Id, out var sh) || sh }) };
+        }
+        finally { busy.Release(); }
+    }
+
     static string Clip(string s, int n) => string.IsNullOrEmpty(s) ? "" : s.Length <= n ? s : s[..n];
 }

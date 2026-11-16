@@ -38,7 +38,7 @@
     plan = store.plans.filter(function (p) { return p.id === id; })[0] || store.plans[0];
     if (plan.length && plan.length.time >= 100 * 3600) plan.length.time = parseDur(String(Math.round(plan.length.time / 3600)));   // "800" was read as 800 h: it meant 8:00
     $('planSel').innerHTML = store.plans.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p === plan ? ' selected' : '') + '>' + esc(p.name || 'Unnamed') + '</option>'; }).join('');
-    fillForm(); drivers(); render(); fromRace();
+    fillForm(); drivers(); render(); fromRace(); teamSelect(); loadTeamData();
   }
   $('planSel').onchange = function () { choose(this.value); saveSoon(); };
   $('newBtn').onclick = function () { var p = blank(); store.plans.push(p); choose(p.id); saveSoon(); };
@@ -65,6 +65,7 @@
     e.addEventListener(e.tagName === 'SELECT' ? 'change' : 'input', function () {
       var k = e.getAttribute('data-k'), v = e.hasAttribute('data-num') ? (k === 've.push' && e.value.trim() === '' ? null : Number(e.value) || 0) : e.value; set(k, v);   // push empty = the default 15 %
       if (k === 'name') $('planSel').options[$('planSel').selectedIndex].textContent = v || 'Unnamed';
+      if ((k === 'track' || k === 'cls' || k === 'car') && plan.team) { drivers(); teamUi(); }      // the team race pace is per track + class
       render(); saveSoon();
     });
   });
@@ -88,13 +89,80 @@
     $('clsSel').innerHTML = CLASSES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === plan.cls ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('');
   }
 
+  // ---------- the team this event is for (owner 2026-11-16): its members to pick as drivers (typing any name still works: someone without the app), and their
+  // race pace on the plan's track + class (team server: everyone shares all their sessions) for the lap times ----------
+  var teamList = [], teamMembers = [], teamPace = [], teamResults = [];
+  function teamApi(op, body) {
+    return fetch('api/team?op=' + op, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify(body || {}) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function nameKey(n) { return String(n || '').toLowerCase().split(/[\s._-]+/).filter(Boolean).sort().join(' '); }
+  function loadTeams() {
+    if (!H.inApp) return;
+    teamApi('status').then(function (s) {
+      teamList = s && s.member && s.me ? s.me.teams || [] : [];
+      $('teamField').hidden = !teamList.length; teamSelect(); loadTeamData();
+    }, function () {});
+  }
+  function teamSelect() {
+    if (!plan) return;
+    var id = plan.team && plan.team.id;
+    $('teamSel').innerHTML = '<option value="">No team</option>' + teamList.map(function (t) { return '<option value="' + t.id + '"' + (t.id === id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') +
+      (id && !teamList.some(function (t) { return t.id === id; }) ? '<option value="' + id + '" selected>' + esc(plan.team.name || 'team') + ' (not yours now)</option>' : '');
+  }
+  function loadTeamData() {
+    teamMembers = []; teamPace = []; teamResults = [];
+    var id = plan && plan.team && plan.team.id;
+    if (!id || !teamList.some(function (t) { return t.id === id; })) { teamUi(); drivers(); return; }
+    Promise.all([teamApi('members', { team: id }), teamApi('pace', { team: id }).catch(function () { return []; }), teamApi('results', { team: id }).catch(function () { return []; })]).then(function (a) {
+      if (!plan.team || plan.team.id !== id) return;
+      teamMembers = a[0] || []; teamPace = a[1] || []; teamResults = a[2] || []; teamUi(); drivers();
+    }, function () { teamUi(); });
+  }
+  // a driver's team race pace on this plan's track + class (same car first, else the fastest car of the class there)
+  function paceFor(name) {
+    if (!plan.track || !name) return null;
+    var k = nameKey(name), rows = teamPace.filter(function (p) { return nameKey(p.name) === k && p.pace > 0 && (R.trackName(p.track, '') || p.track) === plan.track && R.className(p.cls) === plan.cls; });
+    if (!rows.length) return null;
+    var car = plan.car ? rows.filter(function (p) { return p.car === plan.car; }) : []; if (car.length) rows = car;
+    return rows.sort(function (a, b) { return a.pace - b.pace; })[0];
+  }
+  function teamUi() {
+    var on = !!(plan && plan.team && teamMembers.length);
+    $('addTeamDrv').hidden = !on; $('fillTeamPace').hidden = !on;
+    // names to pick: the members, and the drivers of the team's races (someone without the app)
+    var names = {}; teamMembers.forEach(function (m) { names[m.name] = 1; });
+    teamResults.forEach(function (x) { ((x.result && x.result.drivers) || []).forEach(function (d) { names[d.name] = 1; }); });
+    $('teamNames').innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    var withPace = plan && plan.track ? teamMembers.filter(function (m) { return paceFor(m.name); }).length : 0;
+    $('teamInfo').textContent = !on ? '' : !plan.track ? 'Choose the track: then the team race pace shows here.' : withPace + ' of ' + teamMembers.length + ' team members have race pace on ' + plan.track + ' in this class.';
+  }
+  $('teamSel').onchange = function () {
+    var id = +this.value, t = teamList.filter(function (x) { return x.id === id; })[0];
+    plan.team = t ? { id: t.id, name: t.name } : null; loadTeamData(); saveSoon();
+  };
+  $('addTeamDrv').onclick = function () {
+    var have = plan.drivers.map(function (d) { return nameKey(d.name); });
+    teamMembers.filter(function (m) { return m.roles.indexOf('driver') >= 0 && have.indexOf(nameKey(m.name)) < 0; }).forEach(function (m) {
+      var p = paceFor(m.name), first = plan.drivers[0];
+      if (plan.drivers.length === 1 && first && !first.name) { first.name = m.name; if (p) first.lap = Math.round(p.pace * 1000) / 1000; }
+      else plan.drivers.push({ name: m.name, lap: p ? Math.round(p.pace * 1000) / 1000 : (first ? first.lap : 0), maxStints: 0, maxTime: 0, minTime: 0 });
+    });
+    drivers(); render(); saveSoon();
+  };
+  $('fillTeamPace').onclick = function () {
+    var n = 0; plan.drivers.forEach(function (d) { var p = paceFor(d.name); if (p) { d.lap = Math.round(p.pace * 1000) / 1000; n++; } });
+    $('teamInfo').textContent = n ? n + ' lap ' + (n === 1 ? 'time' : 'times') + ' from the team race pace.' : 'No team race pace for these drivers on ' + (plan.track || 'this track') + '.';
+    drivers(); render(); saveSoon();
+  };
+
   // drivers table: inputs edit the plan in place (no redraw while typing)
   function drivers() {
     var h = '<thead><tr><th></th><th>Full name (as in the game)</th><th>Lap time</th><th>Most stints in a row</th><th>Most drive time (h:mm)</th><th>Least drive time (h:mm)</th><th></th></tr></thead><tbody>';
     plan.drivers.forEach(function (d, i) {
       h += '<tr data-i="' + i + '"><td><span class="dot" style="background:' + DRIVER_COLORS[i % DRIVER_COLORS.length] + '"></span></td>' +
-        '<td><input class="input" data-f="name" value="' + esc(d.name) + '" style="min-width:220px"></td>' +
-        '<td><input class="input short mono" data-f="lap" value="' + (d.lap > 0 ? F.lap(d.lap) : '') + '" placeholder="1:52.400"></td>' +
+        '<td><input class="input" data-f="name" value="' + esc(d.name) + '" style="min-width:220px"' + (plan.team ? ' list="teamNames" placeholder="pick from the team or type"' : '') + '></td>' +
+        '<td><input class="input short mono" data-f="lap" value="' + (d.lap > 0 ? F.lap(d.lap) : '') + '" placeholder="1:52.400">' + teamPaceHint(d) + '</td>' +
         '<td><input class="input short" data-f="maxStints" value="' + (d.maxStints || '') + '" placeholder="no limit"></td>' +
         '<td><input class="input short" data-f="maxTime" value="' + (d.maxTime ? F.hm(d.maxTime) : '') + '" placeholder="none"></td>' +
         '<td><input class="input short" data-f="minTime" value="' + (d.minTime ? F.hm(d.minTime) : '') + '" placeholder="none"></td>' +
@@ -111,6 +179,17 @@
     else d[f] = parseDur(v);
     render(); saveSoon();
   };
+  // under the lap time: the driver's team race pace here (click to use it)
+  function teamPaceHint(d) {
+    var p = plan.team ? paceFor(d.name) : null; if (!p) return '';
+    var same = Math.abs((d.lap || 0) - p.pace) < 0.0005;
+    return '<span class="two">team: ' + F.lap(p.pace) + (p.car !== plan.car && plan.car ? ' (' + esc(p.car) + ')' : '') + (same ? '' : ' <a href="#" data-usepace="' + p.pace + '">use</a>') + '</span>';
+  }
+  $('drvTbl').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-usepace]'); if (!a) return; e.preventDefault();
+    var d = plan.drivers[Number(a.closest('tr[data-i]').getAttribute('data-i'))]; d.lap = Math.round(Number(a.getAttribute('data-usepace')) * 1000) / 1000; drivers(); render(); saveSoon();
+  });
+  $('drvTbl').addEventListener('change', function (e) { if (e.target.getAttribute('data-f') === 'name' && plan.team) { drivers(); teamUi(); } });   // a picked name: show its team pace
   $('drvTbl').onclick = function (e) { var i = e.target.getAttribute('data-del'); if (i === null) return; plan.drivers.splice(Number(i), 1); drivers(); render(); saveSoon(); };
   $('addDrv').onclick = function () { var last = plan.drivers[plan.drivers.length - 1]; plan.drivers.push({ name: '', lap: last ? last.lap : 0, maxStints: 0, maxTime: 0, minTime: 0 }); drivers(); render(); saveSoon(); };
 
@@ -369,6 +448,6 @@
   // ---------- start ----------
   var refP = H.inApp ? H.json('api/reference') : fetch('data/alien-times.csv').then(function (r) { return r.text(); }).then(function (csv) { return { csv: csv }; });
   refP.then(function (r) { ref = R.parse(r.csv); if (plan) options(); }, function () {});
-  if (H.inApp) H.json('api/pace?light=1').then(function (i) { myNames = i.names || []; H.setWho(myNames[0]); if (plan && plan.drivers.length === 1 && !plan.drivers[0].name && myNames[0]) { plan.drivers[0].name = myNames[0]; drivers(); render(); } }, function () {}).then(load);
+  if (H.inApp) H.json('api/pace?light=1').then(function (i) { myNames = i.names || []; H.setWho(myNames[0]); if (plan && plan.drivers.length === 1 && !plan.drivers[0].name && myNames[0]) { plan.drivers[0].name = myNames[0]; drivers(); render(); } }, function () {}).then(load).then(loadTeams);
   else load();
 })(typeof window !== 'undefined' ? window : globalThis);
