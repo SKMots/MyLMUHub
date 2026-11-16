@@ -28,14 +28,16 @@
 
 
   <section class="card" id="fromCard" style="margin-top:14px">
-    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
-      <div>
-        <h2>Start from sessions you drove</h2>
-        <div class="sub" style="margin-bottom:0">Tick one or more races or practice sessions and say how you drove each: your pace, VE use, tyre wear and pit stop from them together, and what lifting costs you. Then fill the plan with one click.</div>
-      </div>
-      <label class="coach-ok" style="margin:0"><input type="checkbox" id="allTracks"> Other tracks and cars too</label>
+    <div id="fromHead" style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer">
+      <h2 style="margin:0"><span id="fromArrow">&#9662;</span> Start from sessions you drove</h2><span class="faint" id="fromState"></span>
     </div>
-    <div id="fromBody" style="margin-top:14px"></div>
+    <div id="fromFold">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-top:6px">
+        <div class="sub" style="margin-bottom:0;flex:1;min-width:300px">Tick one or more races or practice sessions and say how you drove each: your pace, VE use, tyre wear and pit stop from them together, and what lifting costs you. Then fill the plan with one click.</div>
+        <label class="coach-ok" style="margin:0"><input type="checkbox" id="allTracks"> Other tracks and cars too</label>
+      </div>
+      <div id="fromBody" style="margin-top:14px"></div>
+    </div>
   </section>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">

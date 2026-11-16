@@ -19,6 +19,8 @@ One Windows app, no SimHub, no install. Made for endurance racers, and for watch
 - [AI Coach](#ai-coach)
 - [Strategy](#strategy)
 - [Team](#team)
+- [On your phone](#on-your-phone)
+- [Settings](#settings)
 - [Guest mode and My sessions](#guest-mode-and-my-sessions)
 - [Everything else](#everything-else)
 - [Getting started](#getting-started)
@@ -60,7 +62,7 @@ Press **E** and you're in edit mode:
 ## Race Control settings in the hub
 The **Race Control** tab in the hub has the dashboard's settings in one place, so you don't need edit mode for them: **Open dashboard**, your
 **laps a stint per track** for the fuel widget's live VE goal (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
-**view** the dashboard shows (plus export / import), **hotkeys** for views and for the stint laps + / − (keys or wheel buttons; they keep working in the game too), **network access** and **spectate**. An open dashboard follows
+**view** the dashboard shows (plus export / import) and **spectate**; folded under **Advanced**: **hotkeys** for views and for the stint laps + / − (keys or wheel buttons; they keep working in the game too) and **network access**. An open dashboard follows
 your changes right away. Edit mode (E) in the dashboard keeps only what is done on the dashboard itself: placing widgets, their colours, views.
 
 ![Race Control settings](docs/images/racecontrol.png)
@@ -155,22 +157,38 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
   still shows what each of you drives there.
 - **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
 - When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
+- Connecting to a team server, joining a team with its invite code and your name in the team: on the **Settings** page.
 
 The team server is optional and you host it yourself (Docker behind a Cloudflare tunnel: [server/](server/README.md)). It only accepts invited members
 and strictly checked numbers and short text, never files. Your login stays in the app, encrypted on your PC.
 
 ![Team](docs/images/team.png)
 
+## On your phone
+The team server is also a website (e.g. **mylmuhub.com**): log in on your phone and add it to your home screen, and it opens like an app.
+- **Log in with Discord** (link your Discord account once, in Settings) or with a **pairing code** from the desktop app (works once, for 2 minutes).
+- **Your teams:** the race results with their full review, everyone's race pace per track and car, the members.
+- **A phone can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
+- Coming next: live races (yours and your team-mates') and your own stats.
+
+<p align="center"><img src="docs/images/phone.png" width="320" alt="My LMU Hub on a phone"></p>
+
+## Settings
+Click your name in the top right: your **driver names** and results folder, **My sessions**, the **team server** (connect, join a team, your name in the
+team), **your phone** (pairing code, Discord, log out all phones), **guest mode** and the **hub theme**.
+
+![Settings](docs/images/settings.png)
+
 ## Guest mode and My sessions
-- **Guest mode:** a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Afterwards, delete all of it in one click (files go to the Recycle Bin).
-- **My sessions** (click your name): every result file with your laps. Tick the sessions someone else drove while guest mode was off, then hide them from your data, give them to a guest, take them back, restore them, or delete them.
+- **Guest mode** (Settings): a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Afterwards, delete all of it in one click (files go to the Recycle Bin).
+- **My sessions** (Settings): every result file with your laps. Tick the sessions someone else drove while guest mode was off, then hide them from your data, give them to a guest, take them back, restore them, or delete them.
 
 ## Everything else
 - **Live and automatic:** Race Pace, Home, Improve and the best lap ever follow the session you're driving, without a restart.
 - **Light on your PC:** the game's data is read straight from LMU's shared memory, with no SimHub or plugins. Only what changed is sent and redrawn, and nothing animates continuously.
 - **Your names:** several driver names for yourself (the game shows them slightly differently sometimes), and your team-mates' names for spectator mode.
 - **Network access:** the dashboard on other devices at home, on private networks only, after one Windows permission. Each view has its own address.
-- **Hub themes:** Lime, Teal, Daylight and Navy.
+- **Hub themes:** Lime, Teal, Daylight and Navy (Settings).
 - **Updates itself:** when a new version is out, the hub shows an update button with everything new since your version. It downloads, checks and restarts; your settings and layouts stay.
 
 ## Getting started

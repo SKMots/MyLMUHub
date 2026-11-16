@@ -1,4 +1,4 @@
-/* My LMU Hub pages (home, Race Pace): dark charcoal cards and an acid-lime accent, inspired by the owner's "ffast" prototype but with its own motorsport shapes:
+/* My LMU Hub pages (home, Race Pace): dark charcoal cards and an acid-lime accent, inspired by a prototype but with its own motorsport shapes:
    angled (cut-corner) buttons, chips and menu, a skewed double-stripe title marker, asymmetric card corners, italic headlines, speed stripes in the header.
    Timing colours from race control screens (purple = best, green = optimal / good). The Race Control dashboard has its own theme system (theme.css / theme.js). */
 :root {
@@ -304,3 +304,9 @@ details.explain summary:hover { color:var(--lime); }
 .tbl tr.off td { opacity:.5; } .tbl tr.off td:first-child { opacity:1; }
 /* Race Control hotkeys: long controller names (e.g. a wheel's full name + button) wrap instead of being cut off (owner 2026-11-16) */
 #keyList .tbl td { white-space:normal; overflow-wrap:anywhere; } #keyList .tbl td:last-child { white-space:nowrap; width:1%; }
+
+/* your name in the header: a link to the Settings page (2026-11-16) */
+a.who { color:var(--text); text-decoration:none; } a.who.on { border-color:var(--lime); }
+
+/* the header's guest badge only while guest mode is on; Settings shows the guest panel under its own card title (2026-11-16) */
+.hdr [hidden] { display:none !important; } #guestBox > .pop-h:first-child { display:none; }

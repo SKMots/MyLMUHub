@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My LMU Hub - Settings</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hub.css">
+<script>try { var t = localStorage.getItem('pw-hub-theme'); if (t) document.documentElement.setAttribute('data-hub-theme', t); } catch (e) {}</script>
+<style>
+  .codebox { font-family:var(--mono); font-size:26px; letter-spacing:.08em; color:var(--lime); }
+  .namelist { display:flex; flex-direction:column; gap:2px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:6px; }
+  .namelist label { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:6px; cursor:pointer; }
+  .namelist label:hover { background:var(--tile); } .namelist small { margin-left:auto; color:var(--faint); }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .state { font-weight:700; } .state.ok { color:var(--green); } .state.bad { color:var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header id="hdr"></header>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Settings</h2>
+    <div class="sub" style="margin-bottom:0">You, your team server, your phone and how the hub looks. Race Control's own settings are on the Race Control tab.</div>
+    <div class="faint" id="info" style="margin-top:8px"></div>
+  </section>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr))">
+    <!-- you: driver names, results folder, my sessions -->
+    <section class="card">
+      <h2>Your driver names</h2>
+      <div class="sub">Tick every name you race under (online and offline): Race Pace, Improve and your team's race pace count only these drivers' laps. Most seen in your result files:</div>
+      <div class="namelist" id="nameList"><span class="faint">Loading...</span></div>
+      <label class="field" style="margin-top:12px">Add a name (exactly as in the game)<input class="input" id="addName" placeholder="e.g. Alex D#1234"></label>
+      <label class="field" style="margin-top:10px">Results folder (empty = found through Steam)<input class="input" id="folder"></label>
+      <div class="row" style="margin-top:12px;justify-content:space-between"><a class="btn" href="sessions.html">My sessions</a><button class="btn lime" id="saveNames">Save</button></div>
+      <div class="faint" style="margin-top:6px">My sessions: hide or delete sessions someone else drove on your account.</div>
+    </section>
+
+    <!-- the team server -->
+    <section class="card">
+      <h2>Team server</h2>
+      <div id="srvState" class="sub">Loading...</div>
+      <div id="connectBox" hidden>
+        <div class="sub">The address your team owner gave you, e.g. mylmuhub.com.</div>
+        <div class="row"><label class="field" style="flex:1;min-width:240px">Server address<input class="input" id="urlIn" placeholder="mylmuhub.com"></label><button class="btn lime" id="connectBtn">Connect</button></div>
+      </div>
+      <div id="setupBox" hidden>
+        <div class="sub">This server has no owner yet. Enter the setup key from the server's log to become its owner. It works once.</div>
+        <div class="row"><label class="field">Setup key<input class="input" id="setupIn" placeholder="XXXX-XXXX-XXXX"></label><label class="field">Your name<input class="input" id="setupName"></label><button class="btn lime" id="setupBtn">Set up</button></div>
+      </div>
+      <div id="joinBox" hidden>
+        <div class="sub" id="joinSub">Join a team with the invite code from its owner. A code works once.</div>
+        <div class="row"><label class="field">Invite code<input class="input" id="codeIn" placeholder="XXXX-XXXX-XXXX"></label><label class="field" id="joinNameField">Your name<input class="input" id="joinName" placeholder="your in-game name"></label><button class="btn lime" id="joinBtn">Join</button></div>
+      </div>
+      <div id="memberBox" hidden>
+        <div class="row" style="margin-top:4px"><label class="field" style="flex:1;min-width:200px">Your name in your teams (best: your in-game name)<input class="input" id="nameIn"></label><button class="btn" id="nameBtn">Save</button></div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="joinMoreBtn">Join another team</button><button class="btn" id="discBtn">Disconnect</button></div>
+        <div id="adminBox" hidden style="margin-top:14px">
+          <div class="sub">You own this server: make a team (you become its owner; invite the others on the Team tab).</div>
+          <div class="row"><label class="field">New team<input class="input" id="newTeamIn" placeholder="team name"></label><button class="btn" id="newTeamBtn">Make the team</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- your phone -->
+    <section class="card" id="phoneCard" hidden>
+      <h2>Your phone</h2>
+      <div class="sub">Your teams on your phone: open <b id="siteUrl">the website</b> and add it to your home screen. Log in with Discord (link it here once) or with a pairing code. A phone can only look.</div>
+      <div class="row"><button class="btn lime" id="pairBtn">Log in on my phone</button><button class="btn" id="discordBtn">Link my Discord</button><button class="btn" id="phonesOutBtn">Log out all phones</button></div>
+      <div class="faint" id="phoneInfo" style="margin-top:8px"></div>
+      <div id="pairOut" style="margin-top:10px"></div>
+    </section>
+
+    <!-- guest mode: a friend drives on your rig -->
+    <section class="card" id="guest">
+      <h2>Guest driver</h2>
+      <div id="guestBox" class="muted">Loading...</div>
+    </section>
+
+    <!-- looks -->
+    <section class="card">
+      <h2>Hub theme</h2>
+      <div class="sub">The look of these hub pages (Race Control has its own theme on its tab).</div>
+      <span class="seg" id="themeSeg"></span>
+    </section>
+  </div>
+</div>
+<script src="js/format.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>

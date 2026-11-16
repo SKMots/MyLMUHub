@@ -140,6 +140,7 @@
         '<td style="text-align:right"><button class="btn" data-set="' + i + '">Set</button> <button class="btn" data-clear="' + i + '"' + (r[2] ? '' : ' disabled') + '>×</button></td></tr>';
     }).join('') + '</tbody></table>';
     $('keyList')._rows = rows;
+    var set = rows.filter(function (r) { return r[2]; }).length; $('advInfo').textContent = set ? set + (set === 1 ? ' hotkey set' : ' hotkeys set') : 'no hotkeys set';
   }
   function startCapture(t) { capture = t; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: true }); } catch (e) {} renderKeys(); }
   function stopCapture() { capture = null; if (webview && webview.postMessage) try { webview.postMessage({ padLearn: false }); } catch (e) {} renderKeys(); }
@@ -157,6 +158,12 @@
   }, true);
   if (webview && webview.addEventListener) webview.addEventListener('message', function (ev) { var d = ev.data || {}; if (d.padLearned && capture !== null) setKey(capture, d.padLearned, d.padName); });
   window.addEventListener('beforeunload', function () { if (capture !== null) stopCapture(); });
+
+  // ---------- Advanced (hotkeys, network): folded by default, the choice kept ----------
+  var advOpen = false; try { advOpen = localStorage.getItem('pw-rc-advanced-open') === '1'; } catch (e) {}
+  function foldAdv() { $('advBody').hidden = !advOpen; $('advArrow').innerHTML = advOpen ? '&#9662;' : '&#9656;'; }
+  $('advHead').onclick = function () { advOpen = !advOpen; try { localStorage.setItem('pw-rc-advanced-open', advOpen ? '1' : '0'); } catch (e) {} foldAdv(); };
+  foldAdv();
 
   load().then(renderLayout);
 

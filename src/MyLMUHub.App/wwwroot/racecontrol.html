@@ -49,24 +49,35 @@
     </section>
 
     <section class="card">
-      <h2>Hotkeys</h2>
-      <div class="sub">Switch views while you drive, and change the fuel widget's laps a stint (live VE goal) by a lap. Click Set, then press a key (letters, digits, F1-F24 or numpad, with Ctrl / Alt / Shift) or a button on your wheel, button box or gamepad. The key or button still works in the game too (it is not taken away), so pick one that does nothing there, e.g. Ctrl+Alt+1. Esc = cancel. They work while the dashboard is open.</div>
-      <div id="keyList"></div>
-    </section>
-
-    <section class="card">
-      <h2>Network</h2>
-      <div class="sub">Open the dashboard in a browser on another PC, laptop or tablet at home (same views, live). My LMU Hub has to run on this PC.</div>
-      <div id="netBody" class="muted">...</div>
-    </section>
-
-    <section class="card">
       <h2>Spectate</h2>
       <div class="sub">Whose car the dashboard follows. Your own car always comes first while you drive it.</div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><input class="input" id="specFind" placeholder="search driver / team"><button class="btn" id="specRefresh">Refresh</button></div>
       <div id="specList" class="muted">...</div>
     </section>
   </div>
+
+  <!-- hotkeys and network: set once, so folded away (owner 2026-11-16: the page was getting cluttered) -->
+  <section class="card" style="margin-top:14px">
+    <div id="advHead" style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer">
+      <h2 style="margin:0"><span id="advArrow">&#9656;</span> Advanced: hotkeys and network</h2><span class="faint" id="advInfo"></span>
+    </div>
+    <div id="advBody" hidden style="margin-top:12px">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
+    <div>
+      <h2>Hotkeys</h2>
+      <div class="sub">Switch views while you drive, and change the fuel widget's laps a stint (live VE goal) by a lap. Click Set, then press a key (letters, digits, F1-F24 or numpad, with Ctrl / Alt / Shift) or a button on your wheel, button box or gamepad. The key or button still works in the game too (it is not taken away), so pick one that does nothing there, e.g. Ctrl+Alt+1. Esc = cancel. They work while the dashboard is open.</div>
+      <div id="keyList"></div>
+    </div>
+
+    <div>
+      <h2>Network</h2>
+      <div class="sub">Open the dashboard in a browser on another PC, laptop or tablet at home (same views, live). My LMU Hub has to run on this PC.</div>
+      <div id="netBody" class="muted">...</div>
+    </div>
+
+      </div>
+    </div>
+  </section>
 </div>
 <script src="js/format.js"></script>
 <script src="js/pace-ref.js"></script>

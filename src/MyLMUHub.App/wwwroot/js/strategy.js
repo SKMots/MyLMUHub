@@ -38,8 +38,21 @@
     plan = store.plans.filter(function (p) { return p.id === id; })[0] || store.plans[0];
     if (plan.length && plan.length.time >= 100 * 3600) plan.length.time = parseDur(String(Math.round(plan.length.time / 3600)));   // "800" was read as 800 h: it meant 8:00
     $('planSel').innerHTML = store.plans.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p === plan ? ' selected' : '') + '>' + esc(p.name || 'Unnamed') + '</option>'; }).join('');
-    fillForm(); drivers(); render(); fromRace(); teamSelect(); loadTeamData();
+    fillForm(); drivers(); render(); fromRace(); teamSelect(); loadTeamData(); fromFold();
   }
+  // "Start from sessions you drove" (owner 2026-11-16: the page got long): folded by itself once the plan is filled (track, a lap time, a stint length);
+  // opened or closed by hand = kept for that plan
+  var fromOpen = {}; try { fromOpen = JSON.parse(localStorage.getItem('pw-strat-from-open') || '{}') || {}; } catch (e) {}
+  function filled(p) { return !!(p && p.track && (p.drivers || []).some(function (d) { return d.lap > 0; }) && p.ve && (p.ve.laps > 0 || p.ve.perLap > 0)); }
+  function fromFold() {
+    if (!plan) return;
+    var open = fromOpen[plan.id] !== undefined ? fromOpen[plan.id] : !filled(plan);
+    $('fromFold').hidden = !open; $('fromArrow').innerHTML = open ? '&#9662;' : '&#9656;';
+    $('fromState').textContent = open ? '' : filled(plan) ? 'the plan is filled: open to start again from your sessions' : '';
+  }
+  $('fromHead').onclick = function () {
+    fromOpen[plan.id] = $('fromFold').hidden; try { localStorage.setItem('pw-strat-from-open', JSON.stringify(fromOpen)); } catch (e) {} fromFold();
+  };
   $('planSel').onchange = function () { choose(this.value); saveSoon(); };
   $('newBtn').onclick = function () { var p = blank(); store.plans.push(p); choose(p.id); saveSoon(); };
   $('copyBtn').onclick = function () { var p = JSON.parse(JSON.stringify(plan)); p.id = 'p' + Date.now().toString(36); p.name = plan.name + ' (copy)'; store.plans.push(p); choose(p.id); saveSoon(); };

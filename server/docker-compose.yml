@@ -19,6 +19,9 @@ services:
     pids_limit: 100
     environment:
       - MLH_SETUP_KEY=${MLH_SETUP_KEY:-}  # optional: your own setup key; empty = a random one is shown once in the log
+      - MLH_PUBLIC_URL=${MLH_PUBLIC_URL:-}                  # the website's address, e.g. https://mylmuhub.com (for Discord)
+      - MLH_DISCORD_CLIENT_ID=${MLH_DISCORD_CLIENT_ID:-}    # optional: Discord login (discord.com/developers: OAuth2)
+      - MLH_DISCORD_CLIENT_SECRET=${MLH_DISCORD_CLIENT_SECRET:-}
     networks: [ inside ]
 
   cloudflared:

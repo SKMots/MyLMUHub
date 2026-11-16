@@ -18,15 +18,12 @@
       '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="racecontrol.html"' + (active === 'rc' ? ' class="on"' : '') + '>Race Control</a>' +
       '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a><a href="team.html"' + (active === 'team' ? ' class="on"' : '') + '>Team</a><a href="coach.html"' + (active === 'coach' ? ' class="on"' : '') + '>AI Coach</a></nav>' +
       '<span class="upd" id="upd"></span>' +
-      '<select class="sel themeSel" id="hubTheme" title="Hub theme (Race Control has its own: Race Control page)">' + HUB_THEMES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === hubTheme() ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
-      '<button class="btn" id="guestBtn" title="A friend drives on your rig: keep his laps apart from yours">Guest</button>' +
-      '<button class="who" id="who" title="Your driver names"><span>?</span><em>Your names</em></button>' +
-      '<div class="pop" id="whoPop" hidden></div><div class="pop" id="guestPop" hidden></div>';
-    h.parentNode.insertBefore(document.getElementById('whoPop'), h.nextSibling); h.parentNode.insertBefore(document.getElementById('guestPop'), h.nextSibling);
-    document.getElementById('guestBtn').onclick = function () { var p = document.getElementById('guestPop'); document.getElementById('whoPop').hidden = true; if (p.hidden) guestPanel(p); else p.hidden = true; };
+      // guest mode: switched on Settings; here only a badge while it is on (owner 2026-11-16: a cleaner header)
+      '<a class="btn lime" id="guestBtn" href="settings.html#guest" hidden></a>' +
+      // your name: the Settings page (driver names, team server, phone, theme; owner 2026-11-16: one place instead of popups and lists in the header)
+      '<a class="who' + (active === 'settings' ? ' on' : '') + '" id="who" href="settings.html" title="Settings: your names, team server, phone, theme"><span>?</span><em>Your names</em></a>' +
+      '';
     guestState();
-    document.getElementById('who').onclick = function () { var p = document.getElementById('whoPop'); if (p.hidden) names(p); else p.hidden = true; };
-    document.getElementById('hubTheme').onchange = function () { try { localStorage.setItem('pw-hub-theme', this.value); } catch (e) {} applyHubTheme(); };
     if (inApp && here) update();                                                          // the update button: only on the PC the app runs on
   }
   // the app version and, when a newer one is out, the Update button (UpdateService.cs: download, swap, restart). A dev build says "dev" and never updates.
@@ -68,8 +65,8 @@
     if (!inApp) return;
     json('api/guest').then(function (g) {
       var b = document.getElementById('guestBtn'); if (!b) return;
-      b.textContent = g.current ? 'Guest: ' + g.current : 'Guest'; b.className = 'btn' + (g.current ? ' lime' : '');
-      b.title = g.current ? 'Guest mode is on: these pages show ' + g.current + '\'s laps, not yours' : 'A friend drives on your rig: keep his laps apart from yours';
+      b.hidden = !g.current; b.textContent = g.current ? 'Guest: ' + g.current : '';
+      b.title = g.current ? 'Guest mode is on: these pages show ' + g.current + '\'s laps, not yours. Click to switch it off (Settings).' : '';
     }, function () {});
   }
   function guestPanel(p) {
@@ -101,32 +98,6 @@
       if (d) d.onclick = function () { var n = g.current; del(n).then(done, function () {}); };
       [].forEach.call(p.querySelectorAll('[data-del]'), function (b) { b.onclick = function () { del(b.getAttribute('data-del')).then(done, function () {}); }; });
     }, function () { p.innerHTML = '<div class="muted">Could not load guest mode.</div>'; });
-  }
-
-  // the name panel under your name: which driver names in the result files are you (Race Pace), and the results folder
-  function names(p) {
-    p.hidden = false; p.innerHTML = '<div class="muted">Loading...</div>';
-    if (!inApp) { p.innerHTML = '<div class="muted">Open the hub in the app to set your names.</div>'; return; }
-    json('api/pace?light=1').then(function (i) {
-      var mine = {}, all = (i.candidates || []).slice();
-      (i.names || []).forEach(function (n) { mine[n.toLowerCase()] = 1; if (!all.some(function (c) { return c.name.toLowerCase() === n.toLowerCase(); })) all.unshift({ name: n, files: 0 }); });
-      p.innerHTML = '<a class="btn" href="sessions.html" style="width:100%;justify-content:center;margin-bottom:14px">My sessions: hide or delete sessions someone else drove</a><div class="pop-h">Your driver names</div><div class="muted" style="margin-bottom:10px">Tick every name you race under (online and offline). Race Pace counts only these drivers\' laps. Most seen in your result files:</div>' +
-        '<div class="pop-list">' + all.map(function (c) {
-          return '<label class="pop-row"><input type="checkbox" value="' + esc(c.name) + '"' + (mine[c.name.toLowerCase()] ? ' checked' : '') + '><span>' + esc(c.name) + '</span>' +
-            (c.files ? '<small>' + c.files + ' files</small>' : '') + '</label>';
-        }).join('') + '</div>' +
-        '<label class="field" style="margin-top:12px">Add a name (exactly as in the game)<input class="input" id="popAdd" placeholder="e.g. Alex D#1234"></label>' +
-        '<label class="field" style="margin-top:10px">Results folder (empty = found through Steam)<input class="input" id="popFolder" value="' + esc(i.folder || '') + '"></label>' +
-        '<div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="popCancel">Cancel</button><button class="btn lime" id="popSave">Save</button></div>';
-      document.getElementById('popCancel').onclick = function () { p.hidden = true; };
-      document.getElementById('popSave').onclick = function () {
-        var list = [].slice.call(p.querySelectorAll('input[type=checkbox]:checked')).map(function (x) { return x.value; }), add = document.getElementById('popAdd').value.trim();
-        if (add) list.push(add);
-        var folder = document.getElementById('popFolder').value.trim();
-        fetch('api/pace', { method: 'PUT', body: JSON.stringify({ names: list, folder: folder === (i.folder || '') ? null : folder }) })
-          .then(function () { p.hidden = true; setWho(list[0]); document.dispatchEvent(new CustomEvent('pw-names')); });
-      };
-    }, function () { p.innerHTML = '<div class="muted">Could not load the names.</div>'; });
   }
 
   // the game's state every 3 s (cheap: the last message the dashboard got). cb(state or null). The header line shows LIVE + track + session.
@@ -165,5 +136,6 @@
     }, 5000);
   }
 
-  P.hub = { esc: esc, json: json, header: header, setWho: setWho, live: live, openRaceControl: openRaceControl, inApp: inApp, loadPace: loadPace, watchPace: watchPace };
+  function setTheme(t) { try { localStorage.setItem('pw-hub-theme', t || ''); } catch (e) {} applyHubTheme(); }
+  P.hub = { esc: esc, json: json, header: header, setWho: setWho, guestPanel: guestPanel, themes: HUB_THEMES, theme: hubTheme, setTheme: setTheme, live: live, openRaceControl: openRaceControl, inApp: inApp, loadPace: loadPace, watchPace: watchPace };
 })(typeof window !== 'undefined' ? window : globalThis);

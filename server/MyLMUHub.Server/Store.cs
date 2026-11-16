@@ -9,7 +9,7 @@ public sealed record TeamOf(long Id, string Name, Role Roles);
 /// <summary>The server's data in one SQLite file (data/team.db). Every value goes in as a parameter (never pasted into SQL). Race results are stored as
 /// the JSON the server itself wrote from the checked fields, never the bytes a member sent.
 /// Leaving a team (owner 2026-11-16): the member's personal data for that team goes; the team's race results stay, with the names in them.</summary>
-public sealed class Store
+public sealed partial class Store
 {
     readonly string cs;
     public Store(string file)
@@ -35,6 +35,7 @@ public sealed class Store
         // added later (2026-11-16): every lap of a race (kept apart: the list of results stays small), consistency per pace row
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('results') WHERE name = 'laps'")) == 0) Exec(c, "ALTER TABLE results ADD COLUMN laps TEXT");
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('pace') WHERE name = 'sd'")) == 0) Exec(c, "ALTER TABLE pace ADD COLUMN sd REAL");
+        WebSchema(c);                                                                         // the website: phone logins, pairing codes, Discord (Store.Web.cs)
     }
 
     SqliteConnection Open() { var c = new SqliteConnection(cs); c.Open(); Exec(c, "PRAGMA foreign_keys = ON;"); return c; }

@@ -1,5 +1,5 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-  <!-- My LMU Hub team server: teams, invites, roles, team race results (later: team race pace, live race sharing). Runs in Docker behind a Cloudflare tunnel. -->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- My LMU Hub team server: teams, invites, roles, team race results and race pace, and the website / phone app (wwwroot). Runs in Docker behind a Cloudflare tunnel. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,6 +10,14 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.*" />
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- the phone app uses the desktop app's own maths (formatting, race pace, strategy, review): copied in when the app's source is next to it (a build in the
+       repo); the copies are kept in the repo so the Docker build (server/ only) has them -->
+  <ItemGroup>
+    <SharedJs Include="..\..\src\MyLMUHub.App\wwwroot\js\format.js;..\..\src\MyLMUHub.App\wwwroot\js\pace-math.js;..\..\src\MyLMUHub.App\wwwroot\js\pace-ref.js;..\..\src\MyLMUHub.App\wwwroot\js\strategy-math.js;..\..\src\MyLMUHub.App\wwwroot\js\review-math.js" />
+  </ItemGroup>
+  <Target Name="CopySharedJs" BeforeTargets="BeforeBuild" Condition="Exists('..\..\src\MyLMUHub.App\wwwroot\js\format.js')">
+    <Copy SourceFiles="@(SharedJs)" DestinationFolder="wwwroot\js\shared" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
-

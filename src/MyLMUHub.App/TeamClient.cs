@@ -145,6 +145,19 @@ public sealed class TeamClient
                 return await Call(HttpMethod.Post, $"/api/v1/teams/{team}/results", res);
             }
             case "suggest": return (200, JsonSerializer.Serialize(await Suggest(false), Web));
+            // ---- your phone (the website): a pairing code, Discord, log out every phone ----
+            case "pair": return await Call(HttpMethod.Post, "/api/v1/web/pair", new { });
+            case "logoutPhones": return await Call(HttpMethod.Post, "/api/v1/web/logout-all", new { });
+            case "discordUnlink": return await Call(HttpMethod.Post, "/api/v1/discord/unlink", new { });
+            case "discordLink":
+            {
+                var (dc, db) = await Call(HttpMethod.Post, "/api/v1/discord/link", new { });
+                var u = dc == 200 ? S(Parse(db), "url") : null;
+                // only ever Discord's own sign-in page, in your browser
+                if (u == null || !u.StartsWith("https://discord.com/oauth2/authorize?", StringComparison.Ordinal)) return (dc == 200 ? 502 : dc, dc == 200 ? "{\"error\":\"unexpected answer\"}" : db);
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(u) { UseShellExecute = true }); } catch (Exception) { return (500, "{\"error\":\"could not open the browser\"}"); }
+                return (200, "{\"ok\":true}");
+            }
             case "settings":
             {
                 if (team > 0 && b["auto"] is JsonValue av && av.TryGetValue<bool>(out var a)) opts.Auto[team] = a;

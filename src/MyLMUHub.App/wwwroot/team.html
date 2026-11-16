@@ -36,37 +36,14 @@
 
   <section class="card" style="margin-top:14px">
     <h2>Team</h2>
-    <div class="sub" style="margin-bottom:0">Your teams on a team server: the races you drove together, everyone's race pace, the members. Your login stays in this app (encrypted on this PC).</div>
+    <div class="sub" style="margin-bottom:0">Your teams: the races you drove together, everyone's race pace, the members. The team server, your phone and Discord: Settings (click your name).</div>
     <div class="tchips" id="chips" hidden></div>
     <div class="faint" id="info" style="margin-top:8px"></div>
   </section>
 
-  <!-- not connected / not a member yet -->
-  <section class="card" style="margin-top:14px" id="connectCard" hidden>
-    <h2>Connect to a team server</h2>
-    <div class="sub">The address your team owner gave you, e.g. team.example.com.</div>
-    <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-      <label class="field" style="min-width:360px">Server address<input class="input" id="urlIn" placeholder="team.example.com"></label>
-      <button class="btn lime" id="connectBtn">Connect</button>
-    </div>
-  </section>
-  <section class="card" style="margin-top:14px" id="setupCard" hidden>
-    <h2>Set up this server</h2>
-    <div class="sub">This server has no owner yet. Enter the setup key from the server's log to become its owner. It works once.</div>
-    <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-      <label class="field">Setup key<input class="input" id="setupIn" placeholder="XXXX-XXXX-XXXX"></label>
-      <label class="field">Your name<input class="input" id="setupName" placeholder="as your team sees you"></label>
-      <button class="btn lime" id="setupBtn">Set up</button>
-    </div>
-  </section>
-  <section class="card" style="margin-top:14px" id="joinCard" hidden>
-    <h2>Join a team</h2>
-    <div class="sub">With the invite code from the team owner. A code works once.</div>
-    <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-      <label class="field">Invite code<input class="input" id="codeIn" placeholder="XXXX-XXXX-XXXX"></label>
-      <label class="field" id="joinNameField">Your name<input class="input" id="joinName" placeholder="as your team sees you"></label>
-      <button class="btn lime" id="joinBtn">Join</button>
-    </div>
+  <section class="card" style="margin-top:14px" id="noTeamCard" hidden>
+    <div id="noTeamText" class="sub" style="margin:0"></div>
+    <a class="btn lime" href="settings.html" style="margin-top:10px">Open Settings</a>
   </section>
 
   <!-- one team -->
@@ -155,23 +132,6 @@
     </div>
   </div>
 
-  <section class="card" style="margin-top:14px" id="acctCard" hidden>
-    <h2>Account</h2>
-    <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-      <label class="field">Your name in the teams<input class="input" id="nameIn"></label>
-      <button class="btn" id="nameBtn">Save</button>
-      <span style="flex:1"></span>
-      <button class="btn" id="joinMoreBtn">Join another team</button>
-      <button class="btn" id="discBtn">Disconnect</button>
-    </div>
-    <div id="adminBox" hidden style="margin-top:14px">
-      <div class="sub">You own this server: make a team (you become its owner; invite the others).</div>
-      <div class="form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-        <label class="field">New team<input class="input" id="newTeamIn" placeholder="team name"></label>
-        <button class="btn" id="newTeamBtn">Make the team</button>
-      </div>
-    </div>
-  </section>
   <!-- the team races found in your files: sent by themselves (owner 2026-11-16: at the bottom, folded) -->
   <section class="card" style="margin-top:14px" id="newCard" hidden>
     <div id="newHead" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;cursor:pointer">

@@ -34,15 +34,16 @@
     api('status').then(function (s) {
       st = s;
       var member = !!(s.connected && s.member && s.me);
-      show('connectCard', !s.connected); show('setupCard', s.connected && !s.member && s.setup); show('joinCard', s.connected && !s.member && !s.setup);
-      show('acctCard', member); show('chips', member); $('joinNameField').hidden = false;
-      if (s.connected && !s.reachable) info('The server at ' + s.url + ' cannot be reached right now.', true);
-      else info(s.connected ? 'Server: ' + s.url.replace(/^https:\/\//, '') : '');
+      // not connected / no team yet: a pointer to Settings (where you connect, join or make a team)
+      var noTeam = !member || !(s.me.teams || []).length;
+      show('noTeamCard', noTeam); show('chips', member);
+      $('noTeamText').textContent = !s.connected ? 'Not connected to a team server yet. Connect in Settings, then join your team with its invite code.'
+        : !s.reachable ? 'The team server (' + s.url.replace(/^https:\/\//, '') + ') cannot be reached right now.'
+        : !member ? (s.setup ? 'This server is not set up yet: do it in Settings.' : 'Join your team in Settings, with its invite code.')
+        : s.me.admin ? 'You are in no team yet: make one in Settings.' : 'You are in no team yet: join one in Settings, with its invite code.';
+      info('');
       if (!member) { show('teamArea', false); show('newCard', false); return; }
-      if (document.activeElement !== $('nameIn')) $('nameIn').value = s.me.name || '';
-      show('adminBox', !!s.me.admin);
       var keep = team && teamById(team.id); team = keep || teams()[0] || null;
-      if (!team) info('Server: ' + s.url.replace(/^https:\/\//, '') + ' · you are in no team yet' + (s.me.admin ? ': make one under Account.' : '.'));
       renderChips(); loadTeam(); loadSuggest();
     }, function (e) { info(e.message, true); });
   }
@@ -354,15 +355,6 @@
     var me = members.filter(function (m) { return m.me; })[0]; if (!me) return;
     api('remove', { team: team.id, user: me.id }).then(function () { team = null; load(); }, function (e) { info(e.message, true); });
   };
-
-  // ---------- connect / account ----------
-  $('connectBtn').onclick = function () { info('Connecting...'); api('connect', { url: $('urlIn').value }).then(load, function (e) { info(e.message, true); }); };
-  $('setupBtn').onclick = function () { api('setup', { setupKey: $('setupIn').value, name: $('setupName').value }).then(function () { info('Done: you own this server. Make your first team under Account.'); load(); }, function (e) { info(e.message, true); }); };
-  $('joinBtn').onclick = function () { api('join', { code: $('codeIn').value, name: $('joinName').value }).then(function () { $('codeIn').value = ''; show('joinCard', false); info('Welcome to the team.'); team = null; load(); }, function (e) { info(e.message, true); }); };
-  $('joinMoreBtn').onclick = function () { show('joinCard', true); $('joinNameField').hidden = true; $('codeIn').focus(); };
-  $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); load(); }, function (e) { info(e.message, true); }); };
-  $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; load(); }, function (e) { info(e.message, true); }); };
-  $('discBtn').onclick = function () { if (confirm('Disconnect from this server? You need a new invite code to come back (your teams keep you as a member).')) api('disconnect').then(load); };
 
   // my sessions (for the race pace I share)
   if (H.inApp) H.loadPace(function () {}, function (data) { mySessions = (data.sessions || []).filter(function (s) { return !s.live; }); sharePace(); });

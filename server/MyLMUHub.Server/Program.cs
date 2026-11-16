@@ -30,7 +30,7 @@ public static class Server
     /// <summary>The server (tests: their own data folder and setup key, any address).</summary>
     public static WebApplication Build(string[] args, string dataDir, string setupKey, string urls = null)
     {
-        var b = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, EnvironmentName = "Production" });
+        var b = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, EnvironmentName = "Production", ContentRootPath = AppContext.BaseDirectory, WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot") });
         if (urls != null) b.WebHost.UseUrls(urls);
         b.WebHost.ConfigureKestrel(k =>
         {
@@ -74,15 +74,22 @@ public static class Server
         {
             var h = ctx.Response.Headers;
             h.XContentTypeOptions = "nosniff"; h.XFrameOptions = "DENY"; h.CacheControl = "no-store";
-            h["Referrer-Policy"] = "no-referrer"; h.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
+            h["Referrer-Policy"] = "no-referrer";
+            // the API: nothing may run; the website's pages: only this site's own files (no inline script, nothing from elsewhere)
+            h.ContentSecurityPolicy = ctx.Request.Path.StartsWithSegments("/api") ? "default-src 'none'; frame-ancestors 'none'"
+                : "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+            h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
             // a body must be JSON (nothing else is read)
             if (ctx.Request.ContentLength > 0 && !(ctx.Request.ContentType ?? "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase)) { ctx.Response.StatusCode = 415; return; }
             await next();
         });
         app.UseRateLimiter();
+        app.UseDefaultFiles(); app.UseStaticFiles();                                         // the website (wwwroot): / and /app/
 
         IResult Err(int code, string why) => Results.Json(new { error = why }, statusCode: code);
-        User Me(HttpContext ctx) => store.UserByKey(Auth.KeyOf(ctx.Request));
+        // the desktop app: its member key (anything its role allows); a phone / browser: its login cookie, for READING only (GET)
+        User KeyUser(HttpContext ctx) => store.UserByKey(Auth.KeyOf(ctx.Request));
+        User Me(HttpContext ctx) => KeyUser(ctx) ?? (HttpMethods.IsGet(ctx.Request.Method) ? store.UserBySession(ctx.Request.Cookies[Web.Cookie]) : null);
 
         app.MapGet("/api/v1/health", () => Results.Json(new { ok = true, version = 1, setup = !store.AnyUser() }));
 
@@ -110,7 +117,8 @@ public static class Server
         app.MapGet("/api/v1/me", (HttpContext ctx) =>
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key");
-            return Results.Json(new { id = me.Id, name = me.Name, admin = me.Admin, teams = store.TeamsOf(me.Id).Select(t => new { id = t.Id, name = t.Name, roles = Check.Words(t.Roles) }) });
+            return Results.Json(new { id = me.Id, name = me.Name, admin = me.Admin, discord = store.DiscordName(me.Id), phones = store.Sessions(me.Id),
+                teams = store.TeamsOf(me.Id).Select(t => new { id = t.Id, name = t.Name, roles = Check.Words(t.Roles) }) });
         });
         app.MapPost("/api/v1/me/name", (HttpContext ctx, NameReq r) =>
         {
@@ -204,7 +212,9 @@ public static class Server
                 best = x.Row.Best, optimal = x.Row.Optimal, pace = x.Row.Pace, sd = x.Row.Sd, clean = x.Row.Clean, laps = x.Row.Laps, last = x.Row.Last }));
         });
 
-        app.MapFallback(() => Err(404, "not found"));
+        Web.Map(app, store, KeyUser, log);                                                   // logging in on a phone, Discord (Web.cs)
+
+        app.MapFallback("/api/{**rest}", () => Err(404, "not found"));                         // unknown API paths; the rest: the website's files
         return app;
     }
 
