@@ -123,8 +123,9 @@
     }, function (e) { done({ error: String(e), sessions: [], names: [], candidates: [] }); });
   }
 
-  // My stats on the website (2026-11-16): your own race pace sheet, per track + car (as the Team tab shares it) with the alien race pace and hotlap of that track
-  // + class (the reference sheet) and how many sessions; sent to the team server only when it changed (Settings: on by default; only you see it there).
+  // My stats on the website (2026-11-16): the Race Pace page's overview (pace.js, its default view: race sessions, all time, current game version), one row
+  // per track (every layout its own track) and class, with the alien race pace and hotlap of the reference sheet; the car = your fastest car there.
+  // Sent to the team server only when it changed (Settings: on by default; only you see it there).
   // Not while a guest drives (the pages then show his files). Pages without the pace maths (pace-ref.js, pace-math.js) send nothing.
   var mineBusy = false;
   function shareMine(data) {
@@ -135,14 +136,24 @@
       if (a[0] && a[0].current) return;
       var ref = a[1] && a[1].csv ? R.parse(a[1].csv) : {};
       var refFor = function (s, cls) { var t = ref[R.trackName(s.track, s.layout)], c = R.className(cls); return t && c ? t[c] || null : null; };
-      var list = data.sessions.filter(function (s) { return !s.live; }), cur = null;
-      list.forEach(function (s) { var m = R.major(s.version); if (m && (!cur || m > cur)) cur = m; });
-      var old = function (s) { var rf = refFor(s, s['class']); return R.isOld(s.version, rf && rf.patch, cur); };
-      var rows = M.groups(list).slice(0, 400).map(function (g) {
-        var now = g.sessions.filter(function (s) { return !old(s); }), c = M.combine(now.length ? now : g.sessions, 0.05, ['Race']).dry, rf = refFor(g.sessions[0], g.cls);
-        return { track: g.track, car: g.car, cls: g.cls || '', best: c.best || 0, optimal: c.optimal || 0, pace: c.clean >= 3 ? c.pace : 0, sd: c.clean >= 3 && c.sd > 0 ? c.sd : 0, clean: c.clean || 0, laps: c.laps || 0,
-                 last: g.last, refPace: rf && rf.race && rf.race[0] > 0 ? rf.race[0] : 0, refHot: rf && rf.hot > 0 ? rf.hot : 0, sessions: g.sessions.length };
-      }).filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; });
+      var all = data.sessions, cur = null;
+      all.forEach(function (s) { var m = R.major(s.version); if (m && (!cur || m > cur)) cur = m; });
+      var list = all.filter(function (s) { var rf = refFor(s, s['class']); return !R.isOld(s.version, rf && rf.patch, cur); });
+      var by = function (l, kf) { var m = {}, out = []; l.forEach(function (s) { var k = kf(s); if (!m[k]) { m[k] = { key: k, sessions: [], last: 0, laps: 0 }; out.push(m[k]); } m[k].sessions.push(s); m[k].last = Math.max(m[k].last, s.time); m[k].laps += s.laps.length; }); return out; };
+      var tracks = by(list, function (s) { return R.trackKey(s.track, s.layout); }), per = {};
+      tracks.forEach(function (t) { var s0 = t.sessions[t.sessions.length - 1]; t.base = R.trackName(s0.track, s0.layout) || s0.track; t.layout = s0.layout; per[t.base] = (per[t.base] || 0) + 1; });
+      var rows = [];
+      tracks.forEach(function (t) {
+        var name = per[t.base] > 1 && t.layout ? t.base + ' · ' + R.variantLabel(t.base, t.layout) : t.base;
+        by(t.sessions, function (s) { return s['class']; }).forEach(function (c) {
+          var d = M.combine(c.sessions, 0.05, ['Race']).dry, rf = refFor(c.sessions[0], c.key), bc = null;
+          by(c.sessions, function (s) { return s.car; }).forEach(function (k) { k.best = M.combine(k.sessions, 0.05, ['Race']).dry.best; if (k.best && (!bc || k.best < bc.best)) bc = k; });
+          var nc = {}; c.sessions.forEach(function (s) { nc[s.car] = 1; });
+          rows.push({ track: name.slice(0, 80), car: (bc ? bc.key : c.sessions[0].car || '?').slice(0, 80), cls: c.key || '', best: d.best || 0, optimal: d.optimal || 0, pace: d.pace || 0, sd: d.sd > 0 ? d.sd : 0,
+                      clean: d.clean || 0, laps: c.laps, last: c.last, refPace: rf && rf.race && rf.race[0] > 0 ? rf.race[0] : 0, refHot: rf && rf.hot > 0 ? rf.hot : 0, sessions: c.sessions.length, cars: Object.keys(nc).length });
+        });
+      });
+      rows = rows.filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; }).sort(function (a, b) { return b.last - a.last; }).slice(0, 400);
       var sig = JSON.stringify(rows), h = sig.length + ':' + sig.slice(-300), old2 = null;
       try { old2 = localStorage.getItem('pw-my-pace'); } catch (e) {}
       if (old2 === h) return;

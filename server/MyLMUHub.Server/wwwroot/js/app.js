@@ -274,28 +274,30 @@
     if (!mine) { view.innerHTML = '<div class="faint mt20">Loading...</div>'; get('/api/v1/me/pace').then(function (l) { mine = l || []; account(); }, function (e) { if (e.status === 401) login(); else { mine = []; account(); } }); return; }
     var ratio = function (t, b) { return t > 0 && b > 0 ? t / b : 0; };
     var catChip = function (r) { var k = R.category(r); return k ? '<span class="cat" data-bgc="' + k.color + '">' + esc(k.name) + '</span>' : ''; };
+    // as the desktop app's Race Pace page: one class at a time (the one you drove most first), a row per track; your level = the average % over its tracks
     var count = {}; mine.forEach(function (p) { var c = clsOf(p); count[c] = (count[c] || 0) + p.laps; });
     var classes = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; });
-    if (myCls && !count[myCls]) myCls = '';
-    var rows = mine.filter(function (p) { return !myCls || clsOf(p) === myCls; }).sort(function (a, b) { return b.last - a.last; });
-    var h = '<div class="pagehead"><h1>' + esc(me.name) + '</h1><span class="faint">your stats, only you see them</span></div>';
+    if (!myCls || !count[myCls]) myCls = classes[0] || '';
+    var rows = mine.filter(function (p) { return clsOf(p) === myCls; }).sort(function (a, b) { return b.last - a.last; });
+    var h = '<div class="pagehead"><h1>' + esc(me.name) + '</h1><span class="faint">your race pace, only you see it</span></div>';
     if (!mine.length) h += card('My stats', '<div class="sub">No stats yet. The desktop app sends them by itself (Settings: <b>Keep my stats on the website</b>) the next time a hub page reads your results.</div>');
     else {
-      var lv = rows.map(function (p) { return p.clean >= 5 ? ratio(p.pace, p.refPace) : 0; }).filter(function (x) { return x > 0; }), avg = lv.length ? lv.reduce(function (t, x) { return t + x; }, 0) / lv.length : 0;
-      var tracks = {}, cars = {}, laps = 0, ses = 0; rows.forEach(function (p) { tracks[trackName(p.track)] = 1; cars[p.car] = 1; laps += p.laps; ses += p.sessions || 0; });
-      var k = R.category(avg);
-      h += '<div class="filters">' + segOf([['', 'All classes']].concat(classes.map(function (c) { return [c, clsLabel(c)]; })), myCls, 'data-mc') + '</div>';
-      h += '<div class="tiles tiles4">' + tile('Your level', avg ? F.pctOver(avg) : '--', avg ? '<span data-col="' + k.color + '">' + esc(k.name) + '</span> · race pace vs the aliens, ' + lv.length + (lv.length === 1 ? ' track' : ' tracks') : 'needs a reference + 5 counted laps') +
-        tile('Tracks', Object.keys(tracks).length, Object.keys(cars).length + (Object.keys(cars).length === 1 ? ' car' : ' cars')) + tile('Laps', F.count ? F.count(laps) : laps, ses ? ses + ' sessions' : '') +
-        tile('Last driven', rows.length ? ago(rows[0].last) : '--', rows.length ? esc(trackName(rows[0].track)) : '') + '</div>';
-      h += card('Tracks and cars', '<div class="sub">Race pace = your average clean race lap; the % is against the alien race pace (and your best lap against the alien hotlap) of the reference sheet.</div><div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Race pace</th><th>Level</th><th class="num">Best lap</th><th class="num">Consistency</th><th class="num">Sessions</th><th class="num">Last</th></tr></thead><tbody>' +
+      var mean = function (l) { return l.length ? l.reduce(function (t, x) { return t + x; }, 0) / l.length : 0; };
+      var pr = rows.map(function (p) { return p.clean >= 5 ? ratio(p.pace, p.refPace) : 0; }).filter(function (x) { return x > 0; }), hr = rows.map(function (p) { return ratio(p.best, p.refHot); }).filter(function (x) { return x > 0; });
+      var avg = mean(pr), avgQ = mean(hr), k = R.category(avg), q = R.category(avgQ), laps = 0, ses = 0; rows.forEach(function (p) { laps += p.laps; ses += p.sessions || 0; });
+      h += '<div class="filters">' + segOf(classes.map(function (c) { return [c, clsLabel(c)]; }), myCls, 'data-mc') + '</div>';
+      h += '<div class="tiles tiles4">' + tile('Race pace level', avg ? F.pctOver(avg) : '--', k ? '<span data-col="' + k.color + '">' + esc(k.name) + '</span> · ' + pr.length + (pr.length === 1 ? ' track' : ' tracks') : 'needs a reference + 5 counted laps') +
+        tile('Fastest lap level', avgQ ? F.pctOver(avgQ) : '--', q ? '<span data-col="' + q.color + '">' + esc(q.name) + '</span> · ' + hr.length + (hr.length === 1 ? ' track' : ' tracks') : '') +
+        tile('Tracks', rows.length, F.count(laps) + ' laps · ' + ses + ' sessions') +
+        tile('Last driven', rows.length ? ago(rows[0].last) : '--', rows.length ? esc(rows[0].track) : '') + '</div>';
+      h += card('Tracks', '<div class="sub">' + esc(clsLabel(myCls)) + ': race pace compared with the alien times of the LMU laptimes sheet (race sessions; sessions on an older game version are left out).</div>' +
+        '<div class="scroll"><table class="tbl"><thead><tr><th>Track</th><th class="num">Cars</th><th class="num">Sessions</th><th class="num">Laps</th><th class="num">Best lap</th><th class="num">Fastest lap %</th><th class="num">Race pace</th><th class="num">Race pace %</th><th>Category</th><th class="num">Last driven</th></tr></thead><tbody>' +
         rows.map(function (p) {
-          var pr = p.clean >= 5 ? ratio(p.pace, p.refPace) : 0, hr = ratio(p.best, p.refHot);
-          return '<tr><td><b>' + esc(trackName(p.track)) + '</b><span class="two">' + esc(p.car) + ' · ' + esc(clsLabel(clsOf(p))) + '</span></td>' +
-            '<td class="num">' + lap(p.pace) + '<span class="two">' + (pr ? F.pctOver(pr) : p.pace > 0 && !p.refPace ? 'no reference' : p.pace > 0 ? p.clean + ' counted laps' : '') + '</span></td>' +
-            '<td>' + catChip(pr) + '</td>' +
-            '<td class="num purple">' + lap(p.best) + '<span class="two">' + (hr ? F.pctOver(hr) + ' · ' + esc(R.category(hr).name) : '') + '</span></td>' +
-            '<td class="num">' + (p.sd > 0 ? '± ' + p.sd.toFixed(3) : '--') + '</td><td class="num">' + (p.sessions || '--') + '<span class="two">' + p.laps + ' laps</span></td><td class="num faint">' + esc(ago(p.last)) + '</td></tr>';
+          var r1 = p.clean >= 5 ? ratio(p.pace, p.refPace) : 0, r2 = ratio(p.best, p.refHot);
+          return '<tr><td><b>' + esc(p.track) + '</b>' + (p.refPace || p.refHot ? '' : '<span class="two">not in the sheet</span>') + '</td><td class="num">' + (p.cars || 1) + '</td><td class="num">' + (p.sessions || '--') + '</td><td class="num">' + F.count(p.laps) + '</td>' +
+            '<td class="num purple">' + lap(p.best) + '<span class="two">' + esc(p.car) + '</span></td><td class="num">' + (r2 ? F.pctOver(r2) : '--') + '</td>' +
+            '<td class="num">' + lap(p.pace) + '<span class="two">' + (p.clean ? p.clean + ' laps' : '') + '</span></td><td class="num"><b>' + (r1 ? F.pctOver(r1) : '--') + '</b></td>' +
+            '<td>' + catChip(r1) + '</td><td class="num muted">' + esc(F.day(p.last)) + '</td></tr>';
         }).join('') + '</tbody></table></div>');
     }
     h += '<div class="cols">' + card('Account', '<div class="tiles">' + tile('Name', esc(me.name), 'in your teams') + tile('Discord', me.discord ? esc(me.discord) : '--', me.discord ? 'linked' : 'link it in the desktop app') +

@@ -169,7 +169,7 @@ public sealed class TeamClient
                 {
                     track = S(r, "track"), car = S(r, "car"), cls = S(r, "cls") ?? "", best = D(r, "best"), optimal = D(r, "optimal"), pace = D(r, "pace"), sd = D(r, "sd"),
                     clean = (int)Math.Max(0, L(r, "clean")), laps = (int)Math.Max(0, L(r, "laps")), last = L(r, "last"),
-                    refPace = D(r, "refPace"), refHot = D(r, "refHot"), sessions = (int)Math.Max(0, L(r, "sessions"))
+                    refPace = D(r, "refPace"), refHot = D(r, "refHot"), sessions = (int)Math.Max(0, L(r, "sessions")), cars = (int)Math.Max(0, L(r, "cars"))
                 }).ToArray() });
             }
             case "liveShare":

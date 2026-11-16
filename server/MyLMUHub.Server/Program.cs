@@ -224,7 +224,7 @@ public static class Server
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key");
             return Results.Json(store.MyPace(me.Id).Select(x => new { track = x.Track, car = x.Car, cls = x.Cls, best = x.Best, optimal = x.Optimal, pace = x.Pace, sd = x.Sd, clean = x.Clean, laps = x.Laps,
-                last = x.Last, refPace = x.RefPace, refHot = x.RefHot, sessions = x.Sessions }));
+                last = x.Last, refPace = x.RefPace, refHot = x.RefHot, sessions = x.Sessions, cars = x.Cars }));
         });
 
         Web.Map(app, store, KeyUser, log);                                                   // logging in on a phone, Discord (Web.cs)

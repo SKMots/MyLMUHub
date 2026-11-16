@@ -177,7 +177,7 @@ The team server is also a website (e.g. **mylmuhub.com**), made for phones and c
 - **Home:** your team at a glance: the latest race, your race pace against the team's best on your last tracks. More than one team: pick it in the top bar.
 - **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members.
 - **Live:** when a team-mate is racing, a banner says so on every page; tap it for their position, lap times, stint, virtual energy, the car (tyres, damage) and the laps.
-- **Me, your own stats:** your race pace per track and car with your level against the alien times (Competitive, Good, ...), best laps, consistency, sessions.
+- **Me, your own stats:** the desktop app's Race Pace overview: per class, every track with your best lap and race pace against the alien times (Competitive, Good, ...), your level, cars, sessions and laps.
   Only you see them. The desktop app keeps them up to date by itself (Settings: *Keep my stats on the website*; off = deleted from the server).
 - **The website can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
 
