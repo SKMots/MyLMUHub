@@ -211,6 +211,11 @@
     var webview = root.chrome && root.chrome.webview;
     function switchTo(target) {
       if (!target) return;
+      if (target === '!full') {                                                                        // full screen on / off: the app's window (F11), else the browser's
+        if (webview && webview.postMessage) { try { webview.postMessage({ fullscreen: 'toggle' }); } catch (e) {} }
+        else if (doc.fullscreenElement) doc.exitFullscreen().catch(function () {}); else if (doc.documentElement.requestFullscreen) doc.documentElement.requestFullscreen().catch(function () {});
+        return;
+      }
       if (target.charAt(0) === '!') { if (P.stintLapsKey) P.stintLapsKey(target === '!lapsUp' ? 1 : target === '!lapsDown' ? -1 : 0); return; }   // fuel widget: stint laps + / -
       var name = target === '>' ? ws.nextName() : target;
       if (name === ws.file.current) return;

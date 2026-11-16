@@ -87,17 +87,30 @@ h1, h2, h3 { margin:0; }
 .lv-cell .v { font-family:var(--mono); font-size:20px; font-weight:700; margin-top:2px; white-space:nowrap; } .lv-cell .n { color:var(--faint); font-size:11.5px; margin-top:2px; }
 .lv-bar { height:5px; background:var(--tile2); border-radius:3px; margin-top:6px; overflow:hidden; } .lv-bar i { display:block; height:100%; }
 .lv-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; font-size:12.5px; } .lv-foot .seg button { flex:none; padding:7px 18px; }
-.lv-car { display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center; justify-content:center; margin-top:10px; }
-.lv-svg { width:min(300px, 100%); height:auto; flex:none; }
-.lv-svg .t1 { fill:#E9EEEF; font:700 14px var(--mono); } .lv-svg .t2 { fill:#94A1A6; font:12px var(--mono); }
-.lv-dmg { flex:1; min-width:240px; max-width:460px; } .lv-dmg .row { display:flex; align-items:center; gap:10px; margin:9px 0; font-size:13px; } .lv-dmg .row b { width:90px; color:var(--muted); font-weight:600; flex:none; }
-.lv-dmg .row .lv-bar { flex:1; margin:0; height:8px; } .lv-dmg .row span { width:46px; text-align:right; font-family:var(--mono); } .lv-dmg .row em { font-style:normal; color:var(--muted); }
-.lv-dmg .cmp { display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px; }
-.cmpb { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; border:4px solid #888; font:800 12px var(--sans); color:var(--text); background:#0C1013; }
-.cmpb.soft { border-color:#FF5A5F; } .cmpb.med { border-color:#FFD21F; } .cmpb.hard { border-color:#E9EEEF; } .cmpb.wet { border-color:#3B9CFF; }
 
 /* my stats: the reference sheet's level (Alien, Competitive, ...) in its own colour */
 .cat { display:inline-block; color:#111; border-radius:999px; padding:2px 9px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; background:var(--tile2); }
+
+/* a team-mate's car, live (live-car.js) */
+.lc { display:flex; flex-wrap:wrap; gap:14px 28px; align-items:flex-start; justify-content:center; margin-top:12px; }
+.lc-car { flex:none; width:min(340px, 100%); } .lc-svg { width:100%; height:auto; display:block; }
+.lc-svg .lc-t1 { fill:#E9EEEF; font:700 13px var(--mono); } .lc-svg .lc-t2 { fill:#94A1A6; font:11px var(--mono); }
+.lc-svg .lc-bad { fill:#FF5A5F; } .lc-svg .lc-warn { fill:#FFD21F; }
+.lc-key { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px; font-size:11px; color:var(--faint); margin-top:6px; }
+.lc-key i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+.lc-key .k-ok { background:#1E262B; border:1px solid #3A4348; } .lc-key .k-light { background:#FFD21F; } .lc-key .k-heavy { background:#FF5A5F; } .lc-key .k-off { background:#B47CFF; }
+.lc-info { flex:1; min-width:250px; max-width:460px; }
+.lc-cmp { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:13px; }
+.lc-cmpb { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; border:4px solid #888; font:800 12px var(--sans); color:var(--text); background:#0C1013; box-sizing:border-box; }
+.lc-cmpb.soft { border-color:#FF5A5F; } .lc-cmpb.med { border-color:#FFD21F; } .lc-cmpb.hard { border-color:#E9EEEF; } .lc-cmpb.wet { border-color:#3B9CFF; }
+.lc-row { display:flex; align-items:center; gap:10px; margin:7px 0; font-size:13px; } .lc-row b { width:86px; color:var(--muted); font-weight:600; flex:none; }
+.lc-bar { flex:1; height:8px; background:var(--tile2); border-radius:4px; overflow:hidden; } .lc-bar i { display:block; height:100%; border-radius:4px; }
+.lc-row span { width:44px; text-align:right; font-family:var(--mono); }
+.lc-list { margin-top:12px; display:flex; flex-direction:column; gap:5px; }
+.lc-p { display:flex; align-items:center; gap:8px; font-size:13px; background:var(--tile); border-radius:8px; padding:6px 10px; }
+.lc-p i { width:8px; height:8px; border-radius:50%; flex:none; }
+.lc-l0 i { background:#3DDC84; } .lc-l1 i { background:#FFD21F; } .lc-l2 i { background:#FF9F43; } .lc-l3 i { background:#FF5A5F; } .lc-l3 { color:#FFB3B5; }
+.lc-set { margin-top:10px; color:var(--muted); font-size:12.5px; font-family:var(--mono); }
 
 /* pages */
 .pagehead { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-top:8px; }

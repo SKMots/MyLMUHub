@@ -396,29 +396,11 @@
         '<div class="n">' + (ve.avg > 0 ? F.pct(ve.avg, 2) + ' a lap' : '') + (ve.laps > 0 ? ' · ' + ve.laps.toFixed(1) + ' laps' : '') + '</div></div>' +
       (fu.now > 0 ? cell('Fuel', fu.now.toFixed(1) + ' L', fu.avg > 0 ? fu.avg.toFixed(2) + ' L a lap' : '') : '');
     $('lvCarBtn').classList.toggle('on', lvCar); $('lvLapsBtn').classList.toggle('on', lvLapsOpen);
-    show('lvCar', lvCar); if (lvCar) $('lvCar').innerHTML = carHtml(c);
+    show('lvCar', lvCar); if (lvCar) { $('lvCar').innerHTML = carHtml(c); P.liveCar.paint($('lvCar')); }
     show('lvLapsBox', lvLapsOpen); if (lvLapsOpen) lapsHtml(x);
   }
-  // the car from above: four tyres coloured by temperature (the dashboard's ramp), wear and pressure on them; damage bars beside it
-  function carHtml(c) {
-    var w = c.wheels || [], pos = [[34, 56], [166, 56], [34, 214], [166, 214]], names = ['FL', 'FR', 'RL', 'RR'];
-    var tyres = pos.map(function (p, i) {
-      var x = w[i] || {}, col = x.temp !== null && x.temp !== undefined ? F.tyreTempColor(x.temp, '#3A4348') : '#3A4348';
-      var tx = i % 2 ? p[0] + 22 : p[0] - 22, anchor = i % 2 ? 'start' : 'end';
-      return '<rect x="' + (p[0] - 14) + '" y="' + (p[1] - 26) + '" width="28" height="52" rx="7" fill="' + col + '" opacity="' + (x.detached ? 0.25 : 0.95) + '"/>' +
-        '<text x="' + tx + '" y="' + (p[1] - 6) + '" text-anchor="' + anchor + '" class="t1">' + (x.wear >= 0 ? Math.round(x.wear * 100) + '%' : '--') + '</text>' +
-        '<text x="' + tx + '" y="' + (p[1] + 10) + '" text-anchor="' + anchor + '" class="t2">' + (x.temp !== null && x.temp !== undefined ? Math.round(x.temp) + '°' : '') + '</text>' +
-        '<text x="' + tx + '" y="' + (p[1] + 25) + '" text-anchor="' + anchor + '" class="t2">' + (x.pressure > 1 ? Math.round(x.pressure) + ' kPa' : '') + '</text>';
-    }).join('');
-    var body = '<path d="M80 24 Q100 12 120 24 L136 70 L140 200 L132 262 Q100 280 68 262 L60 200 L64 70 Z" fill="#14191C" stroke="#2A3237" stroke-width="2"/>' +
-      '<rect x="78" y="96" width="44" height="70" rx="10" fill="#0C1013" stroke="#2A3237"/>';
-    var svg = '<svg viewBox="-70 0 340 290"><style>.t1{fill:#E9EEEF;font:700 14px Cascadia Mono,Consolas,monospace}.t2{fill:#94A1A6;font:12px Cascadia Mono,Consolas,monospace}</style>' + body + tyres + '</svg>';
-    var icon = { s: 's', m: 'm', h: 'h', w: 'w' }[String(c.compound || '').charAt(0).toLowerCase()];
-    var row = function (k, v) { var col = F.condColor(v, { none: 'var(--faint)', good: 'var(--green)', fair: 'var(--yellow)', bad: 'var(--red)' }); return '<div class="row"><b>' + k + '</b>' + bar(v >= 0 ? v : 0, col) + '<span style="color:' + col + '">' + (v >= 0 ? Math.round(v * 100) + '%' : '--') + '</span></div>'; };
-    return '<div class="lv-car">' + svg + '<div class="lv-dmg">' + (c.compound ? '<div class="cmp">' + (icon ? '<img src="assets/icons/tyre_' + icon + '.png" alt="">' : '') + '<span>' + esc(c.compound) + ' tyres</span></div>' : '') +
-      row('Aero', c.aero) + row('Body', c.body) + row('Suspension', c.susp) +
-      '<div class="row"><b>Settings</b><span style="width:auto;text-align:left;color:var(--muted)">' + [c.brakeBias > 0 ? 'BB ' + c.brakeBias.toFixed(1) + '%' : '', c.tc >= 0 ? 'TC ' + c.tc : '', c.abs >= 0 ? 'ABS ' + c.abs : '', c.map >= 0 ? 'Map ' + c.map : ''].filter(Boolean).join(' · ') + '</span></div></div></div>';
-  }
+  // the car: live-car.js (the same drawing as the website's live page)
+  function carHtml(c) { return P.liveCar.html(c); }
   // this session's stints (a pit lap ends one) with their laps, the review's maths
   function lapsHtml(x) {
     var laps = (x.laps || []).map(function (l) { return [l[0], l[1] > 0 ? l[1] : null, l[2] ? 1 : 0, null, (x.car && x.car.driver) || x.name, l[3] > 0 ? l[3] : null, l[4] >= 0 ? l[4] : null, null, -1]; });

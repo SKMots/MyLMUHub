@@ -156,6 +156,7 @@ public sealed class MainWindow : Window
             var r = doc.RootElement;
             if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("hotkeys", out var hk) && hk.ValueKind == System.Text.Json.JsonValueKind.Array)
             { SetHotkeys(hk.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x)).ToList()); return; }
+            if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("fullscreen", out _)) { SetFull(!full); return; }   // the full screen hotkey (Race Control)
             if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("padLearn", out var pl)) { Learn(pl.ValueKind == System.Text.Json.JsonValueKind.True); return; }
             if (r.ValueKind != System.Text.Json.JsonValueKind.Object || !r.TryGetProperty("titleBar", out var bg)) return;
             int? c = Colour(bg.GetString()), tx = r.TryGetProperty("titleText", out var t) ? Colour(t.GetString()) : null;

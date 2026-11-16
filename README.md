@@ -64,7 +64,7 @@ Press **E** and you're in edit mode:
 ## Race Control settings in the hub
 The **Race Control** tab in the hub has the dashboard's settings in one place, so you don't need edit mode for them: **Open dashboard**, your
 **laps a stint per track** for the fuel widget's live VE goal (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
-**view** the dashboard shows (plus export / import) and **spectate**; folded under **Advanced**: **hotkeys** for views and for the stint laps + / − (keys or wheel buttons; they keep working in the game too) and **network access**. An open dashboard follows
+**view** the dashboard shows (plus export / import) and **spectate**; folded under **Advanced**: **hotkeys** for views, the stint laps + / − and Race Control full screen on / off (keys or wheel buttons; they keep working in the game too) and **network access**. An open dashboard follows
 your changes right away. Edit mode (E) in the dashboard keeps only what is done on the dashboard itself: placing widgets, their colours, views.
 
 ![Race Control settings](docs/images/racecontrol.png)
@@ -160,7 +160,7 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
 - **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
 - When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
 - **Live:** when a team-mate is racing, the Team tab says "Sam is in a race · View": their position, lap times, stint and virtual energy, with the car
-  (tyres coloured by temperature, compound, damage) and the stints and laps of the session one click away. Your own sessions are shared with your teams only
+  (every body part coloured by its damage, flat / missing tyres, suspension per wheel, a list of what is wrong) and the stints and laps of the session one click away. Your own sessions are shared with your teams only
   for team events (races of 2 h or more) by default; all sessions or off in Settings.
 - Connecting to a team server, joining a team with its invite code and your name in the team: on the **Settings** page.
 
@@ -176,7 +176,8 @@ The team server is also a website (e.g. **mylmuhub.com**), made for phones and c
 - **Log in with Discord** (link your Discord account once, in Settings) or with a **pairing code** from the desktop app (works once, for 2 minutes).
 - **Home:** your team at a glance: the latest race, your race pace against the team's best on your last tracks. More than one team: pick it in the top bar.
 - **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members.
-- **Live:** when a team-mate is racing, a banner says so on every page; tap it for their position, lap times, stint, virtual energy, the car (tyres, damage) and the laps.
+- **Live:** when a team-mate is racing, a banner says so on every page; tap it for their position, lap times, stint, virtual energy, the car and the laps.
+  The car shows exactly what is wrong: every body part coloured by its damage, a flat or missing tyre, suspension damage per wheel, and a list ("Front left tyre flat", "Front left suspension 76 % damaged").
 - **Me, your own stats:** the desktop app's Race Pace overview: per class, every track with your best lap and race pace against the alien times (Competitive, Good, ...), your level, cars, sessions and laps.
   Only you see them. The desktop app keeps them up to date by itself (Settings: *Keep my stats on the website*; off = deleted from the server).
 - **The website can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
@@ -194,7 +195,7 @@ your hotkeys; click its icon to open it again, right-click to quit).
 ![Settings](docs/images/settings.png)
 
 ## Guest mode and My sessions
-- **Guest mode** (Settings): a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Afterwards, delete all of it in one click (files go to the Recycle Bin).
+- **Guest mode** (Settings): a friend drives on your rig, on your account. Turn guest mode on with their name: they see their own data while they're there, and none of it mixes into your statistics. Their profile is kept: next time click **Drive again** and their data carries on. Or delete all of it in one click (files go to the Recycle Bin).
 - **My sessions** (Settings): every result file with your laps. Tick the sessions someone else drove while guest mode was off, then hide them from your data, give them to a guest, take them back, restore them, or delete them.
 
 ## Everything else

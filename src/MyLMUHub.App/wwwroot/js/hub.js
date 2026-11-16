@@ -86,9 +86,10 @@
           (here ? '<div class="bar" style="gap:8px"><input class="input" id="gName" placeholder="His name" maxlength="40" style="min-width:0;flex:1"><button class="btn lime" id="gStart">Start</button></div>' : '<div class="faint">Switch it on the PC the app runs on.</div>');
       }
       var old = (g.guests || []).filter(function (x) { return x.name !== g.current; });
+      // an earlier guest keeps his profile (his result files, segments, best laps): "Drive again" switches guest mode on for him, his data carries on
       if (old.length) h += '<div class="pop-h" style="margin-top:16px">Earlier guests (hidden from you)</div><div class="pop-list">' + old.map(function (x) {
         return '<div class="pop-row" style="cursor:default"><span>' + esc(x.name) + '</span><small>' + esc(F.day(x.from)) + ' · ' + x.files + ' result files</small>' +
-          (here ? '<button class="btn" data-del="' + esc(x.name) + '" style="padding:4px 10px">Delete</button>' : '') + '</div>';
+          (here ? '<button class="btn lime" data-again="' + esc(x.name) + '" style="padding:4px 10px">Drive again</button><button class="btn" data-del="' + esc(x.name) + '" style="padding:4px 10px">Delete</button>' : '') + '</div>';
       }).join('') + '</div>';
       p.innerHTML = h;
       function del(name) { return confirm('Delete everything of ' + name + '?\n\nHis result files (from his time at the wheel) go to the Recycle Bin, his segments are removed. Your own data stays.') ? act('do=delete&name=' + encodeURIComponent(name)) : Promise.reject(); }
@@ -96,6 +97,7 @@
       if (s) s.onclick = function () { var n = document.getElementById('gName').value.trim(); if (n) act('do=start&name=' + encodeURIComponent(n)).then(done, function () {}); };
       if (st) st.onclick = function () { act('do=stop').then(done, function () {}); };
       if (d) d.onclick = function () { var n = g.current; del(n).then(done, function () {}); };
+      [].forEach.call(p.querySelectorAll('[data-again]'), function (b) { b.onclick = function () { act('do=start&name=' + encodeURIComponent(b.getAttribute('data-again'))).then(done, function () {}); }; });
       [].forEach.call(p.querySelectorAll('[data-del]'), function (b) { b.onclick = function () { del(b.getAttribute('data-del')).then(done, function () {}); }; });
     }, function () { p.innerHTML = '<div class="muted">Could not load guest mode.</div>'; });
   }

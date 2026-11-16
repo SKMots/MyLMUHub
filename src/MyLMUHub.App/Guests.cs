@@ -35,6 +35,8 @@ public sealed class Guests
         lock (gate)
         {
             foreach (var g in settings.Guests.Where(On)) g.To = Now;
+            // an earlier guest of that name (any case): his profile again, under the name it already has
+            name = settings.Guests.FirstOrDefault(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase))?.Name ?? name;
             settings.Guests.Add(new GuestPeriod { Name = name, From = Now });
             SettingsStore.Save(settings);
         }
