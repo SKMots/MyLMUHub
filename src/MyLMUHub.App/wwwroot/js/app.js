@@ -58,7 +58,21 @@
     lm.init(); root.pitwall = lm;
     // the status line, HUB and SPECTATE live in the bottom strip of the canvas: they can never cover a widget
     var bar = null; bar = P.dom.box('pw-bar', $('canvas'), 0, lm.full.h - SAFE.b, lm.full.w, SAFE.b);
-    ['status', 'hint', 'netBtn', 'hubBtn', 'specBtn'].forEach(function (id) { bar.appendChild($(id)); });
+    ['status', 'hint', 'fullBtn', 'netBtn', 'hubBtn', 'specBtn'].forEach(function (id) { bar.appendChild($(id)); });
+    // FULL SCREEN: this window full screen (the app's F11: no title bar, on the monitor it is on) and back; in a browser (another PC / tablet) the browser's own.
+    // The app tells the page when its window goes in or out ({ fullscreen: true / false }, also with F11 / Esc), so the button always says what a click does.
+    (function () {
+      var wv = root.chrome && root.chrome.webview, b = $('fullBtn');
+      function label(on) { b.textContent = on ? 'EXIT FULL SCREEN' : 'FULL SCREEN'; }
+      b.onclick = function () {
+        if (wv && wv.postMessage) { try { wv.postMessage({ fullscreen: 'toggle' }); } catch (e) {} return; }
+        if (doc.fullscreenElement) doc.exitFullscreen().catch(function () {}); else if (doc.documentElement.requestFullscreen) doc.documentElement.requestFullscreen().catch(function () {});
+      };
+      if (wv && wv.addEventListener) wv.addEventListener('message', function (ev) { var d = ev.data || {}; if (typeof d.fullscreen === 'boolean') label(d.fullscreen); });
+      else doc.addEventListener('fullscreenchange', function () { label(!!doc.fullscreenElement); });
+      if (wv && wv.postMessage) try { wv.postMessage({ fullscreen: 'ask' }); } catch (e) {}
+      label(false);
+    })();
     // NETWORK: this dashboard on another PC / tablet at home (the app's network access, LanAccess.cs). On this PC: shows the address and switches it;
     // opened from another PC: says so (switching and the hub window are this PC's)
     var remote = !demo && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(root.location.hostname), net = null, netPanel = null;
@@ -211,11 +225,6 @@
     var webview = root.chrome && root.chrome.webview;
     function switchTo(target) {
       if (!target) return;
-      if (target === '!full') {                                                                        // full screen on / off: the app's window (F11), else the browser's
-        if (webview && webview.postMessage) { try { webview.postMessage({ fullscreen: 'toggle' }); } catch (e) {} }
-        else if (doc.fullscreenElement) doc.exitFullscreen().catch(function () {}); else if (doc.documentElement.requestFullscreen) doc.documentElement.requestFullscreen().catch(function () {});
-        return;
-      }
       if (target.charAt(0) === '!') { if (P.stintLapsKey) P.stintLapsKey(target === '!lapsUp' ? 1 : target === '!lapsDown' ? -1 : 0); return; }   // fuel widget: stint laps + / -
       var name = target === '>' ? ws.nextName() : target;
       if (name === ws.file.current) return;

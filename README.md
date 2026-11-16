@@ -64,7 +64,7 @@ Press **E** and you're in edit mode:
 ## Race Control settings in the hub
 The **Race Control** tab in the hub has the dashboard's settings in one place, so you don't need edit mode for them: **Open dashboard**, your
 **laps a stint per track** for the fuel widget's live VE goal (the track you're on is read from the game; pick one by hand when you're not in it), the **theme** and text size, which
-**view** the dashboard shows (plus export / import) and **spectate**; folded under **Advanced**: **hotkeys** for views, the stint laps + / − and Race Control full screen on / off (keys or wheel buttons; they keep working in the game too) and **network access**. An open dashboard follows
+**view** the dashboard shows (plus export / import) and **spectate**; folded under **Advanced**: **hotkeys** for views and for the stint laps + / − (keys or wheel buttons; they keep working in the game too) and **network access**. An open dashboard follows
 your changes right away. Edit mode (E) in the dashboard keeps only what is done on the dashboard itself: placing widgets, their colours, views.
 
 ![Race Control settings](docs/images/racecontrol.png)
@@ -209,14 +209,14 @@ your hotkeys; click its icon to open it again, right-click to quit).
 ## Getting started
 1. Download **`MyLMUHub.exe`** from the [latest release](https://github.com/SKMots/MyLMUHub/releases/latest). Put it in a folder of your own, such as Documents\MyLMUHub (not Program Files: it updates itself there).
 2. Start it. The hub opens. Click your name in the top right and enter your driver name(s) **exactly as in the game**.
-3. Start Le Mans Ultimate and join a session. Click **Race Control**, then **Open dashboard**, and drag the window to your second monitor; **F11** makes it full screen.
+3. Start Le Mans Ultimate and join a session. Click **Race Control**, then **Open dashboard**, and drag the window to your second monitor; **FULL SCREEN** (bottom right) or **F11** makes it full screen.
 
 Needs Windows 10 or 11 with the Microsoft Edge WebView2 Runtime (already on Windows 11 and most Windows 10 PCs).
 Settings live in `%AppData%\MyLMUHub`.
 
 **Shortcuts:**
 - **E** edits the layout.
-- **F11** toggles full screen.
+- **F11** or the **FULL SCREEN** button (bottom right of the dashboard, next to HUB and SPECTATE) toggles full screen.
 - **F12** opens the developer tools.
 
 ## Build it yourself

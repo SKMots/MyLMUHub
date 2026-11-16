@@ -132,7 +132,7 @@
   function renderKeys() {
     if (!ws) return;
     var k = ws.file.keys, act = k.act || {}, rows = [['>', 'Next view (goes round)', k.next]].concat(ws.names().map(function (n) { return [n, n, k.views[n] || '']; }))
-      .concat([['!lapsUp', 'Fuel widget: stint laps + 1', act.lapsUp || ''], ['!lapsDown', 'Fuel widget: stint laps − 1', act.lapsDown || ''], ['!full', 'Race Control full screen on / off', act.full || '']]);
+      .concat([['!lapsUp', 'Fuel widget: stint laps + 1', act.lapsUp || ''], ['!lapsDown', 'Fuel widget: stint laps − 1', act.lapsDown || '']]);
     $('keyList').innerHTML = '<table class="tbl"><tbody>' + rows.map(function (r, i) {
       var bad = r[2] && refused.indexOf(r[2]) >= 0;                                                     // Windows refused it: another program uses it
       return '<tr><td>' + esc(r[1]) + '</td><td class="num mono"' + (bad ? ' style="color:var(--red)" title="This key cannot be used as a hotkey. Pick another one."' : '') + '>' +

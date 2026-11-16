@@ -156,7 +156,8 @@ public sealed class MainWindow : Window
             var r = doc.RootElement;
             if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("hotkeys", out var hk) && hk.ValueKind == System.Text.Json.JsonValueKind.Array)
             { SetHotkeys(hk.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x)).ToList()); return; }
-            if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("fullscreen", out _)) { SetFull(!full); return; }   // the full screen hotkey (Race Control)
+            // Race Control's FULL SCREEN button: { fullscreen: "toggle" } switches, "ask" = only tell the page (it shows EXIT FULL SCREEN while full)
+            if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("fullscreen", out var fs)) { if (fs.GetString() == "toggle") SetFull(!full); else Post(new { fullscreen = full }); return; }
             if (r.ValueKind == System.Text.Json.JsonValueKind.Object && r.TryGetProperty("padLearn", out var pl)) { Learn(pl.ValueKind == System.Text.Json.JsonValueKind.True); return; }
             if (r.ValueKind != System.Text.Json.JsonValueKind.Object || !r.TryGetProperty("titleBar", out var bg)) return;
             int? c = Colour(bg.GetString()), tx = r.TryGetProperty("titleText", out var t) ? Colour(t.GetString()) : null;
@@ -249,6 +250,7 @@ public sealed class MainWindow : Window
         if (on) { prevStyle = WindowStyle; prevResize = ResizeMode; prevState = WindowState; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; WindowState = WindowState.Normal; WindowState = WindowState.Maximized; }
         else { WindowStyle = prevStyle; ResizeMode = prevResize; WindowState = prevState; }
         full = on; Fit();
+        Post(new { fullscreen = full });                                                       // the page's FULL SCREEN button says what a click does
     }
 
     void SavePlacement()

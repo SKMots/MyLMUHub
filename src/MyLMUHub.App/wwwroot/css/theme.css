@@ -57,9 +57,9 @@ body { font-family:var(--pw-font, "Bahnschrift","Segoe UI Variable","Segoe UI",s
 body.preview .pw-canvas.edit .pw-area { background-image:none; }
 /* the bottom strip: status line left, HUB / SPECTATE right (canvas px, so they scale with the dashboard and never cover a widget) */
 .pw-bar { display:flex; align-items:center; gap:14px; padding:0 14px; box-sizing:border-box; z-index:100000; }
-.pw-bar #status, .pw-bar #hint, .pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn { position:static; font-size:20px; }
+.pw-bar #status, .pw-bar #hint, .pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn, .pw-bar #fullBtn { position:static; font-size:20px; }
 .pw-bar #status { flex:1; } .pw-bar #hint { margin-left:auto; }
-.pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn { padding:4px 12px; }
+.pw-bar #specBtn, .pw-bar #hubBtn, .pw-bar #netBtn, .pw-bar #fullBtn { padding:4px 12px; }
 .pw-canvas.edit .pw-edit { display:block; outline:3px dashed rgba(255,159,67,.8); outline-offset:-3px; background:rgba(255,159,67,.07); cursor:move; touch-action:none; }
 /* edit mode: the full-screen area framed (everything outside it is dimmed: that is what F11 / full screen shows), each widget's edge drawn inside its
    own box (two widgets side by side show two edges) and its size in the corner; hold Space to see it without the edit marks */
@@ -82,7 +82,8 @@ body.preview .pw-canvas.edit { background-image:none; box-shadow:none; } body.pr
 #status { position:fixed; left:12px; bottom:10px; font-size:14px; color:var(--label); letter-spacing:.04em; }
 #hint { position:fixed; right:14px; bottom:40px; font-size:14px; color:var(--label); }
 #specBtn { position:fixed; right:12px; bottom:8px; font:inherit; font-size:13px; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 8px; opacity:.45; cursor:pointer; z-index:100000; }
-#specBtn:hover, #hubBtn:hover, #netBtn:hover { opacity:1; background:#101a30; border-color:var(--border); }
+#fullBtn { font:inherit; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; opacity:.45; cursor:pointer; }
+#specBtn:hover, #hubBtn:hover, #netBtn:hover, #fullBtn:hover { opacity:1; background:#101a30; border-color:var(--border); }
 #netBtn { font:inherit; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; opacity:.45; cursor:pointer; } #netBtn.on { opacity:.8; color:var(--accent); }
 #hubBtn { position:fixed; right:100px; bottom:8px; font:inherit; font-size:13px; letter-spacing:.04em; color:var(--label); background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 8px; opacity:.45; cursor:pointer; z-index:100000; }
 /* side panels: style editor, spectate picker */
