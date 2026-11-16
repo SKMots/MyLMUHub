@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- only for the tray icon (Tray.cs: NotifyIcon); part of the Windows desktop runtime, nothing extra -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -16,6 +18,11 @@
     <!-- exe icon (Explorer / desktop); the same file is the window icon (title bar / taskbar), see MainWindow. Source: assets\app-icon\MyLMUHub.ico -->
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- WPF names win (Application, Button, ...): Windows Forms is used in Tray.cs only -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
   <ItemGroup>
     <Resource Include="app.ico" />
   </ItemGroup>

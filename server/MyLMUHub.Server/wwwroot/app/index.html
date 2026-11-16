@@ -14,13 +14,16 @@
 <link rel="apple-touch-icon" href="/img/icon-180.png">
 <link rel="stylesheet" href="/css/site.css">
 </head>
-<body>
-<header class="top"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b><span class="who" id="who"></span></header>
-<div class="wrap" id="view"><div class="faint" style="margin-top:20px">Loading...</div></div>
-<nav class="tabbar" id="tabbar" hidden>
-  <button data-tab="teams" class="on">Teams</button>
-  <button data-tab="account">Account</button>
-</nav>
+<body class="app">
+<header class="top">
+  <a class="brand" href="#/"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b></a>
+  <nav class="topnav" id="topnav" hidden></nav>
+  <span class="tpick" id="tpick" hidden><select id="tsel" aria-label="Team"></select></span>
+  <a class="who" id="who" href="#/me" hidden></a>
+</header>
+<a class="livebar" id="livebar" hidden></a>
+<main class="wrap" id="view"><div class="faint mt20">Loading...</div></main>
+<nav class="tabbar" id="tabbar" hidden></nav>
 <script src="/js/shared/format.js"></script>
 <script src="/js/shared/pace-math.js"></script>
 <script src="/js/shared/pace-ref.js"></script>

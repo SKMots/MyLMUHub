@@ -44,7 +44,11 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
 
         var server = new DashServer(usePort, www ?? System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot"), AppPaths.Layout) { StrategyPath = AppPaths.Strategy, StintLapsPath = AppPaths.StintLaps, StrategyLivePath = AppPaths.StrategyLive, HotkeyStatusPath = AppPaths.HotkeyStatus };
         try { server.Start(); }
-        catch (Exception ex) { MessageBox.Show($"Cannot start the local web server on port {usePort}.\nIs another copy already running?\n\n{ex.Message}", "My LMU Hub"); return 1; }
+        catch (Exception ex)
+        {
+            if (OpenRunning(usePort)) return 0;                                                  // already running (e.g. in the tray): that copy opens its hub
+            MessageBox.Show($"Cannot start the local web server on port {usePort}.\nIs another copy already running?\n\n{ex.Message}", "My LMU Hub"); return 1;
+        }
         if (settings.LanAccess && port == 0) server.SetLan(true);                                // network access (no prompt here: a refused one shows in the page)
         server.LanSaved = on => { settings.LanAccess = on; SettingsStore.Save(settings); };
 
@@ -84,12 +88,19 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         // Only the hub (home, Race Pace) opens at start. Race Control (the dashboard) is its own window, opened from the hub, so it can sit full screen on
         // another monitor; either window can be closed while the other stays open (a closed window's browser process ends: less to run). The app ends with the last window.
         // Each window saves 'settings' (its placement) on close.
-        var app = new Application { ShutdownMode = ShutdownMode.OnLastWindowClose };
-        MainWindow rc = null, hub = null;
+        // closing the last window: the app quits, or (Settings: CloseToTray) keeps running in the taskbar's notification area (Tray.cs)
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        MainWindow rc = null, hub = null; Tray tray = null; bool noted = false;
+        void LastClosed()
+        {
+            if (app.Windows.Count > 0) return;
+            if (!settings.CloseToTray) { app.Shutdown(); return; }
+            if (!noted) { noted = true; tray?.Note("Still running here. Click to open; right-click to quit."); }
+        }
         MainWindow Show(MainWindow w, WindowPlacement place, string page, string title, Action closed)
         {
             if (w != null) { if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal; w.Activate(); return w; }
-            w = new MainWindow(settings, place, server.Url + page, title); w.Closed += (_, _) => closed();
+            w = new MainWindow(settings, place, server.Url + page, title); w.Closed += (_, _) => { closed(); LastClosed(); };
             w.Show(); return w;
         }
         void OpenRaceControl() => rc = Show(rc, settings.Window, "index.html", "My LMU Hub - Race Control", () => rc = null);
@@ -109,9 +120,23 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
             else if (what == "racecontrol") OpenRaceControl(); else if (what == "hub") OpenHub();
         });
         updates.Restart = () => app.Dispatcher.BeginInvoke(() => app.Shutdown());              // the new version is already starting
-        app.Startup += (_, _) => OpenHub();
+        tray = new Tray(() => OpenHub(), () => OpenRaceControl(), () => app.Shutdown());
+        server.AppInfo = () => new { closeToTray = settings.CloseToTray };
+        server.CloseToTraySet = on => app.Dispatcher.Invoke(() => { settings.CloseToTray = on; SettingsStore.Save(settings); tray.Show(on); });
+        app.Startup += (_, _) => { tray.Show(settings.CloseToTray); OpenHub(); };
         app.Run();
-        pump.Dispose(); pens?.Dispose(); server.Dispose(); updates.Dispose(); twitch.Dispose();
+        tray.Dispose(); pump.Dispose(); pens?.Dispose(); server.Dispose(); updates.Dispose(); twitch.Dispose();
         return 0;
+    }
+
+    /// <summary>Another copy holds the port: ask it to open its hub (it may be in the tray). True = it answered.</summary>
+    static bool OpenRunning(int port)
+    {
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+            return http.PostAsync($"http://localhost:{port}/api/open?what=hub", null).GetAwaiter().GetResult().IsSuccessStatusCode;
+        }
+        catch (Exception) { return false; }
     }
 }

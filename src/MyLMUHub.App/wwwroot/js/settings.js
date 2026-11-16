@@ -50,7 +50,7 @@
       show('phoneCard', member);
       if (!member) return;
       if (document.activeElement !== $('nameIn')) $('nameIn').value = s.me.name || '';
-      show('adminBox', !!s.me.admin); $('liveSel').value = s.liveShare || 'events';
+      show('adminBox', !!s.me.admin); $('liveSel').value = s.liveShare || 'events'; $('myStatsChk').checked = s.myStats !== false;
       $('siteUrl').textContent = url.replace(/^team\./, '');
       $('discordBtn').textContent = s.me.discord ? 'Discord: ' + s.me.discord + ' (unlink)' : 'Link my Discord';
       $('phoneInfo').textContent = s.me.phones ? s.me.phones + (s.me.phones === 1 ? ' phone logged in' : ' phones logged in') : 'No phone logged in.';
@@ -63,6 +63,10 @@
   $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); loadServer(); }, function (e) { info(e.message, true); }); };
   $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; info('Team made: invite the others on the Team tab (Members).'); loadServer(); }, function (e) { info(e.message, true); }); };
   $('liveSel').onchange = function () { api('liveShare', { value: this.value }).then(function (r) { info(r.value === 'off' ? 'Your live sessions are not shared.' : 'Saved.'); }, function (e) { info(e.message, true); }); };
+  $('myStatsChk').onchange = function () {
+    var on = this.checked;
+    api('myStats', { value: on }).then(function () { try { localStorage.removeItem('pw-my-pace'); } catch (e) {} info(on ? 'Saved: your stats go up the next time a hub page reads your results.' : 'Your stats were taken off the server.'); }, function (e) { info(e.message, true); });
+  };
   $('discBtn').onclick = function () { if (confirm('Disconnect from this server? You need a new invite code to come back (your teams keep you as a member).')) api('disconnect').then(loadServer); };
 
   // ---------- your phone ----------
@@ -87,6 +91,14 @@
     $('themeSeg').innerHTML = H.themes.map(function (t) { return '<button data-v="' + t[0] + '"' + (t[0] === cur ? ' class="on"' : '') + '>' + esc(t[1].replace('Theme: ', '')) + '</button>'; }).join('');
   }
   $('themeSeg').onclick = function (e) { var b = e.target.closest('[data-v]'); if (!b) return; H.setTheme(b.getAttribute('data-v')); themes(); };
+
+  // ---------- closing the window: quit, or keep running in the tray ----------
+  function closeShow(r) { [].forEach.call($('closeSeg').children, function (b) { b.classList.toggle('on', (b.getAttribute('data-v') === '1') === !!r.closeToTray); }); }
+  fetch('api/app').then(function (r) { return r.json(); }).then(closeShow, function () {});
+  $('closeSeg').onclick = function (e) {
+    var b = e.target.closest('[data-v]'); if (!b) return;
+    fetch('api/app?closeToTray=' + b.getAttribute('data-v'), { method: 'POST' }).then(function (r) { return r.json(); }).then(function (r) { closeShow(r); info('Saved.'); }, function (e) { info(e.message, true); });
+  };
 
   // ---------- guest mode (hub.js: the same panel the header had) ----------
   H.guestPanel($('guestBox'));

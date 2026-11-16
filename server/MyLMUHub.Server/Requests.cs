@@ -46,6 +46,8 @@ public sealed class PaceRow
     public string Track { get; set; } public string Car { get; set; } public string Cls { get; set; }
     public double Best { get; set; } public double Optimal { get; set; } public double Pace { get; set; } public int Clean { get; set; } public int Laps { get; set; } public long Last { get; set; }
     public double Sd { get; set; }                   // consistency: standard deviation of the clean race laps (s), 0 = not known; optional
+    // My stats only (POST /api/v1/me/pace; optional, 0 = not known): the alien race pace and hotlap of this track + class from the reference sheet, and how many sessions
+    public double RefPace { get; set; } public double RefHot { get; set; } public int Sessions { get; set; }
 }
 public sealed class ResultDriver { public string Name { get; set; } public int Laps { get; set; } public double Best { get; set; } public double Avg { get; set; } }
 public sealed class ResultStint { public string Driver { get; set; } public int Laps { get; set; } public double Avg { get; set; } public double Best { get; set; } }
@@ -92,8 +94,10 @@ public static class Check
             if (tr == null || car == null || cls == null) return (null, "text");
             bool T(double v) => v == 0 || Num(v, 20, 1800);
             if (!T(x.Best) || !T(x.Optimal) || !T(x.Pace) || !(x.Sd == 0 || Num(x.Sd, 0.001, 60)) || !Int(x.Clean, 0, 1_000_000) || !Int(x.Laps, 0, 1_000_000) || x.Last < 1_400_000_000 || x.Last > now + 86400) return (null, "numbers");
+            if (!T(x.RefPace) || !T(x.RefHot) || !Int(x.Sessions, 0, 1_000_000)) return (null, "numbers");
             if (!seen.Add(tr + "|" + car)) continue;
-            l.Add(new PaceRow { Track = tr, Car = car, Cls = cls, Best = Math.Round(x.Best, 3), Optimal = Math.Round(x.Optimal, 3), Pace = Math.Round(x.Pace, 3), Sd = Math.Round(x.Sd, 3), Clean = x.Clean, Laps = x.Laps, Last = x.Last });
+            l.Add(new PaceRow { Track = tr, Car = car, Cls = cls, Best = Math.Round(x.Best, 3), Optimal = Math.Round(x.Optimal, 3), Pace = Math.Round(x.Pace, 3), Sd = Math.Round(x.Sd, 3), Clean = x.Clean, Laps = x.Laps, Last = x.Last,
+                RefPace = Math.Round(x.RefPace, 3), RefHot = Math.Round(x.RefHot, 3), Sessions = x.Sessions });
         }
         return (l, null);
     }

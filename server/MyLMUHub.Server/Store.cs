@@ -31,6 +31,9 @@ public sealed partial class Store
             CREATE TABLE IF NOT EXISTS pace    (team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                                                 track TEXT NOT NULL, car TEXT NOT NULL, cls TEXT NOT NULL, best REAL, optimal REAL, pace REAL, clean INTEGER NOT NULL,
                                                 laps INTEGER NOT NULL, last INTEGER NOT NULL, PRIMARY KEY (team_id, user_id, track, car));
+            CREATE TABLE IF NOT EXISTS my_pace (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, track TEXT NOT NULL, car TEXT NOT NULL, cls TEXT NOT NULL,
+                                                best REAL, optimal REAL, pace REAL, sd REAL, clean INTEGER NOT NULL, laps INTEGER NOT NULL, last INTEGER NOT NULL,
+                                                ref_pace REAL, ref_hot REAL, sessions INTEGER NOT NULL, PRIMARY KEY (user_id, track, car));
             """);
         // added later (2026-11-16): every lap of a race (kept apart: the list of results stays small), consistency per pace row
         if (Convert.ToInt64(Scalar(c, "SELECT COUNT(*) FROM pragma_table_info('results') WHERE name = 'laps'")) == 0) Exec(c, "ALTER TABLE results ADD COLUMN laps TEXT");
@@ -169,6 +172,26 @@ public sealed partial class Store
                 ("$t", team), ("$u", user), ("$tr", r.Track), ("$car", r.Car), ("$cls", r.Cls), ("$b", r.Best > 0 ? r.Best : null), ("$o", r.Optimal > 0 ? r.Optimal : null),
                 ("$p", r.Pace > 0 ? r.Pace : null), ("$cl", r.Clean), ("$l", r.Laps), ("$last", r.Last), ("$sd", r.Sd > 0 ? r.Sd : null));
         tx.Commit();
+    }
+    // ---- my stats: your own race pace sheet, for you only (the website's Me page); replaced as a whole, deleted with the account or when you switch it off ----
+    public void SetMyPace(long user, IEnumerable<PaceRow> rows)
+    {
+        using var c = Open(); using var tx = c.BeginTransaction();
+        Exec(c, "DELETE FROM my_pace WHERE user_id = $u", ("$u", user));
+        foreach (var r in rows)
+            Exec(c, "INSERT OR REPLACE INTO my_pace (user_id, track, car, cls, best, optimal, pace, sd, clean, laps, last, ref_pace, ref_hot, sessions) VALUES ($u, $tr, $car, $cls, $b, $o, $p, $sd, $cl, $l, $last, $rp, $rh, $n)",
+                ("$u", user), ("$tr", r.Track), ("$car", r.Car), ("$cls", r.Cls), ("$b", r.Best > 0 ? r.Best : null), ("$o", r.Optimal > 0 ? r.Optimal : null), ("$p", r.Pace > 0 ? r.Pace : null),
+                ("$sd", r.Sd > 0 ? r.Sd : null), ("$cl", r.Clean), ("$l", r.Laps), ("$last", r.Last), ("$rp", r.RefPace > 0 ? r.RefPace : null), ("$rh", r.RefHot > 0 ? r.RefHot : null), ("$n", r.Sessions));
+        tx.Commit();
+    }
+    public List<PaceRow> MyPace(long user)
+    {
+        using var c = Open(); using var cmd = Cmd(c, "SELECT track, car, cls, best, optimal, pace, sd, clean, laps, last, ref_pace, ref_hot, sessions FROM my_pace WHERE user_id = $u ORDER BY last DESC", ("$u", user));
+        using var r = cmd.ExecuteReader(); var l = new List<PaceRow>();
+        double D(int i) => r.IsDBNull(i) ? 0 : r.GetDouble(i);
+        while (r.Read()) l.Add(new PaceRow { Track = r.GetString(0), Car = r.GetString(1), Cls = r.GetString(2), Best = D(3), Optimal = D(4), Pace = D(5), Sd = D(6), Clean = r.GetInt32(7), Laps = r.GetInt32(8),
+            Last = r.GetInt64(9), RefPace = D(10), RefHot = D(11), Sessions = r.GetInt32(12) });
+        return l;
     }
     public List<(long User, string Name, PaceRow Row)> Pace(long team)
     {

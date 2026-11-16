@@ -172,17 +172,24 @@ and strictly checked numbers and short text, never files. Your login stays in th
 ![Team](docs/images/team.png)
 
 ## On your phone
-The team server is also a website (e.g. **mylmuhub.com**): log in on your phone and add it to your home screen, and it opens like an app.
+The team server is also a website (e.g. **mylmuhub.com**), made for phones and computers: log in on your phone and add it to your home screen, and it opens like an app.
 - **Log in with Discord** (link your Discord account once, in Settings) or with a **pairing code** from the desktop app (works once, for 2 minutes).
-- **Your teams:** the race results with their full review, everyone's race pace per track and car, the members.
-- **A phone can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
-- Coming next: live races (yours and your team-mates') and your own stats.
+- **Home:** your team at a glance: the latest race, your race pace against the team's best on your last tracks. More than one team: pick it in the top bar.
+- **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members.
+- **Live:** when a team-mate is racing, a banner says so on every page; tap it for their position, lap times, stint, virtual energy, the car (tyres, damage) and the laps.
+- **Me, your own stats:** your race pace per track and car with your level against the alien times (Competitive, Good, ...), best laps, consistency, sessions.
+  Only you see them. The desktop app keeps them up to date by itself (Settings: *Keep my stats on the website*; off = deleted from the server).
+- **The website can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
 
-<p align="center"><img src="docs/images/phone.png" width="320" alt="My LMU Hub on a phone"></p>
+<p align="center"><img src="docs/images/phone.png" width="300" alt="My LMU Hub on a phone"> &nbsp; <img src="docs/images/phone-live.png" width="300" alt="A team-mate racing, on a phone"></p>
+
+![Your own stats on the website](docs/images/web-stats.png)
 
 ## Settings
 Click your name in the top right: your **driver names** and results folder, **My sessions**, the **team server** (connect, join a team, your name in the
-team), **your phone** (pairing code, Discord, log out all phones), **guest mode** and the **hub theme**.
+team, sharing your live sessions, your stats on the website), **your phone** (pairing code, Discord, log out all phones), **guest mode**, the **hub theme**
+and **closing the window**: quit the app, or keep it running in the tray (next to the clock: it keeps reading the game, sharing your live data and listening to
+your hotkeys; click its icon to open it again, right-click to quit).
 
 ![Settings](docs/images/settings.png)
 

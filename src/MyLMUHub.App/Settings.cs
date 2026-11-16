@@ -38,6 +38,8 @@ public sealed class AppSettings
     public List<string> IgnoredFiles { get; set; } = new();
     /// <summary>My sessions page: result files given to a guest by hand (file name -> guest name): his, whatever the time.</summary>
     public Dictionary<string, string> FileOwners { get; set; } = new();
+    /// <summary>Closing the last window: true = the app keeps running in the taskbar's notification area (Tray.cs), false = the app quits (the default).</summary>
+    public bool CloseToTray { get; set; }
 }
 
 /// <summary>A guest's time at the wheel: From .. To (unix s; To 0 = guest mode is on now).</summary>

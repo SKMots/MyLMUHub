@@ -212,6 +212,21 @@ public static class Server
                 best = x.Row.Best, optimal = x.Row.Optimal, pace = x.Row.Pace, sd = x.Row.Sd, clean = x.Row.Clean, laps = x.Row.Laps, last = x.Row.Last }));
         });
 
+        // ---- my stats: your own race pace sheet (the desktop app sends it; only you see it: the website's Me page) ----
+        app.MapPost("/api/v1/me/pace", (HttpContext ctx, PaceReq r) =>
+        {
+            var me = KeyUser(ctx); if (me == null) return Err(401, "no key");
+            var (rows, why) = Check.Pace(r); if (rows == null) return Err(400, "pace: " + why);
+            store.SetMyPace(me.Id, rows); return Results.Json(new { rows = rows.Count });
+        }).RequireRateLimiting("upload");
+        app.MapDelete("/api/v1/me/pace", (HttpContext ctx) => { var me = KeyUser(ctx); if (me == null) return Err(401, "no key"); store.SetMyPace(me.Id, Array.Empty<PaceRow>()); return Results.Json(new { ok = true }); });
+        app.MapGet("/api/v1/me/pace", (HttpContext ctx) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key");
+            return Results.Json(store.MyPace(me.Id).Select(x => new { track = x.Track, car = x.Car, cls = x.Cls, best = x.Best, optimal = x.Optimal, pace = x.Pace, sd = x.Sd, clean = x.Clean, laps = x.Laps,
+                last = x.Last, refPace = x.RefPace, refHot = x.RefHot, sessions = x.Sessions }));
+        });
+
         Web.Map(app, store, KeyUser, log);                                                   // logging in on a phone, Discord (Web.cs)
         Live.Map(app, store, KeyUser, Me);                                                     // live sessions (Live.cs)
 

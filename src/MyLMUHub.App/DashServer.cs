@@ -103,6 +103,9 @@ public sealed class DashServer : IDisposable
     public string LanError { get; private set; } = "";
     /// <summary>Called when network access is switched on / off from a page (the app saves it in settings.json).</summary>
     public Action<bool> LanSaved { get; set; }
+    /// <summary>The app's own settings (Settings page): GET = { closeToTray }, POST ?closeToTray=1/0 (this PC only).</summary>
+    public Func<object> AppInfo { get; set; }
+    public Action<bool> CloseToTraySet { get; set; }
     readonly object lanGate = new();
     /// <summary>Switch network access: "" = done, "setup" = Windows needs the one-time permission first, else the error.</summary>
     public string SetLan(bool on)
@@ -175,6 +178,11 @@ public sealed class DashServer : IDisposable
             if (path == "/api/pace") { await Pace(ctx); return; }
             if (path == "/api/reference" && Reference != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(await Reference(), Opt)); return; }
             if (path == "/api/net") { await Net(ctx); return; }
+            if (path == "/api/app" && AppInfo != null)
+            {
+                if (ctx.Request.HttpMethod == "POST") { if (!ctx.Request.IsLocal) { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("only on this PC")); return; } if (ctx.Request.QueryString["closeToTray"] is string ct) CloseToTraySet?.Invoke(ct == "1"); }
+                await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(AppInfo(), Opt)); return;
+            }
             if (path == "/api/twitch" && Twitch != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(await Twitch(ctx.Request.QueryString["channel"]), Opt)); return; }
             bool here = ctx.Request.IsLocal;                                                    // from another PC on the network: no actions on THIS PC
             if (path == "/api/open" && ctx.Request.HttpMethod == "POST" && here) { Open?.Invoke(ctx.Request.QueryString["what"] ?? "", ctx.Request.QueryString["view"] ?? ""); await Send(ctx, 200, "text/plain", Encoding.UTF8.GetBytes("ok")); return; }

@@ -22,6 +22,7 @@ public sealed class TeamClient
         public Dictionary<long, bool> Share { get; set; } = new();         // per team: share my race pace (default on)
         public List<string> Dismissed { get; set; } = new();               // race ids marked "not a team race"
         public string LiveShare { get; set; } = "events";                   // your live sessions to your teams: "events" (2 h+ races), "all", "off"
+        public bool MyStats { get; set; } = true;                           // my own race pace sheet on the website (Me page, only you see it)
     }
     Saved opts = new();
     readonly string file;
@@ -101,11 +102,11 @@ public sealed class TeamClient
                 if (url.Length == 0) return (200, "{\"connected\":false}");
                 var (hc, hb) = await Call(HttpMethod.Get, "/api/v1/health", withKey: false);
                 var h = Parse(hb); bool setup = h?["setup"] is JsonValue sv && sv.TryGetValue<bool>(out var su) && su;
-                if (key.Length == 0) return (200, JsonSerializer.Serialize(new { connected = true, url, reachable = hc == 200, setup, member = false, liveShare = LiveShare }));
+                if (key.Length == 0) return (200, JsonSerializer.Serialize(new { connected = true, url, reachable = hc == 200, setup, member = false, liveShare = LiveShare, myStats = opts.MyStats }));
                 var (mc, mb) = await Call(HttpMethod.Get, "/api/v1/me");
                 if (mc == 401) { key = ""; Save(); }                                              // removed from every team / a new key elsewhere
                 return (200, "{\"connected\":true,\"url\":" + JsonSerializer.Serialize(url) + ",\"reachable\":" + (hc == 200 ? "true" : "false") + ",\"setup\":" + (setup ? "true" : "false") +
-                    ",\"member\":" + (mc == 200 ? "true" : "false") + ",\"liveShare\":\"" + LiveShare + "\",\"me\":" + (mc == 200 ? mb : "null") + "}");
+                    ",\"member\":" + (mc == 200 ? "true" : "false") + ",\"liveShare\":\"" + LiveShare + "\",\"myStats\":" + (opts.MyStats ? "true" : "false") + ",\"me\":" + (mc == 200 ? mb : "null") + "}");
             }
             case "connect":
             {
@@ -151,6 +152,25 @@ public sealed class TeamClient
             {
                 var (c, b2) = await Call(HttpMethod.Get, "/api/v1/live"); if (c == 200 && Parse(b2) is JsonArray a) liveList = a;
                 return (c, b2);
+            }
+            // ---- my stats on the website: your own race pace sheet (hub.js sends it when your results change), only for you ----
+            case "myStats":
+            {
+                bool on = b?["value"] is JsonValue mv && mv.TryGetValue<bool>(out var mb2) && mb2;
+                opts.MyStats = on; Save();
+                if (!on && key.Length > 0) await Call(HttpMethod.Delete, "/api/v1/me/pace");          // off = taken off the server too
+                return (200, JsonSerializer.Serialize(new { value = opts.MyStats }));
+            }
+            case "myPace":
+            {
+                if (key.Length == 0 || !opts.MyStats) return (200, "{\"off\":true}");
+                if (b["rows"] is not JsonArray rows || rows.Count > 400) return (400, "{}");
+                return await Call(HttpMethod.Post, "/api/v1/me/pace", new { rows = rows.Select(r => new
+                {
+                    track = S(r, "track"), car = S(r, "car"), cls = S(r, "cls") ?? "", best = D(r, "best"), optimal = D(r, "optimal"), pace = D(r, "pace"), sd = D(r, "sd"),
+                    clean = (int)Math.Max(0, L(r, "clean")), laps = (int)Math.Max(0, L(r, "laps")), last = L(r, "last"),
+                    refPace = D(r, "refPace"), refHot = D(r, "refHot"), sessions = (int)Math.Max(0, L(r, "sessions"))
+                }).ToArray() });
             }
             case "liveShare":
             {

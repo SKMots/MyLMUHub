@@ -119,8 +119,37 @@
     if (!inApp) { done({ error: 'Open this page in the app to read your result files.', sessions: [], names: [], candidates: [] }); return; }
     json('api/pace?light=1').then(function (i) {
       if (i.scanning) { progress(i); setTimeout(function () { loadPace(progress, done); }, 1000); }
-      else json('api/pace').then(done, function (e) { done({ error: String(e), sessions: [], names: [], candidates: [] }); });
+      else json('api/pace').then(function (d) { done(d); shareMine(d); }, function (e) { done({ error: String(e), sessions: [], names: [], candidates: [] }); });
     }, function (e) { done({ error: String(e), sessions: [], names: [], candidates: [] }); });
+  }
+
+  // My stats on the website (2026-11-16): your own race pace sheet, per track + car (as the Team tab shares it) with the alien race pace and hotlap of that track
+  // + class (the reference sheet) and how many sessions; sent to the team server only when it changed (Settings: on by default; only you see it there).
+  // Not while a guest drives (the pages then show his files). Pages without the pace maths (pace-ref.js, pace-math.js) send nothing.
+  var mineBusy = false;
+  function shareMine(data) {
+    var R = P.paceRef, M = P.paceMath;
+    if (!inApp || mineBusy || !R || !M || !data || !data.sessions || !data.sessions.length) return;
+    mineBusy = true;
+    Promise.all([json('api/guest').catch(function () { return {}; }), json('api/reference').catch(function () { return null; })]).then(function (a) {
+      if (a[0] && a[0].current) return;
+      var ref = a[1] && a[1].csv ? R.parse(a[1].csv) : {};
+      var refFor = function (s, cls) { var t = ref[R.trackName(s.track, s.layout)], c = R.className(cls); return t && c ? t[c] || null : null; };
+      var list = data.sessions.filter(function (s) { return !s.live; }), cur = null;
+      list.forEach(function (s) { var m = R.major(s.version); if (m && (!cur || m > cur)) cur = m; });
+      var old = function (s) { var rf = refFor(s, s['class']); return R.isOld(s.version, rf && rf.patch, cur); };
+      var rows = M.groups(list).slice(0, 400).map(function (g) {
+        var now = g.sessions.filter(function (s) { return !old(s); }), c = M.combine(now.length ? now : g.sessions, 0.05, ['Race']).dry, rf = refFor(g.sessions[0], g.cls);
+        return { track: g.track, car: g.car, cls: g.cls || '', best: c.best || 0, optimal: c.optimal || 0, pace: c.clean >= 3 ? c.pace : 0, sd: c.clean >= 3 && c.sd > 0 ? c.sd : 0, clean: c.clean || 0, laps: c.laps || 0,
+                 last: g.last, refPace: rf && rf.race && rf.race[0] > 0 ? rf.race[0] : 0, refHot: rf && rf.hot > 0 ? rf.hot : 0, sessions: g.sessions.length };
+      }).filter(function (r) { return r.track && r.car && r.laps > 0 && r.last > 1400000000; });
+      var sig = JSON.stringify(rows), h = sig.length + ':' + sig.slice(-300), old2 = null;
+      try { old2 = localStorage.getItem('pw-my-pace'); } catch (e) {}
+      if (old2 === h) return;
+      return fetch('api/team?op=myPace', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify({ rows: rows }) }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { if (r.ok && !j.off) try { localStorage.setItem('pw-my-pace', h); } catch (e) {} });
+      });
+    }).catch(function () {}).then(function () { mineBusy = false; });
   }
 
   // keeps a page's Race Pace data up to date: every 5 s a tiny check of the change number (gen: a new / changed result file, other names, a lap you just
