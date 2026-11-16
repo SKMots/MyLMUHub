@@ -15,7 +15,9 @@ public sealed partial class Store
     public Store(string file)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file))!);
-        cs = new SqliteConnectionStringBuilder { DataSource = file, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Shared }.ToString();
+        // private cache (2026-11-16: shared cache locks whole tables between connections: "database table is locked: web_sessions" broke the website);
+        // WAL lets readers and one writer work at the same time, and a busy database is waited for (Default Timeout, seconds)
+        cs = new SqliteConnectionStringBuilder { DataSource = file, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Private, DefaultTimeout = 15 }.ToString();
         using var c = Open();
         Exec(c, """
             PRAGMA journal_mode = WAL;

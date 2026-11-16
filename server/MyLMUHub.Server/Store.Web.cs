@@ -35,10 +35,11 @@ public sealed partial class Store
     public User UserBySession(string token)
     {
         if (string.IsNullOrEmpty(token) || token.Length > 100) return null;
-        using var c = Open(); using var cmd = Cmd(c, "SELECT u.id, u.name, u.admin FROM web_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $h AND s.expires >= $now", ("$h", Auth.Hash(token)), ("$now", Now));
-        using var r = cmd.ExecuteReader(); if (!r.Read()) return null;
-        var u = new User(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1);
-        Exec(c, "UPDATE web_sessions SET last_seen = $now WHERE token_hash = $h", ("$now", Now), ("$h", Auth.Hash(token)));
+        using var c = Open(); string h = Auth.Hash(token); User u; long seen;
+        // the read is finished (reader closed) before the write below; "last seen" only written when it is a minute old (a phone asks every few seconds)
+        using (var cmd = Cmd(c, "SELECT u.id, u.name, u.admin, s.last_seen FROM web_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $h AND s.expires >= $now", ("$h", h), ("$now", Now)))
+        using (var r = cmd.ExecuteReader()) { if (!r.Read()) return null; u = new User(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1); seen = r.GetInt64(3); }
+        if (Now - seen >= 60) Exec(c, "UPDATE web_sessions SET last_seen = $now WHERE token_hash = $h", ("$now", Now), ("$h", h));
         return u;
     }
     public void EndSession(string token) { if (token == null) return; using var c = Open(); Exec(c, "DELETE FROM web_sessions WHERE token_hash = $h", ("$h", Auth.Hash(token))); }
