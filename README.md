@@ -161,7 +161,9 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
 - **Live:** when a team-mate is racing, the Team tab says "Sam is in a race · View": their position, lap times, stint and virtual energy, with the car
   (every body part coloured by its damage, flat / missing tyres, suspension per wheel, a list of what is wrong) and the stints and laps of the session one click away. Your own sessions are shared with your teams only
   for team events (races of 2 h or more) by default; all sessions or off in Settings.
-- Connecting to a team server, joining a team with its invite code and your name in the team: on the **Settings** page.
+- Connecting to a team server, joining a team with its invite code and your first and last name as in the game: on the **Settings** page.
+- **Team owners** rename the team (Team tab, Settings) and its members (Members: **Rename**), e.g. a first name only to the full name the game shows.
+- **Strategy plans** find a member's race pace by the name you type: the full name from the race results finds the member even when they joined with only a first name.
 
 ![A team-mate racing, live](docs/images/team-live.png)
 

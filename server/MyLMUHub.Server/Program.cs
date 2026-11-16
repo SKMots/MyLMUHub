@@ -152,6 +152,22 @@ public static class Server
             if (r.Days is < 1 or > 30) return Err(400, "days");
             return Results.Json(new { code = store.AddInvite(team, roles.Value, r.Days, me.Id), days = r.Days });
         });
+        // the team owner renames the team, and a member (their name in every team: e.g. "Sam" -> "Sam Partner", as in the game)
+        app.MapPost("/api/v1/teams/{team:long}/name", (HttpContext ctx, long team, NameReq r) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key");
+            var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
+            var name = Check.Text(r?.Name, 40); if (name == null) return Err(400, "name");
+            store.RenameTeam(team, name); return Results.Json(new { ok = true });
+        });
+        app.MapPost("/api/v1/teams/{team:long}/members/{user:long}/name", (HttpContext ctx, long team, long user, NameReq r) =>
+        {
+            var me = Me(ctx); if (me == null) return Err(401, "no key");
+            var mine = store.RolesIn(team, me.Id); if (mine == Role.None) return Err(404, "no such team"); if (!mine.HasFlag(Role.Owner)) return Err(403, "only the team owner");
+            if (store.RolesIn(team, user) == Role.None) return Err(404, "no such member");
+            var name = Check.Text(r?.Name, 40); if (name == null) return Err(400, "name");
+            store.Rename(user, name); return Results.Json(new { ok = true });
+        });
         app.MapPost("/api/v1/teams/{team:long}/members/{user:long}/roles", (HttpContext ctx, long team, long user, RolesReq r) =>
         {
             var me = Me(ctx); if (me == null) return Err(401, "no key");

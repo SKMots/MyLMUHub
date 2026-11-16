@@ -67,6 +67,7 @@ public sealed partial class Store
         using var r = cmd.ExecuteReader(); return r.Read() ? new User(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1) : null;
     }
     public void Rename(long user, string name) { using var c = Open(); Exec(c, "UPDATE users SET name = $n WHERE id = $u", ("$n", name), ("$u", user)); }
+    public void RenameTeam(long team, string name) { using var c = Open(); Exec(c, "UPDATE teams SET name = $n WHERE id = $t", ("$n", name), ("$t", team)); }
     /// <summary>A new key for this user (the old one stops working): "log out everywhere" / a lost PC.</summary>
     public string NewKeyFor(long user) { var k = Auth.NewKey(); using var c = Open(); Exec(c, "UPDATE users SET key_hash = $k WHERE id = $u", ("$k", Auth.Hash(k)), ("$u", user)); return k; }
 

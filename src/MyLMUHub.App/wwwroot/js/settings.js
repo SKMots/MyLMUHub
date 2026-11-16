@@ -57,8 +57,13 @@
     }, function (e) { $('srvState').textContent = e.message; });
   }
   $('connectBtn').onclick = function () { info('Connecting...'); api('connect', { url: $('urlIn').value }).then(function () { info(''); loadServer(); }, function (e) { info(e.message, true); }); };
-  $('setupBtn').onclick = function () { api('setup', { setupKey: $('setupIn').value, name: $('setupName').value }).then(function () { info('Done: you own this server. Make your first team below.'); loadServer(); }, function (e) { info(e.message, true); }); };
-  $('joinBtn').onclick = function () { api('join', { code: $('codeIn').value, name: $('joinName').value }).then(function () { $('codeIn').value = ''; info('Welcome to the team: see the Team tab.'); loadServer(); }, function (e) { info(e.message, true); }); };
+  $('setupBtn').onclick = function () { if (!fullName('setupName')) { $('setupName').focus(); return; } api('setup', { setupKey: $('setupIn').value, name: $('setupName').value }).then(function () { info('Done: you own this server. Make your first team below.'); loadServer(); }, function (e) { info(e.message, true); }); };
+  // one word only ("Sam"): ask once; the team finds you by the name the game shows (race results, the strategy plan's drivers)
+  function fullName(id) {
+    var n = $(id).value.trim(); if (!n || /\s/.test(n)) return true;
+    return confirm('Only "' + n + '"? Your team finds you by the name the game shows: your first and last name (e.g. "' + n + ' Lastname").\n\nOK = use "' + n + '" anyway, Cancel = add your last name.');
+  }
+  $('joinBtn').onclick = function () { if (!$('joinNameField').hidden && !fullName('joinName')) { $('joinName').focus(); return; } api('join', { code: $('codeIn').value, name: $('joinName').value }).then(function () { $('codeIn').value = ''; info('Welcome to the team: see the Team tab.'); loadServer(); }, function (e) { info(e.message, true); }); };
   $('joinMoreBtn').onclick = function () { show('joinBox', true); $('joinNameField').hidden = true; $('joinSub').textContent = 'Another team: its invite code.'; $('codeIn').focus(); };
   $('nameBtn').onclick = function () { api('rename', { name: $('nameIn').value }).then(function () { info('Saved.'); loadServer(); }, function (e) { info(e.message, true); }); };
   $('newTeamBtn').onclick = function () { api('createTeam', { name: $('newTeamIn').value }).then(function () { $('newTeamIn').value = ''; info('Team made: invite the others on the Team tab (Members).'); loadServer(); }, function (e) { info(e.message, true); }); };

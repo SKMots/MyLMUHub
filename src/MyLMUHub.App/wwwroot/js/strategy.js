@@ -132,10 +132,22 @@
       teamMembers = a[0] || []; teamPace = a[1] || []; teamResults = a[2] || []; teamUi(); drivers();
     }, function () { teamUi(); });
   }
+  // which team member a typed name is (owner 2026-11-16: "Sam Partner" from the race results, the member is called "Sam"): the same name; else the one member
+  // whose name's words are all in it (or the other way round: "Sam" typed, member "Sam Partner"); none or several = nobody
+  function memberFor(name) {
+    var k = nameKey(name); if (!k) return null;
+    var exact = teamMembers.filter(function (m) { return nameKey(m.name) === k; }); if (exact.length) return exact[0];
+    var w = k.split(' '), part = teamMembers.filter(function (m) {
+      var mw = nameKey(m.name).split(' '); if (!mw[0]) return false;
+      return mw.every(function (x) { return w.indexOf(x) >= 0; }) || w.every(function (x) { return mw.indexOf(x) >= 0; });
+    });
+    return part.length === 1 ? part[0] : null;
+  }
   // a driver's team race pace on this plan's track + class (same car first, else the fastest car of the class there)
   function paceFor(name) {
     if (!plan.track || !name) return null;
-    var k = nameKey(name), rows = teamPace.filter(function (p) { return nameKey(p.name) === k && p.pace > 0 && (R.trackName(p.track, '') || p.track) === plan.track && R.className(p.cls) === plan.cls; });
+    var m = memberFor(name), k = m ? null : nameKey(name);
+    var rows = teamPace.filter(function (p) { return (m ? p.user === m.id : nameKey(p.name) === k) && p.pace > 0 && (R.trackName(p.track, '') || p.track) === plan.track && R.className(p.cls) === plan.cls; });
     if (!rows.length) return null;
     var car = plan.car ? rows.filter(function (p) { return p.car === plan.car; }) : []; if (car.length) rows = car;
     return rows.sort(function (a, b) { return a.pace - b.pace; })[0];
@@ -155,8 +167,8 @@
     plan.team = t ? { id: t.id, name: t.name } : null; loadTeamData(); saveSoon();
   };
   $('addTeamDrv').onclick = function () {
-    var have = plan.drivers.map(function (d) { return nameKey(d.name); });
-    teamMembers.filter(function (m) { return m.roles.indexOf('driver') >= 0 && have.indexOf(nameKey(m.name)) < 0; }).forEach(function (m) {
+    var have = plan.drivers.map(function (d) { var m = memberFor(d.name); return m ? m.id : null; });
+    teamMembers.filter(function (m) { return m.roles.indexOf('driver') >= 0 && have.indexOf(m.id) < 0; }).forEach(function (m) {
       var p = paceFor(m.name), first = plan.drivers[0];
       if (plan.drivers.length === 1 && first && !first.name) { first.name = m.name; if (p) first.lap = Math.round(p.pace * 1000) / 1000; }
       else plan.drivers.push({ name: m.name, lap: p ? Math.round(p.pace * 1000) / 1000 : (first ? first.lap : 0), maxStints: 0, maxTime: 0, minTime: 0 });

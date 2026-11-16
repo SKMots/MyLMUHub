@@ -311,10 +311,17 @@
       var n = {}; pace.forEach(function (p) { if (p.user === m.id) n[p.track] = 1; });
       var roles = own ? '<span class="roles">' + ['driver', 'engineer', 'owner'].map(function (r) { return '<label><input type="checkbox" data-role="' + r + '" data-user="' + m.id + '"' + (m.roles.indexOf(r) >= 0 ? ' checked' : '') + '> ' + r.charAt(0).toUpperCase() + r.slice(1) + '</label>'; }).join('') + '</span>' : esc(roleWords(m.roles));
       return '<tr><td>' + esc(m.name) + (m.me ? ' <span class="faint">(you)</span>' : '') + '</td><td>' + roles + '</td><td class="num">' + Object.keys(n).length + '</td><td class="faint">' + day(m.joined) + '</td>' +
-        '<td style="text-align:right">' + (own && !m.me ? '<button class="btn sm" data-remove="' + m.id + '">Remove</button>' : '') + '</td></tr>';
+        '<td style="text-align:right;white-space:nowrap">' + (own ? '<button class="btn sm" data-rename="' + m.id + '">Rename</button> ' : '') + (own && !m.me ? '<button class="btn sm" data-remove="' + m.id + '">Remove</button>' : '') + '</td></tr>';
     }).join('') + '</tbody>';
   }
   $('memTbl').onclick = function (e) {
+    var rn = e.target.closest('[data-rename]');
+    if (rn) {                                                                                     // the owner: a member's name (best: first and last name, as in the game)
+      var who = members.filter(function (x) { return x.id === +rn.getAttribute('data-rename'); })[0]; if (!who) return;
+      var nn = prompt('Name of ' + who.name + ' in the team (first and last name, as in the game):', who.name); if (nn === null || !nn.trim() || nn.trim() === who.name) return;
+      api('renameMember', { team: team.id, user: who.id, name: nn.trim() }).then(function () { info('Renamed to ' + nn.trim() + '.'); loadTeam(); }, function (er) { info(er.message, true); });
+      return;
+    }
     var b = e.target.closest('[data-remove]'); if (!b) return;
     var m = members.filter(function (x) { return x.id === +b.getAttribute('data-remove'); })[0];
     if (!m || !confirm('Remove ' + m.name + ' from ' + team.name + '? Their personal data in this team (race pace) is deleted; the races they drove with the team stay.')) return;
@@ -339,6 +346,7 @@
   // ---------- settings ----------
   function renderSettings() {
     if (!team) return;
+    show('renameTeamBtn', isOwner());
     var t = (sug.teams || []).filter(function (x) { return x.id === team.id; })[0];
     $('shareChk').checked = !t || t.share !== false;
   }
@@ -349,6 +357,10 @@
       try { localStorage.removeItem('pw-team-pace-' + id); } catch (e) {}
       loadSuggest(); loadTeam();
     });
+  };
+  $('renameTeamBtn').onclick = function () {
+    if (!team) return; var nn = prompt('New name for the team "' + team.name + '":', team.name); if (nn === null || !nn.trim() || nn.trim() === team.name) return;
+    api('renameTeam', { team: team.id, name: nn.trim() }).then(function () { info('The team is now called ' + nn.trim() + '.'); load(); }, function (er) { info(er.message, true); });
   };
   $('leaveBtn').onclick = function () {
     if (!team || !confirm('Leave "' + team.name + '"? Your personal data in this team (race pace) is deleted; the races you drove with the team stay in its results.')) return;

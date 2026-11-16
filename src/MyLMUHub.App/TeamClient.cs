@@ -129,6 +129,8 @@ public sealed class TeamClient
             }
             case "rename": return await Call(HttpMethod.Post, "/api/v1/me/name", new { name = S(b, "name") });
             case "createTeam": { var r = await Call(HttpMethod.Post, "/api/v1/teams", new { name = S(b, "name") }); if (r.Item1 == 200) Sync(); return r; }
+            case "renameTeam": return team > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/name", new { name = S(b, "name") }) : (400, "{}");
+            case "renameMember": return team > 0 && user > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/members/{user}/name", new { name = S(b, "name") }) : (400, "{}");
             case "members": return team > 0 ? await Call(HttpMethod.Get, $"/api/v1/teams/{team}/members") : (400, "{}");
             case "invite": return team > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/invites", new { roles = b["roles"]?.AsArray().Select(x => x?.ToString()).ToArray(), days = L(b, "days") }) : (400, "{}");
             case "roles": return team > 0 && user > 0 ? await Call(HttpMethod.Post, $"/api/v1/teams/{team}/members/{user}/roles", new { roles = b["roles"]?.AsArray().Select(x => x?.ToString()).ToArray() }) : (400, "{}");
