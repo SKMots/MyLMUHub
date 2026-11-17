@@ -36,8 +36,8 @@
         <h2>Your level</h2>
         <div class="sub" id="lvlSub">Race pace compared with the alien times of the LMU laptimes sheet.</div>
         <div class="tiles">
-          <div class="tile"><div class="k">Race pace <span class="faint">vs the alien race pace</span></div><div class="big mono" id="lvlPace" style="font-style:normal">--</div><div class="big" id="lvlCat" style="font-size:24px">--</div></div>
-          <div class="tile"><div class="k">Qualifying (fastest lap) <span class="faint">vs the alien hotlap</span></div><div class="big mono purple" id="lvlHot" style="font-style:normal">--</div><div class="big" id="lvlCatQ" style="font-size:24px">--</div></div>
+          <div class="tile"><div class="k" data-h="level">Race pace <span class="faint">vs the alien race pace</span></div><div class="big mono" id="lvlPace" style="font-style:normal">--</div><div class="big" id="lvlCat" style="font-size:24px">--</div></div>
+          <div class="tile"><div class="k" data-h="hot">Qualifying (fastest lap) <span class="faint">vs the alien hotlap</span></div><div class="big mono purple" id="lvlHot" style="font-style:normal">--</div><div class="big" id="lvlCatQ" style="font-size:24px">--</div></div>
         </div>
         <div class="scale" id="lvlScale"></div>
         <div class="tiles" style="margin-top:12px">
@@ -61,7 +61,7 @@
         <h2>Tracks</h2><input class="input" id="find" placeholder="Find a track or car" style="min-width:220px">
       </div>
       <div class="sub">Click a track for its page. % = your time compared with the sheet's 100 % for that track and class (best lap: the alien hotlap; pace: the alien race pace).</div>
-      <div class="scroll" style="max-height:640px"><table class="tbl" id="tracks"></table></div>
+      <div class="scroll" style="max-height:640px"><table class="tbl" id="tracks" data-load style="--ph:420px"></table></div>
     </section>
   </div>
 

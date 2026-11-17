@@ -38,11 +38,28 @@
     races: '<path d="M5 21V4"/><path d="M5 4h13l-2 4 2 4H5"/>',
     pace: '<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4"/><path d="M10 2h4"/>',
     team: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.2 5 2.6 5 5.8"/>',
-    me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>'
+    me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
+    live: '<path d="M2 12h4l3-8 4 16 3-8h6"/>'
   };
   function icon(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>'; }
-  var TABS = [['home', 'Home', '#/'], ['races', 'Races', '#/races'], ['pace', 'Race pace', '#/pace'], ['team', 'Team', '#/team'], ['me', 'Me', '#/me']];
-  $('tabbar').innerHTML = TABS.map(function (t) { return '<a data-tab="' + t[0] + '" href="' + t[2] + '"><i class="ti">' + icon(t[0]) + '</i><span>' + t[1] + '</span></a>'; }).join('');
+  // the portal's sections (owner 2026-11-17): a sidebar on a computer (all of them), the bottom tabs on a phone (Team is the team button at the top)
+  var TABS = [['home', 'Home', '#/'], ['races', 'Races', '#/races'], ['pace', 'Race pace', '#/pace'], ['live', 'Live', '#/live'], ['team', 'Team', '#/team'], ['me', 'My stats', '#/me']];
+  var PHONE = ['home', 'races', 'pace', 'live', 'me'], SHORT = { pace: 'Pace', me: 'Me' };
+  $('tabbar').innerHTML = TABS.filter(function (t) { return PHONE.indexOf(t[0]) >= 0; }).map(function (t) {
+    return '<a data-tab="' + t[0] + '" href="' + t[2] + '"><i class="ti">' + icon(t[0]) + (t[0] === 'live' ? '<em class="ldot" hidden></em>' : '') + '</i><span>' + (SHORT[t[0]] || t[1]) + '</span></a>';
+  }).join('');
+  // the sidebar (a computer): the brand, your team (its logo; a click = your teams), the sections, you
+  function renderSide() {
+    if (!me) { $('side').hidden = true; document.body.classList.remove('has-side'); return; }
+    $('side').innerHTML = '<a class="side-brand" href="#/"><img src="/img/icon-192.png" alt=""><b>my<i>lmu</i>hub</b></a>' +
+      (team ? '<button class="side-team" id="sideTeam" aria-haspopup="dialog">' + tlogo(team, 'md') + '<span><b>' + esc(team.name) + '</b><small>' + ((me.teams || []).length > 1 ? 'Switch team' : esc(roleWords(team.roles))) + '</small></span></button>' : '') +
+      '<nav class="side-nav" aria-label="Sections">' + TABS.map(function (t) {
+        return '<a data-tab="' + t[0] + '" href="' + t[2] + '">' + icon(t[0]) + '<span>' + t[1] + '</span>' + (t[0] === 'live' ? '<em class="ldot" hidden></em>' : '') + '</a>';
+      }).join('') + '</nav>' +
+      '<a class="side-me" href="#/me"><i>' + initial(me.name) + '</i><span><b>' + esc(me.name) + '</b><small>' + (team ? esc(roleWords(team.roles)) : '') + '</small></span></a>';
+    $('side').hidden = false; document.body.classList.add('has-side');
+    var st = $('sideTeam'); if (st) st.onclick = function () { sheet(true); };
+  }
   // the tab you are on, tapped again: back to the top of it
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('[data-tab]'); if (!a || !a.classList.contains('on')) return;
@@ -78,7 +95,7 @@
       $('who').innerHTML = '<i>' + initial(me.name) + '</i><span>' + esc(me.name) + '</span>'; $('who').hidden = false;
       $('tabbar').hidden = false; $('topnav').hidden = false; liveLoad(); livePoll();
       $('tpick').hidden = !team; $('tname').textContent = team ? team.name : ''; $('tlg').outerHTML = team ? tlogo(team, 'xs').replace('class="tlogo xs"', 'class="tlogo xs" id="tlg"') : '<span class="tlogo xs" id="tlg"></span>';
-      route();
+      renderSide(); route();
     }, function (e) { if (e.status === 401) login(); else offline(); });
   }
   // no connection (or the server is away): say so, try again by hand or when the phone is back online
@@ -90,14 +107,14 @@
   // the team: a bottom sheet on a phone (a small panel on a computer)
   function pickTeam(id) {
     team = (me.teams || []).filter(function (t) { return t.id === id; })[0] || team; localStorage.setItem('mlh-team', String(team.id)); cls = ''; car = ''; $('tname').textContent = team.name;
-    $('tlg').outerHTML = tlogo(team, 'xs').replace('class="tlogo xs"', 'class="tlogo xs" id="tlg"');
+    $('tlg').outerHTML = tlogo(team, 'xs').replace('class="tlogo xs"', 'class="tlogo xs" id="tlg"'); renderSide(); liveBanner();
     var h = location.hash; if (/^#\/(races|pace)\/./.test(h)) location.hash = h.replace(/^(#\/(races|pace)).*$/, '$1'); else route();
   }
   function sheet(open) {
     $('sheet').hidden = !open; document.body.classList.toggle('sheet-open', open);
     if (open) $('sheetList').innerHTML = (me.teams || []).map(function (t) {
       return '<button class="person pick' + (team && t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + tlogo(t, 'sm') + '<span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span>' + (team && t.id === team.id ? '<em>✓</em>' : '') + '</button>';
-    }).join('');
+    }).join('') + (team ? '<a class="btn wide mt10" href="#/team">' + esc(team.name) + ': members and team page</a>' : '');
   }
   $('tpick').onclick = function () { sheet(true); };
   $('sheetBg').onclick = function () { sheet(false); };
@@ -106,7 +123,7 @@
 
   // ---------- log in ----------
   function login() {
-    me = null; clearInterval(liveTimer); $('livebar').hidden = true; $('tabbar').hidden = true; $('topnav').hidden = true; $('who').hidden = true; $('tpick').hidden = true;
+    me = null; clearInterval(liveTimer); $('livebar').hidden = true; renderSide(); $('tabbar').hidden = true; $('topnav').hidden = true; $('who').hidden = true; $('tpick').hidden = true;
     get('/api/v1/web/config').catch(function () { return {}; }).then(function (cfg) {
       // on a computer: what you get, next to the login card (a phone shows the card only)
       var intro = '<div class="lg-intro only-desk"><span class="lp-eyebrow">My LMU Hub on the web</span><h1>Your team, wherever you are</h1>' +
@@ -133,8 +150,17 @@
     drawing = true; if (!$('sheet').hidden) sheet(false);
     var parts = (location.hash.replace(/^#\/?/, '') || '').split('/'), page = parts[0] || 'home', arg = parts.slice(1).join('/');
     var wasLive = livePage !== null; livePage = page === 'live' && arg ? +arg : null; if (wasLive !== (livePage !== null)) { lvOpenStint = {}; livePoll(); } liveBanner();
-    if (livePage !== null) { [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === 'home'); }); view.onclick = null; liveView(); drawn(); return Promise.resolve(); }
+    if (livePage !== null) { [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === 'live'); }); view.onclick = null; liveView(); drawn(); return Promise.resolve(); }
     if (!TABS.some(function (t) { return t[0] === page; })) page = 'home';
+    if (page === 'live') {                                                                  // the Live section: the one racing (the first), else who could
+      [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === 'live'); });
+      if (lives.length) { location.replace('#/live/' + lives[0].user); return Promise.resolve(); }
+      view.onclick = null;
+      if (!livesIn) { view.innerHTML = skel('list'); drawing = false; return Promise.resolve(); }             // the live list not in yet: liveLoad draws this again
+      view.innerHTML = '<div class="pagehead"><h1>Live</h1></div>' + card('Nobody is racing right now', '<div class="sub">When a team-mate drives with the desktop app, their race shows here: position, lap times, energy, the car and its damage, the stints. It updates by itself.</div>' +
+        '<div class="sub">Your own sessions are shared the same way (desktop app: Settings, <b>Share my live sessions</b>).</div>');
+      drawn(); return Promise.resolve();
+    }
     [].forEach.call(document.querySelectorAll('[data-tab]'), function (a) { a.classList.toggle('on', a.getAttribute('data-tab') === page); });
     view.onclick = null;
     if (page === 'me') { mine = null; return account(); }
@@ -145,6 +171,7 @@
       if (page === 'races' && arg) return openRace(+arg);
       if (page === 'races') racesView(d);
       else if (page === 'pace') paceView(d, arg ? decodeURIComponent(arg) : null);
+      else if (page === 'team' && arg) profileView(d, +arg);
       else if (page === 'team') teamView(d);
       else homeView(d);
       drawn();
@@ -188,14 +215,52 @@
       tile('Members', d.members.length, esc(roleWords(team.roles)) ? 'you: ' + esc(roleWords(team.roles)) : '') +
       tile('Tracks with pace', tr.length, mineT.length ? 'you are fastest on ' + fastest.length : '') + '</div>';
     var cols = '';
-    cols += card('Latest race', rs.length ? raceCard(rs[0]) + '<a class="more" href="#/races">All ' + rs.length + ' races &rarr;</a>' : '<div class="sub">No team races yet. They are added by themselves from the members\' result files.</div>');
+    cols += card('Last race', rs.length ? raceCard(rs[0]) + '<a class="more" href="#/races">All ' + rs.length + ' races &rarr;</a>' : '<div class="sub">No team races yet. They are added by themselves from the members\' result files.</div>');
     var list = mineT.sort(function (a, b) { return b.last - a.last; }).slice(0, 6);
-    cols += card('Your pace against the team', list.length ? '<div class="sub">The last tracks you drove: your race pace and the team\'s best.</div><div class="plist">' + list.map(function (x) {
+    var yourPace = card('Your pace against the team', list.length ? '<div class="sub">The last tracks you drove: your race pace and the team\'s best.</div><div class="plist">' + list.map(function (x) {
       var d2 = x.mine.pace - x.top.pace, w = x.mine === x.top;
       return '<a class="prow" href="#/pace/' + encodeURIComponent(x.track) + '"><span><b>' + esc(x.track) + '</b><small>' + esc(clsLabel(x.cls)) + ' · ' + x.n + ' drivers</small></span>' +
         '<span class="num">' + lap(x.mine.pace) + '<small class="' + (w ? 'green' : 'muted') + '">' + (w ? 'team best' : gap(d2) + ' to ' + esc(x.top.name)) + '</small></span></a>';
     }).join('') + '</div><a class="more" href="#/pace">All tracks &rarr;</a>' : '<div class="sub">No race pace of yours in this team yet: share it in the desktop app (Team tab, Settings).</div>');
-    view.innerHTML = h + '<div class="cols">' + cols + '</div>';
+    // your level (My stats: the race pace sheet only you see) with a bar per track; the team's pace on the last race's track; what happened in the team
+    cols += card('Your level', '<div id="lvlBox">' + (mine ? levelHtml() : '<div class="sk lvl-sk"></div>') + '</div><a class="more" href="#/me">Your stats &rarr;</a>');
+    var lt = rs.length ? trackName(rs[0].result.track) : (tr.length ? tr.slice().sort(function (a, b) { return b.last - a.last; })[0].track : null);
+    var here = lt ? perDriver(d.pace.filter(function (p) { return trackName(p.track) === lt && (!rs.length || clsOf(p) === (R.className(rs[0].result.cls) || rs[0].result.cls)); }))
+      .filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; }) : [];
+    cols += card('Team pace' + (lt ? ' · ' + esc(lt) : ''), here.length ? '<div class="plist">' + here.slice(0, 6).map(function (x, i) {
+      var g0 = x.pace - here[0].pace;
+      return '<a class="prow" href="#/team/' + (+x.user) + '"><span><b><span class="faint">' + (i + 1) + '</span> ' + esc(x.name) + (x.me ? ' <em class="you">you</em>' : '') + '</b><small>' + esc(x.paceCar || x.bestCar || '') + '</small></span>' +
+        '<span class="num">' + lap(x.pace) + '<small class="' + (i === 0 ? 'green' : 'muted') + '">' + (i === 0 ? 'fastest' : gap(g0)) + '</small></span></a>';
+    }).join('') + '</div><a class="more" href="#/pace/' + encodeURIComponent(lt) + '">This track &rarr;</a>' : '<div class="sub">No race pace shared for ' + (lt ? esc(lt) : 'a track') + ' yet.</div>');
+    cols += card('Team news', newsHtml(d)) + yourPace;
+    view.innerHTML = h + '<div class="home-cols">' + cols + '</div>';
+    paint(view);
+    if (!mine) get('/api/v1/me/pace').then(function (l) { mine = l || []; var b = $('lvlBox'); if (b) { b.innerHTML = levelHtml(); paint(b); } }, function () { var b = $('lvlBox'); if (b) b.innerHTML = '<div class="sub">Your stats could not be loaded.</div>'; });
+  }
+  // your level for the class you drive most: the average race pace % against the aliens, and the last tracks as bars (shorter = closer to the aliens)
+  function levelHtml() {
+    if (!mine || !mine.length) return '<div class="sub">No stats yet: the desktop app sends them by itself (Settings: <b>Keep my stats on the website</b>).</div>';
+    var ratio = function (t, b) { return t > 0 && b > 0 ? t / b : 0; }, count = {};
+    mine.forEach(function (p) { var c = clsOf(p); count[c] = (count[c] || 0) + p.laps; });
+    var c0 = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+    var rows = mine.filter(function (p) { return clsOf(p) === c0 && p.clean >= 5 && ratio(p.pace, p.refPace); }).sort(function (a, b) { return b.last - a.last; });
+    if (!rows.length) return '<div class="sub">No race pace with a reference yet in ' + esc(clsLabel(c0)) + '.</div>';
+    var rs = rows.map(function (p) { return ratio(p.pace, p.refPace); }), avg = rs.reduce(function (t, x) { return t + x; }, 0) / rs.length, k = R.category(avg);
+    var bars = rows.slice(0, 6).map(function (p) {
+      var r = ratio(p.pace, p.refPace), kc = R.category(r), w = Math.max(6, Math.min(100, (r - 1) * 100 / 7 * 100));
+      return '<div class="lvl-row"><span>' + esc(p.track) + '</span><div class="lvl-bar"><i data-w="' + w.toFixed(0) + '" data-bg="' + (kc ? kc.color : '#5C686D') + '"></i></div><b>' + F.pctOver(r) + '</b></div>';
+    }).join('');
+    return '<div class="lvl-top"><span class="lvl-v">' + F.pctOver(avg) + '</span>' + (k ? '<span class="cat" data-bgc="' + k.color + '">' + esc(k.name) + '</span>' : '') + '<span class="faint">' + esc(clsLabel(c0)) + ' · ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + '</span></div>' +
+      '<div class="lvl-list">' + bars + '</div><div class="faint lvl-note">Race pace against the alien times: a shorter bar is closer to the aliens.</div>';
+  }
+  // what happened in the team, newest first: who joined, the team races that came in
+  function newsHtml(d) {
+    var items = [];
+    d.members.forEach(function (m) { if (m.joined > 0) items.push({ t: m.joined, i: initial(m.name), h: '<b>' + esc(m.name) + '</b> joined the team', href: '#/team/' + (+m.id) }); });
+    d.results.forEach(function (x) { var r = x.result; items.push({ t: r.date, i: 'R', h: 'Team race: <b>' + esc(trackName(r.track)) + '</b>' + (r.classPos ? ', P' + r.classPos : '') + ' <span class="faint">(' + esc((r.drivers || []).map(function (q) { return q.name.split(' ')[0]; }).join(', ')) + ')</span>', href: '#/races/' + x.id }); });
+    items.sort(function (a, b) { return b.t - a.t; });
+    if (!items.length) return '<div class="sub">Nothing yet.</div>';
+    return '<div class="news">' + items.slice(0, 6).map(function (n) { return '<a href="' + n.href + '"><i>' + n.i + '</i><span class="nb"><span>' + n.h + '</span><small>' + esc(ago(n.t)) + '</small></span></a>'; }).join('') + '</div>';
   }
   function greet() { var hr = new Date().getHours(); return hr < 6 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'; }
 
@@ -354,12 +419,47 @@
     var ts = me.teams || [];
     view.innerHTML = '<div class="pagehead teamhead">' + tlogo(team, 'lg') + '<h1>' + esc(team.name) + '</h1><span class="faint">' + d.members.length + ' members</span></div><div class="cols">' +
       card('Members', '<div class="people">' + d.members.map(function (m) {
-        return '<div class="person' + (m.me ? ' me' : '') + '"><i>' + initial(m.name) + '</i><span><b>' + esc(m.name) + (m.me ? ' <small>you</small>' : '') + '</b><small>' + esc(roleWords(m.roles)) + '</small></span></div>';
+        return '<a class="person pick' + (m.me ? ' me' : '') + '" href="#/team/' + (+m.id) + '"><i>' + initial(m.name) + '</i><span><b>' + esc(m.name) + (m.me ? ' <small>you</small>' : '') + '</b><small>' + esc(roleWords(m.roles)) + '</small></span><em>&rsaquo;</em></a>';
       }).join('') + '</div>') +
       card('Your teams', '<div class="people">' + ts.map(function (t) {
         return '<button class="person pick' + (t.id === team.id ? ' on' : '') + '" data-team="' + t.id + '">' + tlogo(t, 'sm') + '<span><b>' + esc(t.name) + '</b><small>' + esc(roleWords(t.roles)) + '</small></span></button>';
       }).join('') + '</div><div class="sub mt10">Invites, roles and leaving a team: in the desktop app.</div>') + '</div>';
     view.onclick = function (e) { var b = e.target.closest('[data-team]'); if (!b) return; pickTeam(+b.getAttribute('data-team')); };
+  }
+
+  // a member's profile (from the team's race pace and races): tracks, where they are the fastest in the team, their steadiest car, their team races
+  function nameWords(n) { return String(n || '').toLowerCase().split(/[\s._-]+/).filter(Boolean); }
+  // a member's race pace: one row per track for the chosen class, the cars of that class folded in (owner rule: never per track + car)
+  var profCls = '';
+  function byTrack(rows, c) {
+    var g = {}; rows.forEach(function (p) { if (clsOf(p) !== c) return; var k = trackName(p.track); (g[k] = g[k] || []).push(p); });
+    return Object.keys(g).map(function (k) { var x = perDriver(g[k])[0]; x.track = k; return x; }).sort(function (a, b) { return b.last - a.last; });
+  }
+  function profileView(d, id) {
+    var m = d.members.filter(function (x) { return x.id === id; })[0];
+    if (!m) { view.innerHTML = '<a class="back" href="#/team">&larr; The team</a>' + card('Not in this team', '<div class="sub">This member is not in ' + esc(team.name) + ' (any more).</div>'); return; }
+    var rows = d.pace.filter(function (p) { return p.user === id; }), tracks = {}, top = [], my = nameWords(m.name);
+    rows.forEach(function (p) { tracks[trackName(p.track) + '|' + clsOf(p)] = 1; });
+    Object.keys(tracks).forEach(function (k) {
+      var parts = k.split('|'), ds = perDriver(d.pace.filter(function (p) { return trackName(p.track) === parts[0] && clsOf(p) === parts[1]; })).filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; });
+      if (ds.length > 1 && ds[0].user === id) top.push(parts[0]);
+    });
+    var steady = rows.filter(function (p) { return p.sd > 0 && p.clean >= 5; }).sort(function (a, b) { return a.sd - b.sd; })[0];
+    var races = d.results.filter(function (x) { return ((x.result && x.result.drivers) || []).some(function (q) { var w = nameWords(q.name); return my.length && my.every(function (x2) { return w.indexOf(x2) >= 0; }); }); });
+    var lapsBy = {}; rows.forEach(function (p) { var c = clsOf(p); lapsBy[c] = (lapsBy[c] || 0) + (p.laps || 0); });
+    var classes = Object.keys(lapsBy).sort(function (a, b) { return lapsBy[b] - lapsBy[a]; });
+    if (!lapsBy[profCls]) profCls = classes[0] || '';
+    var list = byTrack(rows, profCls), trackCount = {}; rows.forEach(function (p) { trackCount[trackName(p.track)] = 1; });
+    var h = '<a class="back" href="#/team">&larr; ' + esc(team.name) + '</a><div class="pagehead teamhead"><span class="avatar lg">' + initial(m.name) + '</span><div><h1>' + esc(m.name) + (m.me ? ' <small class="acc">you</small>' : '') + '</h1><div class="faint">' + esc(roleWords(m.roles)) + (m.joined ? ' · in the team since ' + esc(day(m.joined)) : '') + '</div></div></div>';
+    h += '<div class="tiles tiles4">' + tile('Tracks', Object.keys(trackCount).length, classes.length + (classes.length === 1 ? ' class' : ' classes')) + tile('Fastest in the team on', top.length, top.length ? esc(top.slice(0, 3).join(', ')) : '--', top.length ? 'acc' : '') +
+      tile('Steadiest car', steady ? esc(steady.car) : '--', steady ? '± ' + steady.sd.toFixed(3) + ' s at ' + esc(trackName(steady.track)) : '') + tile('Team races', races.length, races.length ? 'last ' + esc(ago(races[0].result.date)) : '') + '</div>';
+    h += '<div class="cols">' + card('Race pace', (classes.length > 1 ? '<div class="filters">' + segOf(classes.map(function (c) { return [c, clsLabel(c)]; }), profCls, 'data-pcls') + '</div>' : '') +
+      (list.length ? '<div class="plist">' + list.slice(0, 16).map(function (x) {
+        return '<a class="prow" href="#/pace/' + encodeURIComponent(x.track) + '"><span><b>' + esc(x.track) + '</b><small>' + esc(x.paceCar || x.bestCar) + (x.cars > 1 ? ' · ' + x.cars + ' cars' : '') + ' · ' + esc(ago(x.last)) + '</small></span><span class="num">' + lap(x.pace) + '<small class="purple">' + lap(x.best) + '</small></span></a>';
+      }).join('') + '</div>' : '<div class="sub">No race pace shared with the team yet.</div>')) +
+      card('Team races', races.length ? races.slice(0, 6).map(raceCard).join('') : '<div class="sub">No team races with ' + esc(m.name.split(' ')[0]) + ' yet.</div>') + '</div>';
+    view.innerHTML = h;
+    view.onclick = function (e) { var b = e.target.closest('[data-pcls]'); if (b) { profCls = b.getAttribute('data-pcls'); profileView(d, id); } };
   }
 
   // ---------- me ----------
@@ -413,18 +513,21 @@
 
   // ---------- team-mates racing now (live sessions: their desktop app sends its car's own numbers every 2 s while they drive) ----------
   // Asked every 10 s while this page is visible (every 3 s on a live page), never while it is in the background.
-  var lives = [], liveSeen = {}, liveTimer = null, livePage = null, lvTab = 'car', lvOpenStint = {};
+  var livesIn = false, lives = [], liveSeen = {}, liveTimer = null, livePage = null, lvTab = 'car', lvOpenStint = {};
   function liveLoad() {
     if (!me || document.hidden) return;
     get('/api/v1/live').then(function (l) {
       lives = (l || []).filter(function (x) { return !x.me; }); lives.forEach(function (x) { liveSeen[x.user] = x; });
+      var first = !livesIn; livesIn = true;
       liveBanner(); if (livePage !== null) liveView();
+      else if (/^#\/live\/?$/.test(location.hash) && (first || lives.length)) route();                    // on the Live section: the race as soon as there is one
     }, function (e) { if (e.status === 401) login(); });
   }
   function livePoll() { clearInterval(liveTimer); liveTimer = setInterval(liveLoad, livePage !== null ? 3000 : 10000); }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) liveLoad(); });
   function sesWord(n) { return { 'TEST DAY': 'Test day', PRACTICE: 'Practice', QUALIFY: 'Qualifying', WARMUP: 'Warm-up', RACE: 'Race' }[F.sessionName(n)] || 'Session'; }
   function liveBanner() {
+    [].forEach.call(document.querySelectorAll('.ldot'), function (e) { e.hidden = !lives.length; });
     var b = $('livebar'), x = lives[0];
     b.hidden = !me || !x || livePage !== null;
     if (b.hidden) return;

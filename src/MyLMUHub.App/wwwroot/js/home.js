@@ -25,7 +25,33 @@
     $('rpNote').textContent = 'Reading result files: ' + i.done + ' / ' + i.total;
   }, function (i) { show(i); H.watchPace(i.gen, show); });                                 // then follows new laps / result files by itself (hub.js watchPace)
 
+  // Get started: your driver names, your results folder (found by itself), your team. A step is done by itself when the app sees it; Hide keeps it away.
+  var startData = { names: null, folder: null, team: null };
+  function startCard() {
+    if (!H.inApp) return;
+    var hidden = false; try { hidden = localStorage.getItem('pw-start-hidden') === '1'; } catch (e) {}
+    var S = [
+      ['names', 'Your driver names', 'As the game shows them (part of the name is enough), so the app knows which laps are yours.', 'Settings: your driver names', 'settings.html'],
+      ['folder', 'Your result files', 'The game\'s results folder: found by itself through Steam. Your race pace, Improve and the reviews come from it.', 'Settings: results folder', 'settings.html'],
+      ['team', 'Join your team (optional)', 'With the invite code from your team owner: team races, everyone\'s race pace and live races are shared.', 'Settings: team server', 'settings.html']
+    ];
+    var known = S.every(function (s) { return startData[s[0]] !== null; }), done = S.filter(function (s) { return startData[s[0]]; }).length;
+    $('startCard').hidden = hidden || !known || done === S.length;
+    if ($('startCard').hidden) return;
+    $('startCount').textContent = done + ' of ' + S.length + ' done';
+    $('startBar').style.width = Math.round(done / S.length * 100) + '%';
+    $('startSteps').innerHTML = S.map(function (s, k) {
+      var ok = startData[s[0]];
+      return '<div class="start-step' + (ok ? ' ok' : '') + '"><span class="start-n">' + (ok ? '✓' : k + 1) + '</span><span><b>' + H.esc(s[1]) + '</b><small>' + H.esc(s[2]) + '</small>' +
+        (ok ? '<em class="start-done">Done</em>' : '<a class="start-go" href="' + s[4] + '">' + H.esc(s[3]) + ' &rarr;</a>') + '</span></div>';
+    }).join('');
+  }
+  $('startHide').onclick = function () { try { localStorage.setItem('pw-start-hidden', '1'); } catch (e) {} $('startCard').hidden = true; };
+  if (H.inApp) fetch('api/team?op=status', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: '{}' })
+    .then(function (r) { return r.json(); }).then(function (s) { startData.team = !!(s && s.member && s.me && (s.me.teams || []).length); startCard(); }, function () { startData.team = false; startCard(); });
+
   function show(i) {
+    startData.names = !!(i.names && i.names.length && i.names[0]); startData.folder = !i.error && (i.sessions || []).length > 0; startCard();
     $('rpProg').hidden = true; $('rpNote').textContent = i.error || '';
     H.setWho(i.names && i.names[0]);
     if (i.names && i.names[0]) $('hello').textContent = 'Welcome back, ' + i.names[0].split(/[ #]/)[0];

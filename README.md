@@ -69,6 +69,11 @@ your changes right away. Edit mode (E) in the dashboard keeps only what is done 
 ![Race Control settings](docs/images/racecontrol.png)
 
 ## The Hub
+The menu is grouped by what you do: **Drive** (Race Control), **Analyse** (Race Pace, Improve, AI Coach), **Plan** (Endurance plan, Quick race, Live, Review)
+and **Team**; your name (top right) is **Settings**. A group with more pages opens a panel with a line on what each page is for. On the first start, Home shows
+**Get started** (your driver names, your result files, your team), ticked off by itself. A **?** next to terms like race pace level, virtual energy or stint
+explains them in plain words. Pages keep the same layout between tabs, and grey placeholders stand in while your results are read.
+
 | | |
 |---|---|
 | ![Home](docs/images/home.png) | ![Race Pace](docs/images/race-pace.png) |
@@ -149,7 +154,10 @@ A stint ends at a pit lap, and also where the driver changes or the energy is re
 **Quick race:** paste the event text (e.g. from Discord). It reads the race length and the VE / fuel limits, takes the rest from the game, and gives the fewest stops with pit windows.
 
 ## Team
-Your teams on a **team server**: invite codes, members with roles (driver, engineer, owner), one tab per team.
+Your teams on a **team server**: invite codes, members with roles (driver, engineer, owner), one card per team with its logo.
+- **Overview:** the team's pace on the last race's track, **team news** (who joined, which races came in), the race results.
+- **Driver cards and profiles:** click a member for their roles, tracks, where they are fastest in the team, their steadiest car, their race pace per track
+  (one class at a time, the cars of that class together) and their team races.
 - **Team races, by themselves:** the app finds your special events (the game's scheduled endurance events, solo or with team-mates) in your result files and
   sends each to its team, recognised by the car's team name, the team's earlier races and team-mates in the car. A race left and rejoined several times is
   put back together from all its files. A race a team-mate already sent is not added twice.
@@ -176,12 +184,14 @@ and strictly checked numbers and short text, never files. Your login stays in th
 ![Team](docs/images/team.png)
 
 ## On your phone
-The team server is also a website (e.g. **mylmuhub.com**), made for phones and computers. On a phone it feels like an app: install it (Me page: **Install the app**,
+The team server is also a website, a **team portal** (e.g. **mylmuhub.com**), made for computers and phones. On a computer it has a sidebar (Home, Races,
+Race pace, Live, Team, My stats) and Home is a dashboard: the last race, your level with a bar per track, the team's pace on the last race's track and the
+team news; every member has a profile. On a phone it feels like an app: install it (Me page: **Install the app**,
 or Share → Add to Home Screen on an iPhone) and it opens full screen with its own icon. Cards instead of wide tables, pull down to refresh, back returns to
 where you were, and it opens without a connection too (it then says it's offline).
 - **Log in with Discord** (link your Discord account once, in Settings) or with a **pairing code** from the desktop app (works once, for 2 minutes).
 - **Home:** your team at a glance: the latest race, your race pace against the team's best on your last tracks. More than one team: pick it in the top bar.
-- **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members.
+- **Races:** every team race with its full review (stints, laps, what we see, what if). **Race pace:** everyone's pace per track and car. **Team:** the members and their profiles.
 - **Live:** when a team-mate is racing, a banner says so on every page; tap it for their position, lap times, stint, virtual energy, the car and the laps.
   The car shows exactly what is wrong: every body part coloured by its damage, a flat or missing tyre, suspension damage per wheel, and a list ("Front left tyre flat", "Front left suspension 76 % damaged").
 - **Me, your own stats:** the desktop app's Race Pace overview: per class, every track with your best lap and race pace against the alien times (Competitive, Good, ...), your level, cars, sessions and laps.
@@ -189,6 +199,8 @@ where you were, and it opens without a connection too (it then says it's offline
 - **The website can only look:** changes are only made in the desktop app. Log out every phone from Settings at any time.
 
 <p align="center"><img src="docs/images/phone.png" width="260" alt="My LMU Hub on a phone"> &nbsp; <img src="docs/images/phone-race.png" width="260" alt="A race review on a phone"> &nbsp; <img src="docs/images/phone-live.png" width="260" alt="A team-mate racing, on a phone"></p>
+
+![The team portal on a computer](docs/images/web-portal.png)
 
 ![Your own stats on the website](docs/images/web-stats.png)
 

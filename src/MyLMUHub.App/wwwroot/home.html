@@ -11,6 +11,13 @@
 <div class="wrap">
   <header id="hdr"></header>
 
+  <!-- the first steps (owner 2026-11-17): ticked off by themselves; hidden when all are done or after "Hide" -->
+  <section class="card start" id="startCard" style="margin-top:14px" hidden>
+    <div class="start-head"><h2>Get started</h2><span class="faint" id="startCount"></span><button type="button" class="btn" id="startHide">Hide</button></div>
+    <div class="progress"><i id="startBar"></i></div>
+    <div class="start-steps" id="startSteps"></div>
+  </section>
+
   <section class="card" style="margin-top:14px">
     <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between">
       <div>
@@ -29,8 +36,8 @@
   <section class="card" style="margin-top:14px">
     <h2>Last 7 days</h2>
     <div class="sub" id="weekSub">Reading your result files...</div>
-    <div class="tiles" id="weekTiles"></div>
-    <div class="scroll" style="margin-top:12px"><table class="tbl" id="weekTbl"></table></div>
+    <div class="tiles" id="weekTiles" data-load></div>
+    <div class="scroll" style="margin-top:12px"><table class="tbl" id="weekTbl" data-load style="--ph:220px"></table></div>
   </section>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">

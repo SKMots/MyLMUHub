@@ -60,12 +60,12 @@
       <div class="sub" id="fillNote">Fill these from your result files, or type them in. Fields you leave empty are not used.</div>
       <div class="form">
         <label class="field">Stint length from<span class="seg" id="segVe"><button data-v="laps">Laps I aim for</button><button data-v="perLap">VE per lap</button></span></label>
-        <label class="field" id="fVeLaps">Laps per stint<input class="input short" data-k="ve.laps" data-num></label>
-        <label class="field" id="fVePer">VE per lap (%)<input class="input short" data-k="ve.perLap" data-num></label>
+        <label class="field" id="fVeLaps"><span data-h="stint">Laps per stint</span><input class="input short" data-k="ve.laps" data-num></label>
+        <label class="field" id="fVePer"><span data-h="ve">VE per lap (%)</span><input class="input short" data-k="ve.perLap" data-num></label>
         <label class="field">VE a stint starts with (%)<input class="input short" data-k="ve.max" data-num></label>
         <label class="field">Reserve (laps kept spare)<input class="input short" data-k="ve.reserve" data-num></label>
-        <label class="field">Last stint push: % more VE per lap<input class="input short" data-k="ve.push" data-num placeholder="15"></label>
-        <label class="field">Pit stop time lost (s)<input class="input short" data-k="pit.base" data-num></label>
+        <label class="field"><span data-h="push">Last stint push: % more VE per lap</span><input class="input short" data-k="ve.push" data-num placeholder="15"></label>
+        <label class="field"><span data-h="pitloss">Pit stop time lost (s)</span><input class="input short" data-k="pit.base" data-num></label>
         <label class="field">+ tyre change (s)<input class="input short" data-k="pit.tyres" data-num></label>
         <label class="field">+ driver swap (s)<input class="input short" data-k="pit.swap" data-num></label>
       </div>

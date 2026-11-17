@@ -15,24 +15,96 @@
     h.className = 'hdr';
     h.innerHTML = '<a class="brand" href="home.html"><img src="assets/logo.svg" alt=""><b><i>my</i>lmu<i>hub</i></b><small>sim<br>racing</small></a>' +
       '<div class="rule" id="liveRule">offline</div>' +
-      '<nav class="nav"><a href="home.html"' + (active === 'home' ? ' class="on"' : '') + '>Home</a><a href="racecontrol.html"' + (active === 'rc' ? ' class="on"' : '') + '>Race Control</a>' +
-      '<a href="pace.html"' + (active === 'pace' ? ' class="on"' : '') + '>Race Pace</a><a href="potential.html"' + (active === 'potential' ? ' class="on"' : '') + '>Improve</a><a href="strategy.html"' + (active === 'strategy' ? ' class="on"' : '') + '>Strategy</a><a href="team.html"' + (active === 'team' ? ' class="on"' : '') + '>Team</a><a href="coach.html"' + (active === 'coach' ? ' class="on"' : '') + '>AI Coach</a></nav>' +
-      '<span class="upd" id="upd"></span>' +
+      menuHtml(active) +
+      '<span class="upd" id="upd">' + (remembered('pw-ver') ? '<span class="faint">' + esc(remembered('pw-ver')) + '</span>' : '') + '</span>' +
       // guest mode: switched on Settings; here only a badge while it is on (owner 2026-11-16: a cleaner header)
       '<a class="btn lime" id="guestBtn" href="settings.html#guest" hidden></a>' +
       // your name: the Settings page (driver names, team server, phone, theme; owner 2026-11-16: one place instead of popups and lists in the header)
-      '<a class="who' + (active === 'settings' ? ' on' : '') + '" id="who" href="settings.html" title="Settings: your names, team server, phone, theme"><span>?</span><em>Your names</em></a>' +
+      '<a class="who' + (active === 'settings' ? ' on' : '') + '" id="who" href="settings.html" title="Settings: your names, team server, phone, theme"><span>' + esc(remembered('pw-who') ? remembered('pw-who').trim().charAt(0).toUpperCase() : '?') + '</span><em>' + esc(remembered('pw-who') || 'Your names') + '</em></a>' +
       '';
-    guestState();
+    guestState(); menuWire();
     if (inApp && here) update();                                                          // the update button: only on the PC the app runs on
   }
+  // ---------- the menu (owner 2026-11-17: easier to find things): grouped by what you do. A group with one page is a link; one with more opens a panel
+  // with each page and a line on what it is for. Home = the logo; Settings = your name (top right).
+  var GROUPS = [
+    { id: 'drive', label: 'Drive', sub: 'Race Control', pages: [['rc', 'racecontrol.html', 'Race Control', 'The dashboard for your second screen: open it, views, theme, spectate, hotkeys']] },
+    { id: 'analyse', label: 'Analyse', sub: 'Race pace, improve, coach', pages: [
+      ['pace', 'pace.html', 'Race Pace', 'Your race pace and best lap on every track and car, and your level against the alien times'],
+      ['potential', 'potential.html', 'Improve', 'What to work on next: the tracks and turns where you lose the most'],
+      ['coach', 'coach.html', 'AI Coach', 'Ask questions about your own laps (your own AI key)']] },
+    { id: 'plan', label: 'Plan', sub: 'Strategy, live, review', pages: [
+      ['strategy', 'strategy.html', 'Endurance plan', 'Stints, virtual energy, tyres and drivers for an endurance race'],
+      ['quick', 'quick.html', 'Quick race', 'A plan for a short race in a minute'],
+      ['live', 'live.html', 'Live', 'The plan during the race: pit times on your clock, the energy target, damage'],
+      ['review', 'review.html', 'Review', 'A race you drove, stint by stint, against the plan']] },
+    { id: 'team', label: 'Team', sub: 'Races, pace, members', pages: [['team', 'team.html', 'Team', 'Your team: its races, everyone\'s race pace, the members']] }
+  ];
+  function groupOf(active) { var s = { strategy: 'plan', quick: 'plan', live: 'plan', review: 'plan' }[active]; if (s) return s; var g = GROUPS.filter(function (x) { return x.pages.some(function (p) { return p[0] === active; }); })[0]; return g ? g.id : ''; }
+  function menuHtml(active) {
+    var on = groupOf(active);
+    return '<nav class="nav groups" aria-label="Menu">' + GROUPS.map(function (g) {
+      var cls = 'ng' + (g.id === on ? ' on' : ''), inner = '<b>' + g.label + '</b><small>' + g.sub + '</small>';
+      return g.pages.length === 1 ? '<a class="' + cls + '" href="' + g.pages[0][1] + '">' + inner + '</a>'
+        : '<button type="button" class="' + cls + '" data-g="' + g.id + '" aria-expanded="false" aria-haspopup="true">' + inner + '<i class="ng-arrow" aria-hidden="true"></i></button>';
+    }).join('') + '</nav><div class="ng-panel" id="ngPanel" hidden></div>';
+  }
+  function menuWire() {
+    var panel = document.getElementById('ngPanel'); if (!panel) return;
+    var openG = '', btns = function () { return document.querySelectorAll('.nav.groups [data-g]'); };
+    function close() { openG = ''; panel.hidden = true; [].forEach.call(btns(), function (b) { b.setAttribute('aria-expanded', 'false'); b.classList.remove('open'); }); }
+    function open(id) {
+      var g = GROUPS.filter(function (x) { return x.id === id; })[0]; if (!g) return;
+      openG = id; [].forEach.call(btns(), function (b) { var me = b.getAttribute('data-g') === id; b.setAttribute('aria-expanded', me ? 'true' : 'false'); b.classList.toggle('open', me); });
+      var cur = location.pathname.split('/').pop();
+      panel.innerHTML = g.pages.map(function (p) { return '<a href="' + p[1] + '"' + (p[1] === cur ? ' class="on"' : '') + '><b>' + esc(p[2]) + '</b><span>' + esc(p[3]) + '</span></a>'; }).join('');
+      panel.hidden = false;
+    }
+    [].forEach.call(btns(), function (b) { b.onclick = function (e) { e.stopPropagation(); var id = b.getAttribute('data-g'); if (openG === id) close(); else open(id); }; });
+    document.addEventListener('click', function (e) { if (openG && !panel.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && openG) close(); });
+  }
+
+  // ---------- "?" explanations (owner 2026-11-17): a label with data-h="key" gets a small ? button; a click shows what the term means, in plain words ----------
+  var HELP = {
+    level: ['Your level', 'Your average clean race lap against the alien race pace of the LMU laptimes sheet, on the same track in the same class. +1.9 % means 1.9 % slower than the aliens. The sheet calls ~100 % Alien, 101 % Competitive, 102-103 % Good, 104-105 % Midpack, 106 % Tail-ender, 107 % or more Offline.'],
+    hot: ['Qualifying level', 'Your fastest lap against the alien hotlap of the sheet (their qualifying time), on the same track and class.'],
+    ve: ['Virtual energy (VE)', 'The game\'s energy limit for Hypercars, LMP2 and GT3 in endurance races: the percentage you may use per stint. 3.85 % a lap means about 26 laps before you have to stop. Using less a lap (lifting earlier, saving) makes the stint longer but each lap a little slower.'],
+    stint: ['Stint', 'The laps between two pit stops, usually with one driver. A stint ends with the in-lap and the next one begins with the out-lap.'],
+    pitloss: ['Pit stop time lost', 'How much longer the in-lap and out-lap take than two normal laps: driving through the pit lane plus standing still for energy, tyres and driver swaps.'],
+    push: ['Last stint push', 'In the last stint there is no next stint to save energy for: you can use more VE per lap and drive faster, as long as it lasts to the flag.'],
+    clean: ['Clean laps', 'Laps that count for your pace: not the first lap, no pit lap, and not much slower than your usual (traffic, a mistake, yellow flags are left out).']
+  };
+  var pop = null;
+  function helpClose() { if (pop) { pop.remove(); pop = null; } }
+  function helpWire() {
+    [].forEach.call(document.querySelectorAll('[data-h]'), function (el) {
+      if (el.querySelector(':scope > .qhelp')) return; var k = el.getAttribute('data-h'); if (!HELP[k]) return;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'qhelp'; b.textContent = '?'; b.setAttribute('aria-label', 'What is ' + HELP[k][0] + '?'); b.setAttribute('data-help', k);
+      el.appendChild(b);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-help]');
+    if (!b) { if (pop && !pop.contains(e.target)) helpClose(); return; }
+    e.preventDefault(); e.stopPropagation(); helpClose();
+    var t = HELP[b.getAttribute('data-help')]; if (!t) return;
+    pop = document.createElement('div'); pop.className = 'qpop'; pop.setAttribute('role', 'note');
+    pop.innerHTML = '<b>' + esc(t[0]) + '</b><span>' + esc(t[1]) + '</span><button type="button" class="btn">Got it</button>';
+    document.body.appendChild(pop);
+    var r = b.getBoundingClientRect(), w = Math.min(360, innerWidth - 24), x = Math.min(Math.max(12, r.left - 20), innerWidth - w - 12);
+    pop.style.width = w + 'px'; pop.style.left = x + 'px'; pop.style.top = (r.bottom + scrollY + 8) + 'px';
+    pop.querySelector('button').onclick = helpClose;
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') helpClose(); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', helpWire); else setTimeout(helpWire, 0);
   // the app version and, when a newer one is out, the Update button (UpdateService.cs: download, swap, restart). A dev build says "dev" and never updates.
   // a click on the version: look for a new version now ("checking...", then the Update button or "up to date" for a few seconds)
   var updTimer = null, updAsked = 0;
   function update(post) {
     var u = document.getElementById('upd'); if (!u) return;
     json('api/update' + (post ? '?do=' + post : ''), post ? { method: 'POST' } : undefined).then(function (s) {
-      var v = 'v' + s.current, html = '', soon = 60000;
+      var v = 'v' + s.current, html = '', soon = 60000; remember('pw-ver', v + (s.enabled ? '' : ' dev'));
       if (s.state === 'available') html = '<button class="btn lime" id="updGo" title="' + esc(s.notes || 'A new version is out') + '">Update to v' + esc(s.latest) + '</button>';
       else if (s.state === 'downloading') { html = '<span class="muted">Downloading update ' + Math.round(s.progress * 100) + '%</span>'; soon = 1000; }
       else if (s.state === 'ready') html = '<span class="muted">Restarting...</span>';
@@ -58,8 +130,12 @@
     if (w && w.postMessage && cs) { try { var acc = cs.getPropertyValue('--lime').trim(); w.postMessage({ titleBar: cs.getPropertyValue('--card').trim(), titleText: acc, titleBorder: acc }); } catch (e) {} }
   }
   applyHubTheme();
+  // the header stays put between pages (owner 2026-11-17: everything moved a little when switching tabs): your name and the version are remembered and
+  // drawn at once; when they are confirmed it is the same text, so nothing shifts
+  function remembered(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function remember(k, v) { try { if (v) localStorage.setItem(k, v); } catch (e) {} }
   function setWho(name) {
-    var w = document.getElementById('who'); if (!w) return;
+    var w = document.getElementById('who'); if (!w) return; if (name) remember('pw-who', name);
     w.querySelector('span').textContent = name ? name.trim().charAt(0).toUpperCase() : '?'; w.querySelector('em').textContent = name || 'Your names';
   }
 
@@ -121,7 +197,11 @@
   }
 
   // the Race Pace data (api/pace). While the app is still reading result files: progress(info) every second, then done(info with sessions).
+  // grey placeholders ([data-load], hub.css) stand in for a page's main blocks until its data is there; then body.loaded (also after 8 s at the latest)
+  function loaded() { document.body.classList.add('loaded'); }
+  setTimeout(loaded, 8000);
   function loadPace(progress, done) {
+    var d0 = done; done = function (x) { d0(x); loaded(); };
     if (!inApp) { done({ error: 'Open this page in the app to read your result files.', sessions: [], names: [], candidates: [] }); return; }
     json('api/pace?light=1').then(function (i) {
       if (i.scanning) { progress(i); setTimeout(function () { loadPace(progress, done); }, 1000); }
@@ -208,5 +288,5 @@
   }
 
   function setTheme(t) { try { localStorage.setItem('pw-hub-theme', t || ''); } catch (e) {} applyHubTheme(); }
-  P.hub = { esc: esc, json: json, header: header, setWho: setWho, guestPanel: guestPanel, themes: HUB_THEMES, theme: hubTheme, setTheme: setTheme, live: live, openRaceControl: openRaceControl, inApp: inApp, loadPace: loadPace, watchPace: watchPace };
+  P.hub = { loaded: loaded, helpWire: helpWire, esc: esc, json: json, header: header, setWho: setWho, guestPanel: guestPanel, themes: HUB_THEMES, theme: hubTheme, setTheme: setTheme, live: live, openRaceControl: openRaceControl, inApp: inApp, loadPace: loadPace, watchPace: watchPace };
 })(typeof window !== 'undefined' ? window : globalThis);

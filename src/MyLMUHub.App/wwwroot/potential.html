@@ -44,7 +44,7 @@
         <div class="sub" style="margin-bottom:0" id="rankSub"></div></div>
       <span class="seg" id="rankTab"><button data-v="tracks" class="on">Tracks</button><button data-v="sectors">Sectors</button><button data-v="repeats">Repeat problems</button></span>
     </div>
-    <div class="scroll" style="margin-top:14px"><table class="tbl" id="rankTbl"></table></div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="rankTbl" data-load style="--ph:260px"></table></div>
     <div class="faint" style="font-size:12px;margin-top:8px">Click a row to show that track in the focus above.</div>
     <details class="explain"><summary>What do these numbers mean?</summary>From your result files: dry laps, current game version, counted laps only (no pit, out or slow laps); per track your fastest car there.
       Possible gain per lap = how much faster your average lap could be: the gap to your optimal lap (your best three sectors: you already drove them, just not in one lap) plus how far the track is
@@ -55,8 +55,8 @@
   <section class="card" style="margin-top:14px">
     <h2>Tracks behind your level</h2>
     <div class="sub" id="lvlSub">Your race pace on each track as % of the alien race pace, against your level now.</div>
-    <div class="tiles" id="lvlTiles"></div>
-    <div class="scroll" style="margin-top:14px"><table class="tbl" id="trkTbl"></table></div>
+    <div class="tiles" id="lvlTiles" data-load></div>
+    <div class="scroll" style="margin-top:14px"><table class="tbl" id="trkTbl" data-load style="--ph:260px"></table></div>
     <details class="explain"><summary>What do these numbers mean?</summary>Your level now = the middle (median) of your race pace % over the tracks you drove in the last 30 days.
       Gain = how far a track is behind that, per lap. A track you last drove before that is often behind only because you got faster since: going back there is the quickest gain (STALE).
       Dry laps of all session types that count (no pit, out or slow laps), current game version, tracks in the reference sheet.</details>

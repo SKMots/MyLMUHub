@@ -12,6 +12,7 @@
   if (H.inApp) H.json('api/pace?light=1').then(function (i) { H.setWho(i.names && i.names[0]); }, function () {});
   var st = null, team = null, tab = 'overview', members = [], results = [], pace = [], sug = { races: [], teams: [] }, mySessions = null, paceTrack = null, cls = '';
   try { tab = new URLSearchParams(location.search).get('tab') || localStorage.getItem('pw-team-tab') || 'overview'; } catch (e) {}
+  if (tab === 'profile') tab = 'members';                                                // a profile is opened from Members, not kept
 
   function api(op, body) {
     return fetch('api/team?op=' + encodeURIComponent(op), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MLH': '1' }, body: JSON.stringify(body || {}) })
@@ -63,7 +64,7 @@
       if (!team || team.id !== id) return;
       members = a[0] || []; results = a[1] || []; pace = a[2] || [];
       if (!pace.some(function (p) { return p.me; })) { try { localStorage.removeItem('pw-team-pace-' + id); } catch (e) {} sharePace(); }   // none of yours there: send it again
-      renderSummary(); renderResults(); renderMembers(); renderPace(); renderSettings();
+      renderSummary(); renderResults(); renderMembers(); renderPace(); renderSettings(); renderTeamPace(); renderNews(); renderCards(); H.loaded();
     }, function (e) { info(e.message, true); });
   }
 
@@ -155,6 +156,75 @@
       tile('Best finish', best ? 'P' + best.classPos : '--', best ? esc(best.cls + ' · ' + trackName(best.track)) : '') +
       tile('Tracks with pace', Object.keys(tracks).length, 'shared by the members');
   }
+  // ---------- the website's team features (owner 2026-11-17): team news, the team's pace on the last race's track, driver cards and profiles ----------
+  function agoText(t) { var d = Math.floor((Date.now() / 1000 - t) / 86400); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : day(t); }
+  function gapText(d) { return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d).toFixed(3); }
+  function initialOf(n) { return esc((String(n || '?').trim()[0] || '?').toUpperCase()); }
+  function nameWords(n) { return String(n || '').toLowerCase().split(/[\s._-]+/).filter(Boolean); }
+  function racesOf(m) { var my = nameWords(m.name); return results.filter(function (x) { return my.length && ((x.result && x.result.drivers) || []).some(function (q) { var w = nameWords(q.name); return my.every(function (y) { return w.indexOf(y) >= 0; }); }); }); }
+  function renderTeamPace() {
+    var last = results[0] && results[0].result, lt = last ? trackName(last.track) : null, lc = last ? (R.className(last.cls) || last.cls) : null;
+    $('tpTitle').textContent = 'Team pace' + (lt ? ' · ' + lt : '');
+    var here = lt ? perDriver(pace.filter(function (p) { return trackName(p.track) === lt && clsOf(p) === lc; })).filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; }) : [];
+    $('tpBox').innerHTML = here.length ? '<div class="plist">' + here.slice(0, 8).map(function (x, i) {
+      return '<div class="prow" data-prof="' + x.user + '"><span><b><span class="faint">' + (i + 1) + '</span> ' + esc(x.name) + (x.me ? '<em class="you">you</em>' : '') + '</b><small>' + esc(x.paceCar || x.bestCar || '') + '</small></span>' +
+        '<span class="num">' + lap(x.pace) + '<small class="' + (i === 0 ? 'green' : '') + '">' + (i === 0 ? 'fastest' : gapText(x.pace - here[0].pace)) + '</small></span></div>';
+    }).join('') + '</div>' : '<div class="faint">No race pace shared for ' + (lt ? esc(lt) : 'the last race\'s track') + ' yet.</div>';
+  }
+  function renderNews() {
+    var items = [];
+    members.forEach(function (m) { if (m.joined > 0) items.push({ t: m.joined, i: initialOf(m.name), h: '<b>' + esc(m.name) + '</b> joined the team', attr: 'data-prof="' + m.id + '"' }); });
+    results.forEach(function (x) { var r = x.result; items.push({ t: r.date, i: 'R', h: 'Team race: <b>' + esc(trackName(r.track)) + '</b>' + (r.classPos ? ', P' + r.classPos : '') + ' <span class="faint">(' + esc((r.drivers || []).map(function (q) { return q.name.split(' ')[0]; }).join(', ')) + ')</span>', attr: 'data-race="' + x.id + '"' }); });
+    items.sort(function (a, b) { return b.t - a.t; });
+    $('newsBox').innerHTML = items.length ? '<div class="news">' + items.slice(0, 7).map(function (n) { return '<div ' + n.attr + '><i>' + n.i + '</i><span><span>' + n.h + '</span><small>' + esc(agoText(n.t)) + '</small></span></div>'; }).join('') + '</div>' : '<div class="faint">Nothing yet.</div>';
+  }
+  function renderCards() {
+    $('memCards').innerHTML = members.map(function (m) {
+      var rows = pace.filter(function (p) { return p.user === m.id; }), tr = {}; rows.forEach(function (p) { tr[trackName(p.track)] = 1; });
+      return '<button type="button" class="pcard" data-prof="' + m.id + '"><span class="ph"><span class="av">' + initialOf(m.name) + '</span><span><b>' + esc(m.name) + (m.me ? '<em class="you">you</em>' : '') + '</b><small>' + esc(roleWords(m.roles)) + '</small></span></span>' +
+        '<span class="pl">' + Object.keys(tr).length + ' tracks with pace · ' + racesOf(m).length + ' team races</span><span class="go">View profile</span></button>';
+    }).join('');
+  }
+  // a member's race pace: one row per track for the chosen class, the cars of that class folded in (owner rule: never per track + car)
+  var profCls = '';
+  function byTrack(rows, cls) {
+    var g = {}; rows.forEach(function (p) { if (clsOf(p) !== cls) return; var k = trackName(p.track); (g[k] = g[k] || []).push(p); });
+    return Object.keys(g).map(function (k) { var d = perDriver(g[k])[0]; d.track = k; return d; }).sort(function (a, b) { return b.last - a.last; });
+  }
+  function openProfile(id, cls) {
+    var m = members.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+    var rows = pace.filter(function (p) { return p.user === id; }), tracks = {}, top = [];
+    rows.forEach(function (p) { tracks[trackName(p.track) + '|' + clsOf(p)] = 1; });
+    Object.keys(tracks).forEach(function (k) {
+      var parts = k.split('|'), ds = perDriver(pace.filter(function (p) { return trackName(p.track) === parts[0] && clsOf(p) === parts[1]; })).filter(function (x) { return x.pace > 0; }).sort(function (a, b) { return a.pace - b.pace; });
+      if (ds.length > 1 && ds[0].user === id) top.push(parts[0]);
+    });
+    var steady = rows.filter(function (p) { return p.sd > 0 && p.clean >= 5; }).sort(function (a, b) { return a.sd - b.sd; })[0], races = racesOf(m);
+    var lapsBy = {}; rows.forEach(function (p) { var c = clsOf(p); lapsBy[c] = (lapsBy[c] || 0) + (p.laps || 0); });
+    var classes = Object.keys(lapsBy).sort(function (a, b) { return lapsBy[b] - lapsBy[a]; });
+    profCls = cls && lapsBy[cls] ? cls : classes[0] || '';
+    var list = byTrack(rows, profCls), trackCount = {}; rows.forEach(function (p) { trackCount[trackName(p.track)] = 1; });
+    var h = '<div class="prof-head"><span class="av">' + initialOf(m.name) + '</span><div><h3>' + esc(m.name) + (m.me ? '<em class="you">you</em>' : '') + '</h3><div class="faint">' + esc(roleWords(m.roles)) + (m.joined ? ' · in the team since ' + esc(day(m.joined)) : '') + '</div></div></div>';
+    h += '<div class="tiles">' + tile('Tracks', Object.keys(trackCount).length, classes.length + (classes.length === 1 ? ' class' : ' classes')) +
+      tile('Fastest in the team on', top.length, top.length ? esc(top.slice(0, 3).join(', ')) : '--') +
+      tile('Steadiest car', steady ? esc(steady.car) : '--', steady ? '± ' + steady.sd.toFixed(3) + ' s at ' + esc(trackName(steady.track)) : '') +
+      tile('Team races', races.length, races.length ? 'last ' + esc(agoText(races[0].result.date)) : '') + '</div>';
+    h += '<div class="tgrid"><div><h2 style="margin-top:6px">Race pace</h2>' +
+      (classes.length > 1 ? '<span class="seg" style="margin:8px 0 4px">' + classes.map(function (c) { return '<button type="button" data-pcls="' + esc(c) + '"' + (c === profCls ? ' class="on"' : '') + '>' + esc(clsLabel(c)) + '</button>'; }).join('') + '</span>' : '') +
+      (list.length ? '<div class="plist">' + list.slice(0, 16).map(function (d) {
+        return '<div class="prow"><span><b>' + esc(d.track) + '</b><small>' + esc(d.paceCar || d.bestCar) + (d.cars > 1 ? ' · ' + d.cars + ' cars' : '') + ' · ' + esc(agoText(d.last)) + '</small></span>' +
+          '<span class="num">' + lap(d.pace) + '<small style="color:var(--purple)">' + lap(d.best) + (d.cars > 1 && d.bestCar && d.bestCar !== d.paceCar ? ' · ' + esc(d.bestCar) : '') + '</small></span></div>';
+      }).join('') + '</div>' : '<div class="faint">No race pace shared with the team yet.</div>') + '</div>' +
+      '<div><h2 style="margin-top:6px">Team races</h2>' + (races.length ? '<div class="news">' + races.slice(0, 8).map(function (x) { var r = x.result; return '<div data-race="' + x.id + '"><i>' + (r.classPos ? 'P' + r.classPos : 'R') + '</i><span><span><b>' + esc(trackName(r.track)) + '</b> · ' + esc(r.cls || '') + '</span><small>' + esc(day(r.date)) + '</small></span></div>'; }).join('') + '</div>' : '<div class="faint">No team races with ' + esc(m.name.split(' ')[0]) + ' yet.</div>') + '</div></div>';
+    $('profBox').innerHTML = h; setTab('profile'); if (!cls) window.scrollTo(0, 0);
+    $('profBox').onclick = function (e) { var b = e.target.closest('[data-pcls]'); if (b) openProfile(id, b.getAttribute('data-pcls')); };
+  }
+  // a click on a driver (team pace, news, cards) opens their profile; on a race (news, profile) its review
+  document.addEventListener('click', function (e) {
+    var p = e.target.closest('[data-prof]'); if (p) { openProfile(+p.getAttribute('data-prof')); return; }
+    var r = e.target.closest('#newsBox [data-race], #profBox [data-race]'); if (r) { setTab('overview'); openRace(+r.getAttribute('data-race')); }
+  });
+  $('profBack').onclick = function () { setTab('members'); };
   function renderResults() {
     if (!results.length) { $('results').innerHTML = '<div class="faint">No races yet: send one from "New races for your teams".</div>'; return; }
     $('results').innerHTML = results.map(function (x) {
