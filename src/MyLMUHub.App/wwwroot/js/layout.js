@@ -46,7 +46,7 @@
     var f = M.stageFit(this.win.innerWidth || this.full.w, Math.max(1, (this.win.innerHeight || this.full.h) - top), this.full.w, this.full.h);
     this.k = f.k; this.canvas.style.transform = 'translate(' + f.ox + 'px,' + (f.oy + top) + 'px) scale(' + f.k + ')';
   };
-  // the canvas size (the window's shape, views.js shapeFor): the area inside the edge strips, the guides, then fitted to the window
+  // the canvas size (the kind of screen's fixed canvas, views.js canvasFor): the area inside the edge strips, the guides, then fitted to the window
   LM.setCanvas = function (c) {
     if (!c || (c.w === this.full.w && c.h === this.full.h)) return false;
     var sf = this.safe; this.full = { w: c.w, h: c.h }; this.design = { w: c.w - sf.l - sf.r, h: c.h - sf.t - sf.b }; this.layout.design = this.design;

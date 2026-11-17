@@ -8,12 +8,15 @@
   var P = root.MyLMUHub = root.MyLMUHub || {};
   function copy(o) { return JSON.parse(JSON.stringify(o)); }
 
-  // screen shapes (owner 2026-11-13: portrait and ultrawide screens, no setting to pick): the dashboard always fills its window; the canvas has the window's
-  // shape (landscape 1440 high, portrait 1440 wide, so widgets keep their size). A view keeps one arrangement per kind of screen: its main one (widgets, made
+  // screen shapes (owner 2026-11-13: portrait and ultrawide screens, no setting to pick): the dashboard fills its window; each kind of screen has one
+  // fixed canvas (canvasFor: landscape 1440 high, portrait 1440 wide, so widgets keep their size), scaled to fit. A view keeps one arrangement per kind of screen: its main one (widgets, made
   // on 'base', default 16:9) and the others in shapes[kind].widgets, made from the main one the first time that kind of screen shows the view.
   var KINDS = [['portrait', 'portrait screen'], ['square', '4:3 screen'], ['wide', '16:9 screen'], ['ultrawide', 'ultrawide screen (21:9)'], ['superwide', 'super ultrawide screen (32:9)']];
   function shapeClass(w, h) { var a = w > 0 && h > 0 ? w / h : 16 / 9; return a < 0.9 ? 'portrait' : a < 1.5 ? 'square' : a < 2.05 ? 'wide' : a < 2.9 ? 'ultrawide' : 'superwide'; }
-  function shapeFor(w, h) { var a = w > 0 && h > 0 ? w / h : 16 / 9; return a >= 1 ? { w: Math.round(1440 * a), h: 1440 } : { w: 1440, h: Math.round(1440 / a) }; }
+  // the canvas of a kind of screen: FIXED, scaled to fit the window (owner 2026-11-17: the window's exact shape changed with full screen / maximised / the
+  // title bar, so the layout was squeezed into the narrower canvas and saved smaller each time: empty space at the bottom or side)
+  var CANVAS = { square: { w: 1920, h: 1440 }, wide: { w: 2560, h: 1440 }, ultrawide: { w: 3440, h: 1440 }, superwide: { w: 5120, h: 1440 }, portrait: { w: 1440, h: 2560 } };
+  function canvasFor(k) { var c = CANVAS[k] || CANVAS.wide; return { w: c.w, h: c.h }; }
   function shapeLabel(k) { for (var i = 0; i < KINDS.length; i++) if (KINDS[i][0] === k) return KINDS[i][1]; return k; }
   function isKind(k) { return KINDS.some(function (x) { return x[0] === k; }); }
   function normalize(raw, fallback) {
@@ -143,7 +146,7 @@
     return out;
   }
 
-  P.shapeClass = shapeClass; P.shapeFor = shapeFor; P.shapeLabel = shapeLabel;
+  P.shapeClass = shapeClass; P.shapeLabel = shapeLabel; P.canvasFor = canvasFor;
   P.Workspace = Workspace; P.normalizeViews = normalize; P.comboOf = comboOf; P.mergeLayouts = merge;
   if (typeof module !== 'undefined') module.exports = { Workspace: Workspace, normalize: normalize, comboOf: comboOf, merge: merge };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -95,7 +95,8 @@ public sealed class MainWindow : Window
     // maximised, the window reaches past the screen edge by its frame: keep the bar and the page on the screen; full screen: no bar
     void Fit()
     {
-        double pad = WindowState == WindowState.Maximized && !full ? SystemParameters.WindowNonClientFrameThickness.Left : 0;
+        // the overhang = the resize frame + the "padded border" (2026-11-17: 4 + 4 px; only the frame was kept free, so the page's bottom went under the taskbar)
+        double pad = WindowState == WindowState.Maximized && !full ? SystemParameters.WindowResizeBorderThickness.Left + GetSystemMetrics(92) / VisualTreeHelper.GetDpi(this).DpiScaleX : 0;
         frame.Padding = new Thickness(pad);
         // a normal window: the page stops 5 px short of the left, right and bottom edge. The web view is a window of its own and takes the mouse, so over
         // the page Windows never saw its resize edge (owner 2026-11-13: the hub could not be resized). The strip has the bar's colour.
@@ -129,6 +130,7 @@ public sealed class MainWindow : Window
 
     // the Windows title bar in the page's theme colours (at start the hub's #0B0B0C, light text) instead of the standard grey / white.
     // Windows 11 only (DWM caption / text / border colour); Windows 10 gets the dark title bar at most; errors are ignored.
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int GetSystemMetrics(int index);                 // 92 = SM_CXPADDEDBORDER (Fit)
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
     void DarkTitleBar() => TitleBar(0x00181615, 0x004AF2C8, false, 0x004AF2C8);                      // COLORREF = 0x00BBGGRR; the page sends its own colours once loaded
     // border = the thin line round the window (the theme's accent: owner, 2026-11-10: the bar looked plain black), -1 = the bar's colour

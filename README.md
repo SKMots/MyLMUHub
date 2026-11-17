@@ -55,7 +55,7 @@ Press **E** and you're in edit mode:
 - **Per-widget settings:** colours, font, text size, opacity, what it shows, and **Float on top** (lies over the others).
 - **Themes:** Lime, Teal, Daylight and Navy, and car logos in one colour or full colour.
 - **Views:** several named views ("Race", "Qualifying", ...). Switch between them with keyboard shortcuts that work while the game has focus, or with buttons on your wheel or button box.
-- **Any screen shape:** on 16:9, 4:3, ultrawide or super ultrawide your dashboard shows as you made it, scaled to fit the window. A portrait monitor gets
+- **Any screen shape:** on 16:9, 4:3, ultrawide or super ultrawide your dashboard shows as you made it, scaled to fit the window; switching between a window and full screen never changes it. A portrait monitor gets
   its own arrangement, laid out from your main layout the first time; what you change there stays for that screen only.
 - **More screens:** another window per view, or a view on another device.
 - **Sharing:** export and import layouts, e.g. to pass one to a friend.
