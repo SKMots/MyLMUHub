@@ -106,6 +106,7 @@ public sealed class DashServer : IDisposable
     /// <summary>The app's own settings (Settings page): GET = { closeToTray }, POST ?closeToTray=1/0 (this PC only).</summary>
     public Func<object> AppInfo { get; set; }
     public Action<bool> CloseToTraySet { get; set; }
+    public Action<bool> StartWithWindowsSet { get; set; }
     readonly object lanGate = new();
     /// <summary>Switch network access: "" = done, "setup" = Windows needs the one-time permission first, else the error.</summary>
     public string SetLan(bool on)
@@ -180,7 +181,7 @@ public sealed class DashServer : IDisposable
             if (path == "/api/net") { await Net(ctx); return; }
             if (path == "/api/app" && AppInfo != null)
             {
-                if (ctx.Request.HttpMethod == "POST") { if (!ctx.Request.IsLocal) { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("only on this PC")); return; } if (ctx.Request.QueryString["closeToTray"] is string ct) CloseToTraySet?.Invoke(ct == "1"); }
+                if (ctx.Request.HttpMethod == "POST") { if (!ctx.Request.IsLocal) { await Send(ctx, 403, "text/plain", Encoding.UTF8.GetBytes("only on this PC")); return; } if (ctx.Request.QueryString["closeToTray"] is string ct) CloseToTraySet?.Invoke(ct == "1"); if (ctx.Request.QueryString["startWithWindows"] is string sw) StartWithWindowsSet?.Invoke(sw == "1"); }
                 await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(AppInfo(), Opt)); return;
             }
             if (path == "/api/twitch" && Twitch != null) { await Send(ctx, 200, "application/json; charset=utf-8", JsonSerializer.SerializeToUtf8Bytes(await Twitch(ctx.Request.QueryString["channel"]), Opt)); return; }

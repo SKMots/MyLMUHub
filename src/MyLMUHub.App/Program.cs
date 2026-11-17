@@ -17,7 +17,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
     [STAThread]
     public static int Main(string[] args)
     {
-        string replay = null, www = null; int port = 0; var extraFocus = new List<string>();
+        string replay = null, www = null; int port = 0; var extraFocus = new List<string>(); bool startup = false;
         for (int i = 0; i < args.Length; i++)
         {
             string a = args[i];
@@ -26,6 +26,7 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
             else if (a == "--focus" && i + 1 < args.Length) extraFocus.Add(args[++i]);
             else if (a == "--port" && i + 1 < args.Length) int.TryParse(args[++i], out port);
             else if (a == "--www" && i + 1 < args.Length) www = args[++i];
+            else if (a == "--startup") startup = true;                                          // started by Windows (Startup.cs): quietly in the tray
         }
         UpdateService.AfterStart(args);                                                          // after an update: the old copy closes first (the port), its exe is removed
 
@@ -121,9 +122,12 @@ Keys in the window: F11 full screen, F12 developer tools, E edit the layout (ins
         });
         updates.Restart = () => app.Dispatcher.BeginInvoke(() => app.Shutdown());              // the new version is already starting
         tray = new Tray(() => OpenHub(), () => OpenRaceControl(), () => app.Shutdown());
-        server.AppInfo = () => new { closeToTray = settings.CloseToTray };
-        server.CloseToTraySet = on => app.Dispatcher.Invoke(() => { settings.CloseToTray = on; SettingsStore.Save(settings); tray.Show(on); });
-        app.Startup += (_, _) => { tray.Show(settings.CloseToTray); OpenHub(); };
+        server.AppInfo = () => new { closeToTray = settings.CloseToTray, startWithWindows = settings.StartWithWindows };
+        // the tray icon: with "keep running in the tray", or while no window is open (started with Windows) - never an app without window and icon
+        server.CloseToTraySet = on => app.Dispatcher.Invoke(() => { settings.CloseToTray = on; SettingsStore.Save(settings); tray.Show(on || app.Windows.Count == 0); });
+        server.StartWithWindowsSet = on => { settings.StartWithWindows = on; SettingsStore.Save(settings); Startup.Apply(on); };
+        if (replay == null && port == 0) Startup.Apply(settings.StartWithWindows);           // keeps the entry's path right (moved exe, update); never for a test run
+        app.Startup += (_, _) => { tray.Show(settings.CloseToTray || startup); if (!startup) OpenHub(); else tray.Note("My LMU Hub started with Windows. Click here to open it."); };
         app.Run();
         tray.Dispose(); pump.Dispose(); pens?.Dispose(); server.Dispose(); updates.Dispose(); twitch.Dispose();
         return 0;

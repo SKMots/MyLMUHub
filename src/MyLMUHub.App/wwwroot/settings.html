@@ -56,7 +56,7 @@
       <div id="memberBox" hidden>
         <div class="row" style="margin-top:4px"><label class="field" style="flex:1;min-width:200px">Your name in your teams: first and last name, as in the game<input class="input" id="nameIn"></label><button class="btn" id="nameBtn">Save</button></div>
         <label class="field" style="margin-top:12px">Share my live sessions with my teams<select class="sel" id="liveSel">
-          <option value="events">Team events: sessions of an event with a race of 2 h or more</option><option value="all">All my sessions</option><option value="off">Off</option></select></label>
+          <option value="all">All my sessions</option><option value="events">Only team events: sessions of an event with a race of 2 h or more</option><option value="off">Off</option></select></label>
         <div class="faint" style="margin-top:4px">While you drive, your car's own numbers (tyres, fuel, VE, damage, lap times) go to your team-mates every 2 s: their dashboard shows them exactly when they spectate you, and their Team tab shows that you are racing. Kept on the server only while you drive.</div>
         <label class="check" style="margin-top:12px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="myStatsChk"> Keep my stats on the website (only you see them)</label>
         <div class="faint" style="margin-top:4px">Your race pace per track and car, your level against the alien times: on the Me page of the website and the phone app. Off = deleted from the server.</div>
@@ -92,8 +92,9 @@
 
     <!-- closing the app's window -->
     <section class="card">
-      <h2>Closing the window</h2>
-      <div class="sub">What happens when you close the last window.</div>
+      <h2>Windows</h2>
+      <label style="display:flex;gap:12px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" id="startChk" style="width:18px;height:18px;margin:2px 0 0;accent-color:var(--lime)"><span style="display:flex;flex-direction:column;gap:4px"><b>Start My LMU Hub with Windows</b><span class="faint" style="line-height:1.45">Quietly in the tray (no window): it reads the game, keeps your team up to date and shares your live data from the first lap. Click its icon to open the hub.</span></span></label>
+      <div class="sub" style="margin-top:14px">Closing the last window:</div>
       <span class="seg" id="closeSeg"><button data-v="0">Quit the app</button><button data-v="1">Keep running in the tray</button></span>
       <div class="faint" style="margin-top:8px">In the tray (the icons next to the clock) the app keeps reading the game, sharing your live data with your team and listening to your hotkeys. Click its icon to open it again; right-click it to quit.</div>
     </section>

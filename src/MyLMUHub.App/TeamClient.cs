@@ -21,7 +21,8 @@ public sealed class TeamClient
         public Dictionary<long, bool> Auto { get; set; } = new();          // per team: send the races recognised as this team's by itself
         public Dictionary<long, bool> Share { get; set; } = new();         // per team: share my race pace (default on)
         public List<string> Dismissed { get; set; } = new();               // race ids marked "not a team race"
-        public string LiveShare { get; set; } = "events";                   // your live sessions to your teams: "events" (2 h+ races), "all", "off"
+        public string LiveShare { get; set; } = "all";                      // your live sessions to your teams: "all" (default, owner 2026-11-17), "events" (2 h+ races), "off"
+        public bool LiveShareChosen { get; set; }                            // the user picked LiveShare in Settings (else the default applies, also after a default change)
         public bool MyStats { get; set; } = true;                           // my own race pace sheet on the website (Me page, only you see it)
     }
     Saved opts = new();
@@ -39,6 +40,7 @@ public sealed class TeamClient
             if (File.Exists(file))
             {
                 var s = JsonSerializer.Deserialize<Saved>(File.ReadAllText(file)); opts = s ?? new Saved();
+                if (!opts.LiveShareChosen) opts.LiveShare = "all";                                // never chosen: everything shared (the old default was "events")
                 url = s?.Url ?? ""; key = s == null || s.Key.Length == 0 ? "" : Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(s.Key), null, DataProtectionScope.CurrentUser));
             }
         }
@@ -194,7 +196,7 @@ public sealed class TeamClient
             }
             case "liveShare":
             {
-                var v = S(b, "value"); if (v is "events" or "all" or "off") { opts.LiveShare = v; Save(); if (v == "off") StopLive(); }
+                var v = S(b, "value"); if (v is "events" or "all" or "off") { opts.LiveShare = v; opts.LiveShareChosen = true; Save(); if (v == "off") StopLive(); }
                 return (200, JsonSerializer.Serialize(new { value = LiveShare }));
             }
             // ---- your phone (the website): a pairing code, Discord, log out every phone ----
@@ -360,7 +362,7 @@ public sealed class TeamClient
     volatile JsonArray liveList = new();
     readonly Dictionary<string, (long At, CarView Car, TopBarView Top)> liveCars = new();
     static readonly JsonSerializerOptions LiveOpt = new(JsonSerializerDefaults.Web);
-    public string LiveShare => opts.LiveShare is "all" or "off" ? opts.LiveShare : "events";
+    public string LiveShare => opts.LiveShare is "events" or "off" ? opts.LiveShare : "all";
     /// <summary>The pump, while YOU drive: your car + top bar (sent at most every 2 s, never two at once).</summary>
     // this session's laps of your car (the Team tab's live view: stints and laps, like a team race): the top bar's lap counter going up = a lap done;
     // [lap, time, in the pits during it 0/1, VE used, VE left at the line]; a new session / car starts over

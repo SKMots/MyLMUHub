@@ -168,8 +168,8 @@ Your teams on a **team server**: invite codes, members with roles (driver, engin
 - **Strategy:** pick the team an event is for, then its drivers from a list (or type a name) with their lap times from the team race pace.
 - When someone leaves, their personal data (race pace) goes; the races they drove with the team stay.
 - **Live:** when a team-mate is racing, the Team tab says "Sam is in a race · View": their position, lap times, stint and virtual energy, with the car
-  (every body part coloured by its damage, flat / missing tyres, suspension per wheel, a list of what is wrong) and the stints and laps of the session one click away. Your own sessions are shared with your teams only
-  for team events (races of 2 h or more) by default; all sessions or off in Settings.
+  (every body part coloured by its damage, flat / missing tyres, suspension per wheel, a list of what is wrong) and the stints and laps of the session one click away. Your own sessions are shared with your teams by
+  default (all of them); only team events (races of 2 h or more) or off in Settings. Your race pace and your stats are shared by default too.
 - Connecting to a team server, joining a team with its invite code and your first and last name as in the game: on the **Settings** page.
 - **Team owners** rename the team (Team tab, Settings) and its members (Members: **Rename**), e.g. a first name only to the full name the game shows.
 - **Team logo:** the owner picks a picture (Team tab, Settings); it shows on the team cards, next to the team's name and on the website. The app makes it a
@@ -207,8 +207,9 @@ where you were, and it opens without a connection too (it then says it's offline
 ## Settings
 Click your name in the top right: your **driver names** and results folder, **My sessions**, the **team server** (connect, join a team, your name in the
 team, sharing your live sessions, your stats on the website), **your phone** (pairing code, Discord, log out all phones), **guest mode**, the **hub theme**
-and **closing the window**: quit the app, or keep it running in the tray (next to the clock: it keeps reading the game, sharing your live data and listening to
-your hotkeys; click its icon to open it again, right-click to quit).
+and **Windows**: **start with Windows** (on by default: quietly in the tray, no window, so it reads the game, keeps your team up to date and shares your live
+data from the first lap) and **closing the window**: quit the app, or keep it running in the tray (next to the clock: it keeps reading the game, sharing your
+live data and listening to your hotkeys; click its icon to open it again, right-click to quit).
 
 ![Settings](docs/images/settings.png)
 
